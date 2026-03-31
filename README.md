@@ -166,4 +166,6 @@ make quality      # build + vet + fmt-check + tests + coverage
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE).
+
+This software is provided as-is. You are responsible for any API costs incurred through LLM providers (AWS Bedrock, OpenAI, Anthropic). Use `--dry-run` to preview operations before making API calls. See the [User Guide](docs/user-guide.md) for AWS IAM least-privilege setup to limit what your credentials can access.
