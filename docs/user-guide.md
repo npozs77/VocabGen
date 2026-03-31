@@ -62,7 +62,12 @@ Running the same command again returns the cached result instantly (no API call)
 
 ## Batch Processing
 
-Prepare a CSV file with one word per line. An optional second column provides context:
+Prepare a CSV file with one word/expression per line. No header row — all lines are treated as data.
+
+| Column | Required | Description |
+|--------|----------|-------------|
+| 1 | Yes | Word or expression in the source language |
+| 2 | No | Context sentence (triggers cache bypass for existing entries) |
 
 ```csv
 uitkomen
@@ -70,6 +75,13 @@ werk,Het werk is klaar
 aankomen
 opvallen,Dat valt op in de klas
 ```
+
+Rules:
+- No header row — every non-empty line is processed
+- Empty lines and whitespace-only lines are skipped
+- Single-column lines: word only, no context
+- Two-column lines: word + context sentence (comma-separated)
+- UTF-8 encoding
 
 Process the batch:
 
@@ -189,6 +201,80 @@ vocabgen lookup "werk" -l nl
 vocabgen lookup "werk" -l nl --profile my-profile --region eu-west-1
 ```
 
+#### AWS IAM: Least Privilege Setup
+
+Create a dedicated IAM user or role for vocabgen with only Bedrock invoke permissions. This ensures the credentials can't be used for anything else.
+
+Minimal IAM policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VocabgenBedrockOnly",
+      "Effect": "Allow",
+      "Action": "bedrock:InvokeModel",
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/*",
+        "arn:aws:bedrock:*:*:inference-profile/*"
+      ]
+    }
+  ]
+}
+```
+
+To restrict further — specific models and regions only:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VocabgenBedrockOnly",
+      "Effect": "Allow",
+      "Action": "bedrock:InvokeModel",
+      "Resource": [
+        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-*",
+        "arn:aws:bedrock:us-east-1:*:inference-profile/us.anthropic.claude-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    }
+  ]
+}
+```
+
+You can also add an IP condition to restrict where calls originate:
+
+```json
+"Condition": {
+  "IpAddress": {
+    "aws:SourceIp": "YOUR_HOME_IP/32"
+  },
+  "StringEquals": {
+    "aws:RequestedRegion": "us-east-1"
+  }
+}
+```
+
+Recommended setup:
+
+```bash
+# Create a dedicated AWS profile
+aws configure --profile vocabgen
+# Set in config: provider: bedrock, aws_profile: vocabgen
+```
+
+Verify access:
+
+```bash
+aws sts get-caller-identity --profile vocabgen
+```
+
 ### OpenAI
 
 ```bash
@@ -234,6 +320,28 @@ Dry-run normalizes tokens and checks the cache but skips LLM invocation and DB w
 ## Conflict Resolution
 
 When you look up a word that already exists in the database with a context sentence, vocabgen bypasses the cache and gets a fresh LLM result. You then choose how to handle the conflict:
+
+## Adding Languages
+
+Any language works out of the box — just pass the full name:
+
+```bash
+vocabgen lookup "maison" -l French
+vocabgen lookup "家" -l Japanese
+```
+
+The 11 built-in shorthand codes (nl, hu, it, ru, en, de, fr, es, pt, pl, tr) resolve to full names automatically. To add a new shorthand, add one line to `internal/language/registry.go`:
+
+```go
+var SupportedLanguages = map[string]string{
+    // ... existing entries ...
+    "ja": "Japanese",   // ← add this
+}
+```
+
+No other code changes needed — templates are language-agnostic.
+
+## Conflict Resolution
 
 - **replace**: Update the existing entry with the new result
 - **add**: Keep both entries (multi-version)

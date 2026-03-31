@@ -144,6 +144,14 @@ Dutch (nl), Hungarian (hu), Italian (it), Russian (ru), English (en), German (de
 
 Any language name or code can be passed via `-l` — unregistered languages are used as-is in prompts.
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [User Guide](docs/user-guide.md) | Installation, first run, batch processing, web UI, provider setup, AWS IAM, adding languages |
+| [Architecture](docs/architecture.md) | System design, package layout, data flows, data models, error handling, API routes |
+| [Deployment](docs/deployment.md) | Cross-compilation, GitHub Actions CI/CD, goreleaser, Docker, release process |
+
 ## Build from Source
 
 ```bash
