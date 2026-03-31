@@ -1,0 +1,119 @@
+{{define "config_form"}}
+<form id="config-save-form" class="space-y-4">
+  <div>
+    <label for="provider" class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+    <select id="provider" name="provider"
+            hx-get="/api/config/html" hx-target="#config-form" hx-swap="innerHTML"
+            hx-include="#config-save-form"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="bedrock"{{if eq .Config.Provider "bedrock"}} selected{{end}}>AWS Bedrock</option>
+      <option value="openai"{{if eq .Config.Provider "openai"}} selected{{end}}>OpenAI</option>
+      <option value="anthropic"{{if eq .Config.Provider "anthropic"}} selected{{end}}>Anthropic</option>
+      <option value="vertexai"{{if eq .Config.Provider "vertexai"}} selected{{end}}>Vertex AI</option>
+    </select>
+  </div>
+
+  {{if eq .Config.Provider "bedrock"}}
+  <div>
+    <label for="aws_profile" class="block text-sm font-medium text-gray-700 mb-1">AWS Profile</label>
+    <input type="text" id="aws_profile" name="aws_profile" value="{{.Config.AWSProfile}}"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  <div>
+    <label for="aws_region" class="block text-sm font-medium text-gray-700 mb-1">AWS Region</label>
+    <input type="text" id="aws_region" name="aws_region" value="{{.Config.AWSRegion}}"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  {{end}}
+
+  {{if eq .Config.Provider "openai"}}
+  <div>
+    <label for="api_key" class="block text-sm font-medium text-gray-700 mb-1">API Key (runtime only, not saved)</label>
+    <input type="password" id="api_key" name="api_key"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+           placeholder="sk-...">
+  </div>
+  <div>
+    <label for="base_url" class="block text-sm font-medium text-gray-700 mb-1">Base URL (optional)</label>
+    <input type="text" id="base_url" name="base_url" value="{{.Config.BaseURL}}"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+           placeholder="https://api.openai.com/v1">
+  </div>
+  {{end}}
+
+  {{if eq .Config.Provider "anthropic"}}
+  <div>
+    <label for="api_key" class="block text-sm font-medium text-gray-700 mb-1">API Key (runtime only, not saved)</label>
+    <input type="password" id="api_key" name="api_key"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+           placeholder="sk-ant-...">
+  </div>
+  {{end}}
+
+  {{if eq .Config.Provider "vertexai"}}
+  <div>
+    <label for="gcp_project" class="block text-sm font-medium text-gray-700 mb-1">GCP Project</label>
+    <input type="text" id="gcp_project" name="gcp_project" value="{{.Config.GCPProject}}"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  <div>
+    <label for="gcp_region" class="block text-sm font-medium text-gray-700 mb-1">GCP Region</label>
+    <input type="text" id="gcp_region" name="gcp_region" value="{{.Config.GCPRegion}}"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  {{end}}
+
+  <div>
+    <label for="model_id" class="block text-sm font-medium text-gray-700 mb-1">Model ID</label>
+    <input type="text" id="model_id" name="model_id" value="{{.Config.ModelID}}"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label for="default_source_language" class="block text-sm font-medium text-gray-700 mb-1">Default Source Language</label>
+      <select id="default_source_language" name="default_source_language"
+              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {{range .Languages}}
+        <option value="{{.Code}}"{{if eq $.Config.DefaultSourceLanguage .Code}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div>
+      <label for="default_target_language" class="block text-sm font-medium text-gray-700 mb-1">Default Target Language</label>
+      <select id="default_target_language" name="default_target_language"
+              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {{range .Languages}}
+        <option value="{{.Code}}"{{if eq $.Config.DefaultTargetLanguage .Code}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700 mb-1">Database Path</label>
+    <input type="text" value="{{.Config.DBPath}}" readonly
+           class="w-full border border-gray-200 rounded px-3 py-2 bg-gray-100 text-gray-500">
+  </div>
+
+  <div id="save-status"></div>
+
+  <div class="flex gap-3">
+    <button type="button"
+            hx-put="/api/config"
+            hx-include="#config-save-form"
+            hx-target="#save-status"
+            hx-swap="innerHTML"
+            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      Save
+    </button>
+    <button type="button"
+            hx-post="/api/test-connection"
+            hx-target="#connection-status"
+            hx-swap="innerHTML"
+            class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      Test Connection
+    </button>
+  </div>
+</form>
+{{end}}

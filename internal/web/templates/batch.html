@@ -1,0 +1,68 @@
+{{define "title"}}Batch{{end}}
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Batch Processing</h1>
+
+<form hx-post="/api/batch/html" hx-target="#batch-result" hx-swap="innerHTML"
+      hx-encoding="multipart/form-data" class="space-y-4 max-w-lg">
+  <div>
+    <label for="file" class="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+    <input type="file" id="file" name="file" accept=".csv" required
+           class="w-full border border-gray-300 rounded px-3 py-2 text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium">
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label for="source_language" class="block text-sm font-medium text-gray-700 mb-1">Source Language</label>
+      <select id="source_language" name="source_language"
+              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {{range .Languages}}
+        <option value="{{.Code}}"{{if eq $.Config.DefaultSourceLanguage .Code}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div>
+      <label for="target_language" class="block text-sm font-medium text-gray-700 mb-1">Target Language</label>
+      <select id="target_language" name="target_language"
+              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {{range .Languages}}
+        <option value="{{.Code}}"{{if eq $.Config.DefaultTargetLanguage .Code}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label for="mode" class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+      <select id="mode" name="mode"
+              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="words">Words</option>
+        <option value="expressions">Expressions</option>
+      </select>
+    </div>
+    <div>
+      <label for="on_conflict" class="block text-sm font-medium text-gray-700 mb-1">On Conflict</label>
+      <select id="on_conflict" name="on_conflict"
+              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="skip" selected>Skip</option>
+        <option value="replace">Replace</option>
+        <option value="add">Add</option>
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label for="tags" class="block text-sm font-medium text-gray-700 mb-1">Tags (optional)</label>
+    <input type="text" id="tags" name="tags"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+           placeholder="e.g. chapter-1, B2">
+  </div>
+
+  <button type="submit"
+          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    Process Batch
+  </button>
+</form>
+
+<div id="batch-result" class="mt-8"></div>
+{{end}}

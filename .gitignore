@@ -1,0 +1,42 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/vocabgen
+
+# Test binary
+*.test
+
+# Go coverage
+*.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# Vendor (if used)
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific ignores
+.kiro/
+reference/
+
+# PBT failure replay data
+**/testdata/rapid/
+
+# Local config and database
+.env

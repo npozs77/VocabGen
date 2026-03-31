@@ -1,0 +1,11 @@
+{{define "title"}}Config{{end}}
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Configuration</h1>
+
+<div id="config-form" hx-get="/api/config/html" hx-trigger="load" hx-swap="innerHTML"
+     class="max-w-lg">
+  <p class="text-gray-500">Loading configuration…</p>
+</div>
+
+<div id="connection-status" class="mt-4 max-w-lg"></div>
+{{end}}

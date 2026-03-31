@@ -1,0 +1,26 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VocabGen — {{template "title" .}}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <nav class="bg-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
+      <span class="font-semibold text-lg text-gray-800">VocabGen</span>
+      <a href="/" class="{{if eq .ActivePage "lookup"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Lookup</a>
+      <a href="/batch" class="{{if eq .ActivePage "batch"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Batch</a>
+      <a href="/config" class="{{if eq .ActivePage "config"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Config</a>
+      <a href="/database" class="{{if eq .ActivePage "database"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Database</a>
+    </div>
+  </nav>
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    {{template "content" .}}
+  </main>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,77 @@
+{{define "lookup_conflict"}}
+<div class="bg-yellow-50 border border-yellow-200 rounded p-4 mb-4">
+  <p class="text-yellow-800 font-medium">Conflict: {{len .Existing}} existing entry{{if gt (len .Existing) 1}}(ies){{end}} found. Choose how to proceed.</p>
+</div>
+
+<div class="grid grid-cols-2 gap-6">
+  <!-- Existing entries (left) -->
+  <div>
+    <h3 class="font-medium text-gray-700 mb-2">Existing</h3>
+    <div class="space-y-3 max-h-96 overflow-y-auto">
+      {{range $i, $e := .Existing}}
+      <div class="bg-white border border-gray-200 rounded p-3 text-sm">
+        <div class="font-medium text-gray-800">{{if $e.Word}}{{$e.Word}}{{else}}{{$e.Expression}}{{end}}</div>
+        {{if $e.Type}}<span class="text-xs bg-gray-100 text-gray-600 px-1 rounded">{{$e.Type}}</span>{{end}}
+        <div class="text-gray-600 mt-1">{{$e.Definition}}</div>
+        <div class="text-gray-500 text-xs mt-1">{{$e.English}}</div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- New result (right) -->
+  <div>
+    <h3 class="font-medium text-gray-700 mb-2">New Result</h3>
+    <div class="bg-white border border-blue-200 rounded p-3 text-sm">
+      <div class="font-medium text-gray-800">{{if .NewEntry.Word}}{{.NewEntry.Word}}{{else}}{{.NewEntry.Expression}}{{end}}</div>
+      {{if .NewEntry.Type}}<span class="text-xs bg-blue-100 text-blue-600 px-1 rounded">{{.NewEntry.Type}}</span>{{end}}
+      <div class="text-gray-600 mt-1">{{.NewEntry.Definition}}</div>
+      <div class="text-gray-500 text-xs mt-1">{{.NewEntry.English}}</div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4 flex gap-3">
+  <form class="inline">
+    <input type="hidden" name="strategy" value="replace">
+    <input type="hidden" name="mode" value="{{.Mode}}">
+    <input type="hidden" name="source_language" value="{{.SourceLang}}">
+    <input type="hidden" name="target_language" value="{{.TargetLang}}">
+    <input type="hidden" name="tags" value="{{.Tags}}">
+    <input type="hidden" name="entry" value="{{.EntryJSON}}">
+    {{if gt (len .ExistingIDs) 1}}
+    <select name="target_id" class="border border-gray-300 rounded px-2 py-1 text-sm mr-1">
+      {{range $i, $id := .ExistingIDs}}
+      <option value="{{$id}}">Entry #{{$id}}</option>
+      {{end}}
+    </select>
+    {{else}}
+    <input type="hidden" name="target_id" value="{{index .ExistingIDs 0}}">
+    {{end}}
+    <button type="submit" hx-post="/api/lookup/resolve/html" hx-target="#result" hx-swap="innerHTML"
+            class="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600">Replace</button>
+  </form>
+  <form class="inline">
+    <input type="hidden" name="strategy" value="add">
+    <input type="hidden" name="mode" value="{{.Mode}}">
+    <input type="hidden" name="source_language" value="{{.SourceLang}}">
+    <input type="hidden" name="target_language" value="{{.TargetLang}}">
+    <input type="hidden" name="tags" value="{{.Tags}}">
+    <input type="hidden" name="entry" value="{{.EntryJSON}}">
+    <input type="hidden" name="target_id" value="{{index .ExistingIDs 0}}">
+    <button type="submit" hx-post="/api/lookup/resolve/html" hx-target="#result" hx-swap="innerHTML"
+            class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Add as New</button>
+  </form>
+  <form class="inline">
+    <input type="hidden" name="strategy" value="skip">
+    <input type="hidden" name="mode" value="{{.Mode}}">
+    <input type="hidden" name="source_language" value="{{.SourceLang}}">
+    <input type="hidden" name="target_language" value="{{.TargetLang}}">
+    <input type="hidden" name="tags" value="{{.Tags}}">
+    <input type="hidden" name="entry" value="{{.EntryJSON}}">
+    <input type="hidden" name="target_id" value="{{index .ExistingIDs 0}}">
+    <button type="submit" hx-post="/api/lookup/resolve/html" hx-target="#result" hx-swap="innerHTML"
+            class="border border-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-50">Skip</button>
+  </form>
+</div>
+{{end}}

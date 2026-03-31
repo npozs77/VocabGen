@@ -1,0 +1,97 @@
+{{define "lookup_result"}}
+{{if .Error}}
+<div class="bg-red-50 border border-red-200 text-red-700 rounded p-4">
+  {{.Error}}
+</div>
+{{else if .Entry}}
+<div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
+  {{if .FromCache}}<div class="bg-blue-50 text-blue-700 text-xs px-4 py-1">From cache</div>{{end}}
+  <table class="w-full text-sm">
+    <tbody>
+      {{if .Entry.Word}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Word</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Word}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.Expression}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Expression</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Expression}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.Type}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Part of Speech</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Type}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.Article}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Article</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Article}}</td>
+      </tr>
+      {{end}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Definition</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Definition}}</td>
+      </tr>
+      {{if .Entry.EnglishDefinition}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">English Definition</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.EnglishDefinition}}</td>
+      </tr>
+      {{end}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Example</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Example}}</td>
+      </tr>
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">English</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.English}}</td>
+      </tr>
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Target Translation</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.TargetTranslation}}</td>
+      </tr>
+      {{if .Entry.Notes}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Notes</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Notes}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.Connotation}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Connotation</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Connotation}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.Register}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Register</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Register}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.Collocations}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Collocations</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Collocations}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.ContrastiveNotes}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Contrastive Notes</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.ContrastiveNotes}}</td>
+      </tr>
+      {{end}}
+      {{if .Entry.SecondaryMeanings}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Secondary Meanings</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.SecondaryMeanings}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+{{end}}

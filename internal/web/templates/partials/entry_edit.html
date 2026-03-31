@@ -1,0 +1,69 @@
+{{define "entry_edit"}}
+<tr id="edit-row-{{.ID}}" class="bg-blue-50">
+  <td colspan="10" class="p-4">
+    <form class="space-y-3">
+      <input type="hidden" name="id" value="{{.ID}}">
+      {{if .Word}}
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Word</label>
+          <input type="text" name="word" value="{{.Word}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Part of Speech</label>
+          <input type="text" name="part_of_speech" value="{{.PartOfSpeech}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Article</label>
+          <input type="text" name="article" value="{{.Article}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+      </div>
+      {{else}}
+      <div>
+        <label class="block text-xs font-medium text-gray-600">Expression</label>
+        <input type="text" name="expression" value="{{.Expression}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      {{end}}
+      <div>
+        <label class="block text-xs font-medium text-gray-600">Definition</label>
+        <input type="text" name="definition" value="{{.Definition}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600">Example</label>
+        <input type="text" name="example" value="{{.Example}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600">English</label>
+          <input type="text" name="english" value="{{.English}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Target Translation</label>
+          <input type="text" name="target_translation" value="{{.TargetTranslation}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600">Tags</label>
+        <input type="text" name="tags" value="{{.Tags}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      <div class="flex gap-2">
+        {{if .Word}}
+        <button type="submit" hx-put="/api/words/{{.ID}}" hx-target="#entry-table" hx-swap="innerHTML"
+                hx-include="closest form"
+                class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Save</button>
+        <button type="button" hx-delete="/api/words/{{.ID}}" hx-target="#entry-table" hx-swap="innerHTML"
+                hx-confirm="Are you sure?"
+                class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">Delete</button>
+        {{else}}
+        <button type="submit" hx-put="/api/expressions/{{.ID}}" hx-target="#entry-table" hx-swap="innerHTML"
+                hx-include="closest form"
+                class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Save</button>
+        <button type="button" hx-delete="/api/expressions/{{.ID}}" hx-target="#entry-table" hx-swap="innerHTML"
+                hx-confirm="Are you sure?"
+                class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">Delete</button>
+        {{end}}
+      </div>
+    </form>
+  </td>
+</tr>
+{{end}}

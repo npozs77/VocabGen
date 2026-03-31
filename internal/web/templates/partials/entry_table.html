@@ -1,0 +1,75 @@
+{{define "entry_table"}}
+<div class="text-sm text-gray-500 mb-2">{{.Total}} entries found (page {{.Page}} of {{.TotalPages}})</div>
+
+{{if .IsWords}}
+<table class="w-full text-sm border border-gray-200 rounded">
+  <thead class="bg-gray-50">
+    <tr>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Word</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">POS</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Article</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Definition</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">English</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Tags</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-100">
+    {{range .Words}}
+    <tr class="hover:bg-gray-50 cursor-pointer"
+        hx-get="/api/words/{{.ID}}/edit" hx-target="this" hx-swap="afterend">
+      <td class="px-3 py-2 font-medium text-gray-800">{{.Word}}</td>
+      <td class="px-3 py-2"><span class="text-xs bg-gray-100 text-gray-600 px-1 rounded">{{.PartOfSpeech}}</span></td>
+      <td class="px-3 py-2 text-gray-600">{{.Article}}</td>
+      <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.Definition}}</td>
+      <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.English}}</td>
+      <td class="px-3 py-2 text-gray-500 text-xs">{{.Tags}}</td>
+    </tr>
+    {{end}}
+    {{if not .Words}}
+    <tr><td colspan="6" class="px-3 py-4 text-center text-gray-500">No entries found</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<table class="w-full text-sm border border-gray-200 rounded">
+  <thead class="bg-gray-50">
+    <tr>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Expression</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Definition</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">English</th>
+      <th class="px-3 py-2 text-left text-gray-600 font-medium">Tags</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-100">
+    {{range .Expressions}}
+    <tr class="hover:bg-gray-50 cursor-pointer"
+        hx-get="/api/expressions/{{.ID}}/edit" hx-target="this" hx-swap="afterend">
+      <td class="px-3 py-2 font-medium text-gray-800">{{.Expression}}</td>
+      <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.Definition}}</td>
+      <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.English}}</td>
+      <td class="px-3 py-2 text-gray-500 text-xs">{{.Tags}}</td>
+    </tr>
+    {{end}}
+    {{if not .Expressions}}
+    <tr><td colspan="4" class="px-3 py-4 text-center text-gray-500">No entries found</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+
+{{if gt .TotalPages 1}}
+<div class="flex gap-2 mt-4 justify-center">
+  {{if gt .Page 1}}
+  <button hx-get="{{.BaseURL}}?page={{.PrevPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}"
+          hx-target="#entry-table" hx-swap="innerHTML"
+          class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">← Prev</button>
+  {{end}}
+  <span class="px-3 py-1 text-sm text-gray-600">Page {{.Page}} of {{.TotalPages}}</span>
+  {{if lt .Page .TotalPages}}
+  <button hx-get="{{.BaseURL}}?page={{.NextPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}"
+          hx-target="#entry-table" hx-swap="innerHTML"
+          class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">Next →</button>
+  {{end}}
+</div>
+{{end}}
+{{end}}
