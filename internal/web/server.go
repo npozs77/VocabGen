@@ -16,10 +16,13 @@ import (
 
 // Server holds the HTTP server and its dependencies.
 type Server struct {
-	store  db.Store
-	cfg    *config.Config
-	mux    *http.ServeMux
-	logger *slog.Logger
+	store     db.Store
+	cfg       *config.Config
+	mux       *http.ServeMux
+	logger    *slog.Logger
+	version   string
+	buildDate string
+	goVersion string
 }
 
 // pageData is the common data passed to all page templates.
@@ -27,15 +30,21 @@ type pageData struct {
 	ActivePage string
 	Languages  []service.LanguageInfo
 	Config     *config.Config
+	Version    string
+	BuildDate  string
+	GoVersion  string
 }
 
 // NewServer creates a Server with all routes registered.
-func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger) *Server {
+func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version, buildDate, goVersion string) *Server {
 	s := &Server{
-		store:  store,
-		cfg:    cfg,
-		mux:    http.NewServeMux(),
-		logger: logger,
+		store:     store,
+		cfg:       cfg,
+		mux:       http.NewServeMux(),
+		logger:    logger,
+		version:   version,
+		buildDate: buildDate,
+		goVersion: goVersion,
 	}
 	s.registerRoutes()
 	return s
@@ -76,6 +85,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /batch", s.handlePage("batch"))
 	s.mux.HandleFunc("GET /config", s.handlePage("config"))
 	s.mux.HandleFunc("GET /database", s.handlePage("database"))
+	s.mux.HandleFunc("GET /about", s.handlePage("about"))
 
 	// Lookup API
 	s.mux.HandleFunc("POST /api/lookup", s.handleLookupJSON)
@@ -116,6 +126,9 @@ func (s *Server) handlePage(name string) http.HandlerFunc {
 			ActivePage: name,
 			Languages:  service.GetSupportedLanguages(),
 			Config:     s.cfg,
+			Version:    s.version,
+			BuildDate:  s.buildDate,
+			GoVersion:  s.goVersion,
 		}
 		if err := renderPage(w, name, data); err != nil {
 			s.logger.Error("render page failed", "page", name, "error", err)

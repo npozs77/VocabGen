@@ -1,0 +1,39 @@
+{{define "title"}}About{{end}}
+{{define "content"}}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold text-gray-800 mb-6">About VocabGen</h1>
+
+  <div class="bg-white rounded-lg shadow p-6 space-y-4">
+    <div class="grid grid-cols-2 gap-2 text-sm">
+      <span class="text-gray-500">Version</span>
+      <span class="font-mono">{{.Version}}</span>
+
+      <span class="text-gray-500">Build Date</span>
+      <span class="font-mono">{{.BuildDate}}</span>
+
+      <span class="text-gray-500">Go Version</span>
+      <span class="font-mono">{{.GoVersion}}</span>
+
+      <span class="text-gray-500">Provider</span>
+      <span class="font-mono">{{.Config.Provider}}</span>
+
+      <span class="text-gray-500">Database</span>
+      <span class="font-mono">{{.Config.DBPath}}</span>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-white rounded-lg shadow p-6 space-y-3">
+    <h2 class="text-lg font-medium text-gray-700">Links</h2>
+    <ul class="space-y-2 text-sm">
+      <li><a href="https://github.com/npozs77/VocabGen" target="_blank" class="text-blue-600 hover:underline">GitHub Repository</a></li>
+      <li><a href="https://github.com/npozs77/VocabGen/issues" target="_blank" class="text-blue-600 hover:underline">Report an Issue</a></li>
+      <li><a href="https://github.com/npozs77/VocabGen/blob/main/LICENSE" target="_blank" class="text-blue-600 hover:underline">MIT License</a></li>
+    </ul>
+  </div>
+
+  <p class="mt-6 text-xs text-gray-400">
+    This software is provided as-is. You are responsible for any API costs incurred through LLM providers.
+    Use <code>--dry-run</code> to preview operations before making API calls.
+  </p>
+</div>
+{{end}}

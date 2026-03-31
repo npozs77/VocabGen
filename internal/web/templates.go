@@ -17,7 +17,7 @@ func init() {
 	templates = make(map[string]*template.Template)
 
 	// Parse page templates — each page combines base.html + its own template.
-	pages := []string{"lookup", "batch", "config", "database"}
+	pages := []string{"lookup", "batch", "config", "database", "about"}
 	for _, page := range pages {
 		t, err := template.ParseFS(templateFS,
 			"templates/base.html",
