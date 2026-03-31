@@ -488,7 +488,7 @@ var serveCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
-		srv := web.NewServer(store, &appConfig, slog.Default())
+		srv := web.NewServer(store, &appConfig, slog.Default(), version, buildDate, runtime.Version())
 		return srv.ListenAndServe(ctx, addr)
 	},
 }

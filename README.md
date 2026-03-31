@@ -144,6 +144,14 @@ Dutch (nl), Hungarian (hu), Italian (it), Russian (ru), English (en), German (de
 
 Any language name or code can be passed via `-l` — unregistered languages are used as-is in prompts.
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [User Guide](docs/user-guide.md) | Installation, first run, batch processing, web UI, provider setup, AWS IAM, adding languages |
+| [Architecture](docs/architecture.md) | System design, package layout, data flows, data models, error handling, API routes |
+| [Deployment](docs/deployment.md) | Cross-compilation, GitHub Actions CI/CD, goreleaser, Docker, release process |
+
 ## Build from Source
 
 ```bash
@@ -158,4 +166,6 @@ make quality      # build + vet + fmt-check + tests + coverage
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE).
+
+This software is provided as-is. You are responsible for any API costs incurred through LLM providers (AWS Bedrock, OpenAI, Anthropic). Use `--dry-run` to preview operations before making API calls. See the [User Guide](docs/user-guide.md) for AWS IAM least-privilege setup to limit what your credentials can access.

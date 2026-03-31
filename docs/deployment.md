@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: go.mod
       - run: make build
       - run: make vet
       - run: make test
@@ -105,7 +105,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: go.mod
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
@@ -128,9 +128,7 @@ Manual steps (if not using the script):
 
 1. Ensure `main` is green: `make quality`
 2. Tag a release: `git tag -a v1.0.0 -m "Release v1.0.0" && git push origin v1.0.0`
-3. GitHub Actions triggers goreleaser
-4. goreleaser cross-compiles, creates archives, publishes GitHub Release
-5. Changelog auto-generated from commit messages
+3. GitHub Actions triggers
 
 ## Versioning
 

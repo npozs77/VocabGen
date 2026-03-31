@@ -74,7 +74,7 @@ func (s *stubStore) RestoreFrom(ctx context.Context, srcPath string) error {
 
 func newTestServer() *Server {
 	cfg := config.DefaultConfig()
-	return NewServer(&stubStore{}, &cfg, slog.Default())
+	return NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22")
 }
 
 func TestNewServer(t *testing.T) {
