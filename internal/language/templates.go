@@ -29,7 +29,7 @@ DECISION RUBRIC (follow this priority order):
 
 Requirements for the JSON fields:
 - "word": repeat the canonical form (infinitive for verbs, singular for nouns)
-- "type": {source_language} POS label in {source_language}'s own grammatical terminology
+- "type": use the standard abbreviated POS label in {source_language}'s own grammatical terminology (e.g., "znw", "ww", "bn" for Dutch). If no standard abbreviation exists, use the shortest conventional form.
 - "article": article/gender marker if applicable, otherwise "—"
 - "definition": definition in {source_language}
 - "english_definition": concise English-language explanation of the word's meaning

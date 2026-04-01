@@ -4,6 +4,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -13,6 +14,20 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache-dependency-path: go.sum
       - run: make build
       - run: make vet
+      - run: make fmt-check
       - run: make test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: dominikh/staticcheck-action@v1
+        with:
+          version: "latest"
