@@ -24,8 +24,8 @@ fi
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" != "main" ]; then
-    echo "ERROR: Releases must be tagged from main (currently on $BRANCH)"
-    exit 1
+    echo "Currently on $BRANCH, switching to main..."
+    git checkout main || { echo "ERROR: Failed to switch to main."; exit 1; }
 fi
 
 echo "--- Pulling latest main ---"
