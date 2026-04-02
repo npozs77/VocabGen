@@ -83,7 +83,7 @@ vocabgen batch --input-file ch1.csv --mode words -l nl --dry-run
 vocabgen batch --input-file ch1.csv --mode words -l nl --on-conflict replace
 ```
 
-Input CSV format (no header row):
+Input CSV format (no header row, or with header row — columns mapped by name):
 
 ```csv
 uitkomen
