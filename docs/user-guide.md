@@ -44,13 +44,86 @@ sudo mv vocabgen /usr/local/bin/
 # Download vocabgen_windows_amd64.zip from the Releases page, extract, and add to PATH.
 ```
 
-## First Run
+## Configuration
+
+On first run, vocabgen creates `~/.vocabgen/config.yaml` with defaults:
+
+| Setting | Default |
+|---------|---------|
+| Provider | `bedrock` |
+| Region | `us-east-1` |
+| Source language | `nl` (Dutch) |
+| Target language | `hu` (Hungarian) |
+| Database | `~/.vocabgen/vocabgen.db` |
+
+You can configure the app in two ways: the Web UI (recommended for most users) or CLI flags.
+
+### Quick Setup via Web UI
+
+The easiest way to configure vocabgen — no file editing required:
 
 ```bash
-vocabgen lookup "uitkomen" -l nl
+vocabgen serve --port 8080
 ```
 
-On first run, vocabgen creates `~/.vocabgen/` with a default config and SQLite database. The command sends "uitkomen" to the LLM provider (default: AWS Bedrock), validates the JSON response, stores it in the database, and prints the structured vocabulary entry as JSON.
+Open `http://localhost:8080/config` in your browser. From there you can:
+
+- Select your LLM provider (Bedrock, OpenAI, Anthropic, Vertex AI)
+- Set your default source and target languages
+- Choose a model ID
+- Test the connection (uses the API key from your environment variables automatically)
+
+Credentials must still be configured outside the Web UI — see [Provider Credentials](#provider-credentials) below. The config page saves provider, model, and language settings to `~/.vocabgen/config.yaml`.
+
+### CLI Flag Overrides
+
+You can also override any config setting per-command without editing files:
+
+```bash
+# OpenAI with API key from environment
+export OPENAI_API_KEY=sk-...
+vocabgen lookup "maison" -l French --provider openai --model-id gpt-4o
+
+# Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+vocabgen lookup "Haus" -l German --provider anthropic --model-id claude-sonnet-4-20250514
+
+# Ollama (local, free, no API key needed)
+vocabgen lookup "casa" -l Italian --provider openai --base-url http://localhost:11434/v1 --model-id llama3
+```
+
+CLI flags always take precedence over `config.yaml` values.
+
+### Provider Credentials
+
+Each provider authenticates differently:
+
+| Provider | Credentials |
+|----------|-------------|
+| Bedrock | AWS credential chain (`~/.aws/credentials`, env vars, or IAM role) |
+| OpenAI | `OPENAI_API_KEY` env var or `--api-key` flag |
+| Anthropic | `ANTHROPIC_API_KEY` env var or `--api-key` flag |
+| Vertex AI | Google Application Default Credentials + `--gcp-project` or `GCP_PROJECT` env var |
+| Ollama | None (local server) |
+
+API keys are never stored in `config.yaml`. Use environment variables or CLI flags.
+
+## First Run
+
+Make sure you have configured a provider (see [Configuration](#configuration) above). The default provider is AWS Bedrock — if you don't have AWS credentials set up, switch to a different provider first.
+
+```bash
+# With default provider (Bedrock, requires AWS credentials)
+vocabgen lookup "uitkomen" -l nl
+
+# Or with OpenAI
+vocabgen lookup "uitkomen" -l nl --provider openai --model-id gpt-4o
+
+# Or with a free local model via Ollama
+vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id llama3
+```
+
+On first run, vocabgen creates `~/.vocabgen/` with a default config and SQLite database. The command sends "uitkomen" to the LLM provider, validates the JSON response, stores it in the database, and prints the structured vocabulary entry as JSON.
 
 Expected output (abbreviated):
 
@@ -140,7 +213,7 @@ Open `http://localhost:8080` in your browser.
 
 - **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context.
 - **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Summary shows processed/cached/failed/replaced/added counts.
-- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider.
+- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically.
 - **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Import CSV, export to Excel. Filter by language, search text, or tags.
 
 ## Tags

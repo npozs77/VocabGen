@@ -92,6 +92,7 @@ func TestIntegration_GetConfig(t *testing.T) {
 // --- Test 4: PUT /api/config with form-encoded body updates config ---
 
 func TestIntegration_PutConfig_FormEncoded(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "sk-test")
 	srv := newTestServer()
 
 	form := "provider=openai&model_id=gpt-4o&default_source_language=hu&default_target_language=en"

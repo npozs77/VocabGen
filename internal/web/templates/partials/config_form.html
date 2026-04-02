@@ -14,6 +14,9 @@
   </div>
 
   {{if eq .Config.Provider "bedrock"}}
+  <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+    Requires AWS credentials via <code class="font-mono bg-blue-100 px-1 rounded">~/.aws/credentials</code>, environment variables, or IAM role.
+  </div>
   <div>
     <label for="aws_profile" class="block text-sm font-medium text-gray-700 mb-1">AWS Profile</label>
     <input type="text" id="aws_profile" name="aws_profile" value="{{.Config.AWSProfile}}"
@@ -27,11 +30,9 @@
   {{end}}
 
   {{if eq .Config.Provider "openai"}}
-  <div>
-    <label for="api_key" class="block text-sm font-medium text-gray-700 mb-1">API Key (runtime only, not saved)</label>
-    <input type="password" id="api_key" name="api_key"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="sk-...">
+  <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+    Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable before starting the server.
+    Not required when using a local server (Ollama, LM Studio) via Base URL.
   </div>
   <div>
     <label for="base_url" class="block text-sm font-medium text-gray-700 mb-1">Base URL (optional)</label>
@@ -42,15 +43,16 @@
   {{end}}
 
   {{if eq .Config.Provider "anthropic"}}
-  <div>
-    <label for="api_key" class="block text-sm font-medium text-gray-700 mb-1">API Key (runtime only, not saved)</label>
-    <input type="password" id="api_key" name="api_key"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="sk-ant-...">
+  <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+    Set <code class="font-mono bg-blue-100 px-1 rounded">ANTHROPIC_API_KEY</code> environment variable before starting the server.
   </div>
   {{end}}
 
   {{if eq .Config.Provider "vertexai"}}
+  <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+    Requires Google Application Default Credentials and a GCP Project ID
+    (set <code class="font-mono bg-blue-100 px-1 rounded">GCP_PROJECT</code> env var or fill in below).
+  </div>
   <div>
     <label for="gcp_project" class="block text-sm font-medium text-gray-700 mb-1">GCP Project</label>
     <input type="text" id="gcp_project" name="gcp_project" value="{{.Config.GCPProject}}"
@@ -109,6 +111,7 @@
     </button>
     <button type="button"
             hx-post="/api/test-connection"
+            hx-include="#config-save-form"
             hx-target="#connection-status"
             hx-swap="innerHTML"
             class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">

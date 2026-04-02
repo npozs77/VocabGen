@@ -98,6 +98,8 @@ vocabgen serve                # default port 8080
 vocabgen serve --port 3000    # custom port
 ```
 
+For first-time setup, the Web UI config page is the easiest way to configure your provider and languages — see [Quick Setup via Web UI](docs/user-guide.md#quick-setup-via-web-ui). Credentials (API keys, AWS profiles) must be set via environment variables before starting the server.
+
 ## Provider Configuration
 
 | Provider | Auth | Example |

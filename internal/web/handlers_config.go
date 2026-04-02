@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/user/vocabgen/internal/config"
 	"github.com/user/vocabgen/internal/service"
@@ -51,6 +52,13 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		updated.DBPath = s.cfg.DBPath
 	}
 
+	// Validate provider credentials are available via environment.
+	if warning := validateProviderEnv(updated.Provider, updated.BaseURL, updated.GCPProject); warning != "" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<p class="text-red-600 text-sm mt-1">` + warning + `</p>`))
+		return
+	}
+
 	if err := config.SaveConfig(updated); err != nil {
 		s.logger.Error("save config failed", "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
@@ -88,8 +96,7 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 
 // handleTestConnection handles POST /api/test-connection.
 func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
-	apiKey := r.FormValue("api_key")
-	provider, err := s.createProvider(apiKey)
+	provider, err := s.createProvider()
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`<div class="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">` +
@@ -109,4 +116,35 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(`<div class="bg-green-50 border border-green-200 text-green-700 rounded p-3 text-sm">` +
 		"Connection successful! Provider: " + provider.Name() + `</div>`))
+}
+
+// validateProviderEnv checks that the required environment variables or
+// credentials are available for the given provider. Returns an empty string
+// if everything looks good, or a user-facing warning message otherwise.
+func validateProviderEnv(provider, baseURL, gcpProject string) string {
+	switch provider {
+	case "openai":
+		if os.Getenv("OPENAI_API_KEY") == "" && baseURL == "" {
+			return "OPENAI_API_KEY environment variable is not set. Set it before starting the server: export OPENAI_API_KEY=sk-..."
+		}
+	case "anthropic":
+		if os.Getenv("ANTHROPIC_API_KEY") == "" {
+			return "ANTHROPIC_API_KEY environment variable is not set. Set it before starting the server: export ANTHROPIC_API_KEY=sk-ant-..."
+		}
+	case "bedrock":
+		// Lightweight check: look for any common AWS credential source.
+		if os.Getenv("AWS_ACCESS_KEY_ID") == "" && os.Getenv("AWS_PROFILE") == "" && os.Getenv("AWS_SESSION_TOKEN") == "" {
+			home, _ := os.UserHomeDir()
+			if home != "" {
+				if _, err := os.Stat(home + "/.aws/credentials"); err != nil {
+					return "No AWS credentials found. Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY environment variables, configure an AWS profile, or use an IAM role."
+				}
+			}
+		}
+	case "vertexai":
+		if gcpProject == "" && os.Getenv("GCP_PROJECT") == "" {
+			return "GCP project ID is required for Vertex AI. Set the GCP_PROJECT environment variable or fill in the GCP Project field."
+		}
+	}
+	return ""
 }

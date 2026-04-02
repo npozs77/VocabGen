@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/user/vocabgen/internal/config"
@@ -153,18 +154,34 @@ func (s *Server) handleLanguages(w http.ResponseWriter, r *http.Request) {
 }
 
 // createProvider creates an LLM provider from the current config.
-// apiKey is optional and used for OpenAI/Anthropic providers.
-func (s *Server) createProvider(apiKey string) (llm.Provider, error) {
+// API keys are resolved from environment variables, matching the CLI pattern.
+func (s *Server) createProvider() (llm.Provider, error) {
 	constructor, ok := llm.Registry[s.cfg.Provider]
 	if !ok {
 		return nil, &llm.ProviderError{Provider: s.cfg.Provider, Message: "unknown provider"}
 	}
+
+	// Resolve API key from env vars (same logic as cmd/vocabgen/main.go).
+	var apiKey string
+	switch s.cfg.Provider {
+	case "openai":
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	case "anthropic":
+		apiKey = os.Getenv("ANTHROPIC_API_KEY")
+	}
+
+	// Resolve GCP project from config or env var.
+	gcpProject := s.cfg.GCPProject
+	if gcpProject == "" {
+		gcpProject = os.Getenv("GCP_PROJECT")
+	}
+
 	return constructor(llm.ProviderOptions{
 		APIKey:     apiKey,
 		BaseURL:    s.cfg.BaseURL,
 		Region:     s.cfg.AWSRegion,
 		Profile:    s.cfg.AWSProfile,
-		GCPProject: s.cfg.GCPProject,
+		GCPProject: gcpProject,
 	})
 }
 
