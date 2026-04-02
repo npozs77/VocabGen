@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/user/vocabgen/internal/db"
 	"github.com/user/vocabgen/internal/language"
@@ -37,6 +39,7 @@ type LookupResult struct {
 	ExistingIDs     []int64
 	NeedsResolution bool
 	FromCache       bool
+	Warning         string // non-empty when a potential issue is detected (e.g., hallucination)
 }
 
 // mode returns the prompt mode string based on the lookup type.
@@ -45,6 +48,77 @@ func mode(lookupType string) string {
 		return "expressions"
 	}
 	return "words"
+}
+// checkHallucination checks if the input token appears in the example sentence.
+// Returns a warning string if the token is missing (possible hallucination), or "".
+func checkHallucination(token, example string) string {
+	if example == "" {
+		return ""
+	}
+	lower := strings.ToLower(example)
+	tokenLower := strings.ToLower(strings.TrimSpace(token))
+	if tokenLower == "" {
+		return ""
+	}
+	// Check for the full token first
+	if strings.Contains(lower, tokenLower) {
+		return ""
+	}
+	// Check for a prefix (≥3 chars) to catch conjugations/declensions
+	if len(tokenLower) >= 4 {
+		prefix := tokenLower[:len(tokenLower)*2/3] // first 2/3 of the token
+		if len(prefix) >= 3 && strings.Contains(lower, prefix) {
+			return ""
+		}
+	}
+	return fmt.Sprintf("⚠ \"%s\" not found in example sentence — possible hallucination", token)
+}
+// checkNonWord detects when the LLM recognized the input as invalid/nonsensical.
+// Returns a warning if the response contains markers like "—" for type or
+// phrases indicating the word doesn't exist.
+func checkNonWord(token string, entry *output.Entry) string {
+	if entry == nil {
+		return ""
+	}
+	// Type check only for words (expressions don't have a type field)
+	if entry.Word != "" && (entry.Type == "—" || entry.Type == "") {
+		return fmt.Sprintf("⚠ \"%s\" — LLM could not determine part of speech (possible non-word)", token)
+	}
+	// Definition contains markers indicating the LLM recognized it as invalid
+	defLower := strings.ToLower(entry.Definition)
+	markers := []string{
+		"geen geldig", "niet bestaand", "geen bestaand", "does not exist",
+		"not a valid", "not a real", "is not a word", "geen woord",
+		"no meaning", "geen betekenis", "not recognized",
+	}
+	for _, m := range markers {
+		if strings.Contains(defLower, m) {
+			return fmt.Sprintf("⚠ \"%s\" — LLM indicates this is not a valid word", token)
+		}
+	}
+	// Example is "—" or empty — LLM couldn't produce an example
+	if entry.Example == "—" || entry.Example == "" {
+		return fmt.Sprintf("⚠ \"%s\" — no example sentence produced (possible non-word)", token)
+	}
+	return ""
+}
+// checkQuality runs all quality checks on an LLM result and returns the first warning found.
+func checkQuality(token string, entry *output.Entry) string {
+	if w := checkNonWord(token, entry); w != "" {
+		return w
+	}
+	return checkHallucination(token, entry.Example)
+}
+// isValidToken checks that a token contains only letters (any script), spaces,
+// hyphens, apostrophes, and parentheses. Rejects digits and other special characters.
+func isValidToken(token string) bool {
+	for _, r := range token {
+		if unicode.IsLetter(r) || unicode.IsSpace(r) || r == '-' || r == '\'' || r == '(' || r == ')' || r == 'ʼ' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // invokeLLM builds a prompt, invokes the provider, validates the response,
@@ -201,6 +275,11 @@ func Lookup(ctx context.Context, store db.Store, params LookupParams) (*LookupRe
 		return nil, fmt.Errorf("empty token after normalization")
 	}
 
+	// Reject tokens containing digits or special characters (saves LLM credits)
+	if m == "words" && !isValidToken(normalized) {
+		return nil, fmt.Errorf("invalid input %q — words must contain only letters, spaces, hyphens, or parentheses", normalized)
+	}
+
 	// Dry-run: normalize and return without LLM or DB
 	if params.DryRun {
 		return &LookupResult{
@@ -240,6 +319,15 @@ func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, nor
 			return nil, err
 		}
 		entry.Tags = params.Tags
+
+		result := &LookupResult{Entry: entry}
+		// Check quality before saving — skip DB insert for non-words
+		if w := checkNonWord(normalized, entry); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("word", normalized))
+			return result, nil
+		}
+
 		row := entryToWordRow(entry, params.SourceLang, params.TargetLang, params.Tags)
 		row.Word = normalized // use normalized token for cache consistency
 		if err := store.InsertWord(ctx, row); err != nil {
@@ -247,7 +335,11 @@ func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, nor
 			return nil, fmt.Errorf("database insert failed: %w", err)
 		}
 		slog.Info("word processed", slog.String("word", normalized))
-		return &LookupResult{Entry: entry}, nil
+		if w := checkHallucination(normalized, entry.Example); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("word", normalized))
+		}
+		return result, nil
 	}
 
 	// Entries exist, no context → return first cached
@@ -277,6 +369,10 @@ func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, nor
 		Existing:        existingEntries,
 		ExistingIDs:     existingIDs,
 		NeedsResolution: true,
+	}
+	if w := checkQuality(normalized, entry); w != "" {
+		result.Warning = w
+		slog.Warn(w, slog.String("word", normalized))
 	}
 
 	// Auto-resolve if OnConflict is pre-set
@@ -310,14 +406,26 @@ func lookupExpression(ctx context.Context, store db.Store, params LookupParams, 
 			return nil, err
 		}
 		entry.Tags = params.Tags
+
+		result := &LookupResult{Entry: entry}
+		if w := checkNonWord(normalized, entry); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("expression", normalized))
+			return result, nil
+		}
+
 		row := entryToExprRow(entry, params.SourceLang, params.TargetLang, params.Tags)
-		row.Expression = normalized // use normalized token for cache consistency
+		row.Expression = normalized
 		if err := store.InsertExpression(ctx, row); err != nil {
 			slog.Error("database insert failed", slog.String("expression", normalized), slog.String("error", err.Error()))
 			return nil, fmt.Errorf("database insert failed: %w", err)
 		}
 		slog.Info("expression processed", slog.String("expression", normalized))
-		return &LookupResult{Entry: entry}, nil
+		if w := checkHallucination(normalized, entry.Example); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("expression", normalized))
+		}
+		return result, nil
 	}
 
 	if params.Context == "" {
@@ -345,6 +453,10 @@ func lookupExpression(ctx context.Context, store db.Store, params LookupParams, 
 		Existing:        existingEntries,
 		ExistingIDs:     existingIDs,
 		NeedsResolution: true,
+	}
+	if w := checkQuality(normalized, entry); w != "" {
+		result.Warning = w
+		slog.Warn(w, slog.String("expression", normalized))
 	}
 
 	if params.OnConflict != "" {
