@@ -72,6 +72,7 @@ func (s *SQLiteStore) FindWord(ctx context.Context, word, sourceLang string) (*W
 	)
 	return scanWordRow(row)
 }
+
 // GetWord returns a single word entry by ID, or nil if not found.
 func (s *SQLiteStore) GetWord(ctx context.Context, id int64) (*WordRow, error) {
 	row := s.db.QueryRowContext(ctx,
@@ -184,6 +185,7 @@ func (s *SQLiteStore) FindExpression(ctx context.Context, expr, sourceLang strin
 	)
 	return scanExpressionRow(row)
 }
+
 // GetExpression returns a single expression entry by ID, or nil if not found.
 func (s *SQLiteStore) GetExpression(ctx context.Context, id int64) (*ExpressionRow, error) {
 	row := s.db.QueryRowContext(ctx,

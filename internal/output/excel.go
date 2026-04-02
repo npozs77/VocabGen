@@ -56,6 +56,7 @@ func ExportToExcel(entries []Entry, mode string) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
 // ExportBothToExcel writes words and expressions to separate sheets in one .xlsx file.
 func ExportBothToExcel(words []Entry, expressions []Entry) ([]byte, error) {
 	f := excelize.NewFile()

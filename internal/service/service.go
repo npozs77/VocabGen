@@ -49,6 +49,7 @@ func mode(lookupType string) string {
 	}
 	return "words"
 }
+
 // checkHallucination checks if the input token appears in the example sentence.
 // Returns a warning string if the token is missing (possible hallucination), or "".
 func checkHallucination(token, example string) string {
@@ -73,6 +74,7 @@ func checkHallucination(token, example string) string {
 	}
 	return fmt.Sprintf("⚠ \"%s\" not found in example sentence — possible hallucination", token)
 }
+
 // checkNonWord detects when the LLM recognized the input as invalid/nonsensical.
 // Returns a warning if the response contains markers like "—" for type or
 // phrases indicating the word doesn't exist.
@@ -102,6 +104,7 @@ func checkNonWord(token string, entry *output.Entry) string {
 	}
 	return ""
 }
+
 // checkQuality runs all quality checks on an LLM result and returns the first warning found.
 func checkQuality(token string, entry *output.Entry) string {
 	if w := checkNonWord(token, entry); w != "" {
@@ -109,6 +112,7 @@ func checkQuality(token string, entry *output.Entry) string {
 	}
 	return checkHallucination(token, entry.Example)
 }
+
 // isValidToken checks that a token contains only letters (any script), spaces,
 // hyphens, apostrophes, and parentheses. Rejects digits and other special characters.
 func isValidToken(token string) bool {
