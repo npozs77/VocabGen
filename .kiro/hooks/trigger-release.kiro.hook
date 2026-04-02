@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "6. Release",
+  "description": "Validates changes since last tag (commit/PR count), suggests next version, updates CHANGELOG.md via a release branch + PR, then runs scripts/release.sh after merge.",
+  "version": "2",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The user wants to create a release. Main is protected — all changes go through PRs. Follow these steps:\n\n1. FIND LATEST TAG: Run `git tag --list 'v*' --sort=-v:refname | head -1`.\n\n2. RELEASE VALIDATION:\n   - Run `git log {latest_tag}..origin/main --oneline` to list commits since last tag.\n   - Run `git log {latest_tag}..origin/main --merges --oneline` to count merged PRs.\n   - Display: 'Since {latest_tag}: X commits, Y pull requests'.\n   - If ZERO commits, tell the user there's nothing to release and STOP.\n\n3. SUGGEST VERSION: Calculate next patch version (increment last number). Ask: 'Since {latest_tag}: X commits, Y PRs. Suggested next version: {next}. What tag would you like to use?'\n\n4. UPDATE CHANGELOG: Once user confirms a tag:\n   - Make sure you're on main and it's up to date: `git checkout main` then `git pull origin main`.\n   - Create a release branch: `git checkout -b release/{tag}`.\n   - Read CHANGELOG.md.\n   - If `## [Unreleased]` section exists: replace `## [Unreleased]` with `## [{version_without_v}] - {today YYYY-MM-DD}`.\n   - If NO `## [Unreleased]` section exists: generate entries from commit messages since last tag. Run `git log {latest_tag}..HEAD --oneline --no-merges` and categorize commits by prefix (feat/fix/docs/chore). Create a new section `## [{version_without_v}] - {today}` with ### Added (feat), ### Changed, ### Fixed (fix), ### Docs (docs) subsections. Insert it above the previous release heading.\n   - Commit: `git add CHANGELOG.md` then `git commit -m 'docs: update changelog for {tag}'`.\n   - Push: `git push origin release/{tag}`.\n   - Tell the user: 'Pushed release/{tag}. Create a PR, merge it, then run hook 6 again or run `./scripts/release.sh {tag}` on main after merge.'\n   - STOP here — do not run release.sh yet.\n\n5. IF ALREADY ON MAIN WITH CHANGELOG READY: If the user says the PR is merged, or if we're on main and the changelog already has the version heading (not [Unreleased]):\n   - `git checkout main` then `git pull origin main`.\n   - Run `./scripts/release.sh {tag}` with executeBash and timeout 300s."
+  },
+  "workspaceFolderName": "VocabGen",
+  "shortName": "trigger-release"
+}
