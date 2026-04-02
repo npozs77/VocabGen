@@ -17,7 +17,6 @@ type lookupRequest struct {
 	Context        string `json:"context"`
 	TargetLanguage string `json:"target_language"`
 	Tags           string `json:"tags"`
-	APIKey         string `json:"api_key"`
 }
 
 // resolveRequest is the JSON body for POST /api/lookup/resolve.
@@ -31,17 +30,17 @@ type resolveRequest struct {
 	Tags           string        `json:"tags"`
 }
 
-func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, string, error) {
+func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, error) {
 	var req lookupRequest
 
 	if r.Header.Get("Content-Type") == "application/json" {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			return service.LookupParams{}, "", fmt.Errorf("invalid JSON: %w", err)
+			return service.LookupParams{}, fmt.Errorf("invalid JSON: %w", err)
 		}
 	} else {
 		// Form-encoded (HTMX)
 		if err := r.ParseForm(); err != nil {
-			return service.LookupParams{}, "", fmt.Errorf("invalid form: %w", err)
+			return service.LookupParams{}, fmt.Errorf("invalid form: %w", err)
 		}
 		req = lookupRequest{
 			SourceLanguage: r.FormValue("source_language"),
@@ -50,12 +49,11 @@ func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, strin
 			Context:        r.FormValue("context"),
 			TargetLanguage: r.FormValue("target_language"),
 			Tags:           r.FormValue("tags"),
-			APIKey:         r.FormValue("api_key"),
 		}
 	}
 
 	if req.Text == "" {
-		return service.LookupParams{}, "", fmt.Errorf("text is required")
+		return service.LookupParams{}, fmt.Errorf("text is required")
 	}
 	if req.SourceLanguage == "" {
 		req.SourceLanguage = s.cfg.DefaultSourceLanguage
@@ -67,9 +65,9 @@ func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, strin
 		req.LookupType = "word"
 	}
 
-	provider, err := s.createProvider(req.APIKey)
+	provider, err := s.createProvider()
 	if err != nil {
-		return service.LookupParams{}, "", fmt.Errorf("provider error: %w", err)
+		return service.LookupParams{}, fmt.Errorf("provider error: %w", err)
 	}
 
 	return service.LookupParams{
@@ -81,12 +79,12 @@ func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, strin
 		Context:    req.Context,
 		TargetLang: req.TargetLanguage,
 		Tags:       req.Tags,
-	}, req.APIKey, nil
+	}, nil
 }
 
 // handleLookupJSON handles POST /api/lookup — JSON endpoint.
 func (s *Server) handleLookupJSON(w http.ResponseWriter, r *http.Request) {
-	params, _, err := s.parseLookupParams(r)
+	params, err := s.parseLookupParams(r)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -104,7 +102,7 @@ func (s *Server) handleLookupJSON(w http.ResponseWriter, r *http.Request) {
 
 // handleLookupHTML handles POST /api/lookup/html — HTMX endpoint.
 func (s *Server) handleLookupHTML(w http.ResponseWriter, r *http.Request) {
-	params, _, err := s.parseLookupParams(r)
+	params, err := s.parseLookupParams(r)
 	if err != nil {
 		renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
 		return

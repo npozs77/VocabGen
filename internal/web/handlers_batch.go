@@ -94,8 +94,7 @@ func (s *Server) handleBatchJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey := r.FormValue("api_key")
-	provider, err := s.createProvider(apiKey)
+	provider, err := s.createProvider()
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "provider error: "+err.Error())
 		return
@@ -164,8 +163,7 @@ func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey := r.FormValue("api_key")
-	provider, err := s.createProvider(apiKey)
+	provider, err := s.createProvider()
 	if err != nil {
 		renderPartial(w, "batch_summary", map[string]any{"Error": "Provider error: " + err.Error()})
 		return
