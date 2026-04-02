@@ -63,13 +63,14 @@
   </form>
 
   <div class="flex gap-3">
-    <a id="export-btn" href="/api/export" target="_blank"
+    <a id="export-btn" href="#" target="_blank"
+       onclick="this.href='/api/export?source_lang='+encodeURIComponent(document.getElementById('db-source-lang').value)+'&target_lang='+encodeURIComponent(document.getElementById('db-target-lang').value)+'&search='+encodeURIComponent(document.getElementById('db-search').value)+'&tags='+encodeURIComponent((document.getElementById('db-tags')||{}).value||'')"
        class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
       Export XLSX
     </a>
     <button type="button" onclick="document.getElementById('import-dialog').classList.toggle('hidden')"
             class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
-      Import CSV
+      Import CSV/XLSX
     </button>
   </div>
 
@@ -78,7 +79,7 @@
           hx-encoding="multipart/form-data" class="space-y-3">
       <div>
         <label for="import-file" class="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
-        <input type="file" id="import-file" name="file" accept=".csv" required
+        <input type="file" id="import-file" name="file" accept=".csv,.xlsx" required
                class="w-full text-sm">
       </div>
       <div class="grid grid-cols-2 gap-3">

@@ -1,17 +1,19 @@
 package web
 
 import (
+	"bytes"
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/user/vocabgen/internal/db"
 	"github.com/user/vocabgen/internal/output"
+	"github.com/xuri/excelize/v2"
 )
 
 func parseListParams(r *http.Request) (db.ListFilter, error) {
@@ -21,7 +23,7 @@ func parseListParams(r *http.Request) (db.ListFilter, error) {
 		Search:     r.URL.Query().Get("search"),
 		Tags:       r.URL.Query().Get("tags"),
 		Page:       1,
-		PageSize:   50,
+		PageSize:   20,
 	}
 	if p := r.URL.Query().Get("page"); p != "" {
 		page, err := strconv.Atoi(p)
@@ -398,12 +400,18 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "failed to read file: "+err.Error())
+		return
+	}
 
 	sourceLang := r.FormValue("source_lang")
 	targetLang := r.FormValue("target_lang")
@@ -412,42 +420,121 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		importType = "words"
 	}
 
-	reader := csv.NewReader(file)
-	reader.FieldsPerRecord = -1
-	reader.LazyQuotes = true
-	reader.TrimLeadingSpace = true
+	// Detect file type by extension
+	isXLSX := strings.HasSuffix(strings.ToLower(header.Filename), ".xlsx")
+
+	var records [][]string
+	if isXLSX {
+		records, err = parseXLSXRecords(fileBytes, importType)
+		if err != nil {
+			msg := "XLSX parse error: " + err.Error()
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				fmt.Fprintf(w, `<p class="text-red-600 text-sm">%s</p>`, msg)
+				return
+			}
+			writeJSONError(w, http.StatusBadRequest, msg)
+			return
+		}
+	} else {
+		// CSV — validate UTF-8
+		fileBytes = bytes.TrimPrefix(fileBytes, []byte{0xEF, 0xBB, 0xBF})
+		if !utf8.Valid(fileBytes) {
+			msg := `File is not UTF-8 encoded. Use "Export XLSX" then re-import the .xlsx file, or save CSV as UTF-8.`
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				fmt.Fprintf(w, `<p class="text-red-600 text-sm">⚠ %s</p>`, msg)
+				return
+			}
+			writeJSONError(w, http.StatusBadRequest, msg)
+			return
+		}
+		reader := csv.NewReader(bytes.NewReader(fileBytes))
+		reader.FieldsPerRecord = -1
+		reader.LazyQuotes = true
+		reader.TrimLeadingSpace = true
+		records, err = reader.ReadAll()
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "CSV read error: "+err.Error())
+			return
+		}
+	}
+
+	if len(records) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "file is empty")
+		return
+	}
+
+	// Detect header row
+	colMap := make(map[string]int)
+	firstRow := records[0]
+	hasHeader := false
+	for i, h := range firstRow {
+		key := strings.ToLower(strings.TrimSpace(h))
+		if key == "word" || key == "expression" || key == "definition" || key == "english" || key == "type" {
+			hasHeader = true
+		}
+		colMap[key] = i
+	}
+	dataRows := records
+	if hasHeader {
+		dataRows = records[1:]
+	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	getCol := func(record []string, name string, fallbackIdx int) string {
+		if hasHeader {
+			if idx, ok := colMap[name]; ok && idx < len(record) {
+				return strings.TrimSpace(record[idx])
+			}
+			return ""
+		}
+		if fallbackIdx < len(record) {
+			return strings.TrimSpace(record[fallbackIdx])
+		}
+		return ""
+	}
+
+	containsGarbage := func(s string) bool {
+		return strings.Contains(s, "\ufffd") || strings.Contains(s, "�")
+	}
+
 	if importType == "words" {
 		var rows []db.WordRow
-		for {
-			record, err := reader.Read()
-			if errors.Is(err, io.EOF) {
-				break
+		skippedGarbage := 0
+		for _, record := range dataRows {
+			if len(record) == 0 {
+				continue
 			}
-			if err != nil {
-				writeJSONError(w, http.StatusBadRequest, "CSV read error: "+err.Error())
-				return
+			word := getCol(record, "word", 0)
+			if word == "" {
+				continue
 			}
-			if len(record) == 0 || strings.TrimSpace(record[0]) == "" {
+			if containsGarbage(word) {
+				skippedGarbage++
 				continue
 			}
 			row := db.WordRow{
-				Word:           strings.TrimSpace(record[0]),
-				SourceLanguage: sourceLang,
-				TargetLanguage: targetLang,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			}
-			if len(record) > 1 {
-				row.Definition = strings.TrimSpace(record[1])
-			}
-			if len(record) > 2 {
-				row.English = strings.TrimSpace(record[2])
-			}
-			if len(record) > 3 {
-				row.Tags = strings.TrimSpace(record[3])
+				Word:              word,
+				PartOfSpeech:      getCol(record, "type", 1),
+				Article:           getCol(record, "article", 2),
+				Definition:        getCol(record, "definition", 3),
+				EnglishDefinition: getCol(record, "english_definition", 4),
+				Example:           getCol(record, "example", 5),
+				English:           getCol(record, "english", 6),
+				TargetTranslation: getCol(record, "target_translation", 7),
+				Notes:             getCol(record, "notes", 8),
+				Connotation:       getCol(record, "connotation", 9),
+				Register:          getCol(record, "register", 10),
+				Collocations:      getCol(record, "collocations", 11),
+				ContrastiveNotes:  getCol(record, "contrastive_notes", 12),
+				SecondaryMeanings: getCol(record, "secondary_meanings", 13),
+				Tags:              getCol(record, "tags", 14),
+				SourceLanguage:    sourceLang,
+				TargetLanguage:    targetLang,
+				CreatedAt:         now,
+				UpdatedAt:         now,
 			}
 			rows = append(rows, row)
 		}
@@ -457,47 +544,48 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		result := map[string]any{
-			"imported": imported,
-			"skipped":  skipped,
-			"failed":   failed,
-			"type":     "words",
-		}
+		skipped += skippedGarbage
 		if r.Header.Get("HX-Request") == "true" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprintf(w, `<p class="text-green-600 text-sm">Imported %d words (%d skipped, %d failed)</p>`, imported, skipped, failed)
+			msg := fmt.Sprintf(`<p class="text-green-600 text-sm">Imported %d words (%d skipped, %d failed)</p>`, imported, skipped, failed)
+			if skippedGarbage > 0 {
+				msg += fmt.Sprintf(`<p class="text-yellow-600 text-sm">⚠ %d rows skipped due to encoding issues</p>`, skippedGarbage)
+			}
+			fmt.Fprint(w, msg)
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		writeJSON(w, http.StatusOK, map[string]any{"imported": imported, "skipped": skipped, "failed": failed, "type": "words"})
 	} else {
 		var rows []db.ExpressionRow
-		for {
-			record, err := reader.Read()
-			if errors.Is(err, io.EOF) {
-				break
+		skippedGarbage := 0
+		for _, record := range dataRows {
+			if len(record) == 0 {
+				continue
 			}
-			if err != nil {
-				writeJSONError(w, http.StatusBadRequest, "CSV read error: "+err.Error())
-				return
+			expr := getCol(record, "expression", 0)
+			if expr == "" {
+				continue
 			}
-			if len(record) == 0 || strings.TrimSpace(record[0]) == "" {
+			if containsGarbage(expr) {
+				skippedGarbage++
 				continue
 			}
 			row := db.ExpressionRow{
-				Expression:     strings.TrimSpace(record[0]),
-				SourceLanguage: sourceLang,
-				TargetLanguage: targetLang,
-				CreatedAt:      now,
-				UpdatedAt:      now,
-			}
-			if len(record) > 1 {
-				row.Definition = strings.TrimSpace(record[1])
-			}
-			if len(record) > 2 {
-				row.English = strings.TrimSpace(record[2])
-			}
-			if len(record) > 3 {
-				row.Tags = strings.TrimSpace(record[3])
+				Expression:        expr,
+				Definition:        getCol(record, "definition", 1),
+				EnglishDefinition: getCol(record, "english_definition", 2),
+				Example:           getCol(record, "example", 3),
+				English:           getCol(record, "english", 4),
+				TargetTranslation: getCol(record, "target_translation", 5),
+				Notes:             getCol(record, "notes", 6),
+				Connotation:       getCol(record, "connotation", 7),
+				Register:          getCol(record, "register", 8),
+				ContrastiveNotes:  getCol(record, "contrastive_notes", 9),
+				Tags:              getCol(record, "tags", 10),
+				SourceLanguage:    sourceLang,
+				TargetLanguage:    targetLang,
+				CreatedAt:         now,
+				UpdatedAt:         now,
 			}
 			rows = append(rows, row)
 		}
@@ -507,87 +595,112 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		result := map[string]any{
-			"imported": imported,
-			"skipped":  skipped,
-			"failed":   failed,
-			"type":     "expressions",
-		}
+		skipped += skippedGarbage
 		if r.Header.Get("HX-Request") == "true" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprintf(w, `<p class="text-green-600 text-sm">Imported %d expressions (%d skipped, %d failed)</p>`, imported, skipped, failed)
+			msg := fmt.Sprintf(`<p class="text-green-600 text-sm">Imported %d expressions (%d skipped, %d failed)</p>`, imported, skipped, failed)
+			if skippedGarbage > 0 {
+				msg += fmt.Sprintf(`<p class="text-yellow-600 text-sm">⚠ %d rows skipped due to encoding issues</p>`, skippedGarbage)
+			}
+			fmt.Fprint(w, msg)
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		writeJSON(w, http.StatusOK, map[string]any{"imported": imported, "skipped": skipped, "failed": failed, "type": "expressions"})
 	}
+}
+// parseXLSXRecords reads an XLSX file and returns rows as string slices.
+// For words, reads the "Words" sheet (or first sheet). For expressions, reads "Expressions" (or second/first sheet).
+func parseXLSXRecords(data []byte, importType string) ([][]string, error) {
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("open xlsx: %w", err)
+	}
+	defer f.Close()
+
+	// Pick the right sheet
+	sheetName := ""
+	sheets := f.GetSheetList()
+	if importType == "expressions" {
+		for _, s := range sheets {
+			if strings.EqualFold(s, "Expressions") {
+				sheetName = s
+				break
+			}
+		}
+	} else {
+		for _, s := range sheets {
+			if strings.EqualFold(s, "Words") {
+				sheetName = s
+				break
+			}
+		}
+	}
+	if sheetName == "" && len(sheets) > 0 {
+		sheetName = sheets[0] // fallback to first sheet
+	}
+	if sheetName == "" {
+		return nil, fmt.Errorf("no sheets found in xlsx")
+	}
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		return nil, fmt.Errorf("read sheet %q: %w", sheetName, err)
+	}
+	return rows, nil
 }
 
 // handleExport handles GET /api/export — Excel export.
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	sourceLang := r.URL.Query().Get("source_lang")
 	targetLang := r.URL.Query().Get("target_lang")
-	exportType := r.URL.Query().Get("type")
-	if exportType == "" {
-		exportType = "words"
-	}
+	search := r.URL.Query().Get("search")
+	tags := r.URL.Query().Get("tags")
 
 	filter := db.ListFilter{
 		SourceLang: sourceLang,
 		TargetLang: targetLang,
+		Search:     search,
+		Tags:       tags,
 		Page:       1,
 		PageSize:   10000, // export all
 	}
 
-	var entries []output.Entry
-	if exportType == "words" {
-		words, _, err := s.store.ListWords(r.Context(), filter)
-		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		for _, wr := range words {
-			entries = append(entries, output.Entry{
-				Word:              wr.Word,
-				Type:              wr.PartOfSpeech,
-				Article:           wr.Article,
-				Definition:        wr.Definition,
-				EnglishDefinition: wr.EnglishDefinition,
-				Example:           wr.Example,
-				English:           wr.English,
-				TargetTranslation: wr.TargetTranslation,
-				Notes:             wr.Notes,
-				Connotation:       wr.Connotation,
-				Register:          wr.Register,
-				Collocations:      wr.Collocations,
-				ContrastiveNotes:  wr.ContrastiveNotes,
-				SecondaryMeanings: wr.SecondaryMeanings,
-				Tags:              wr.Tags,
-			})
-		}
-	} else {
-		exprs, _, err := s.store.ListExpressions(r.Context(), filter)
-		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		for _, er := range exprs {
-			entries = append(entries, output.Entry{
-				Expression:        er.Expression,
-				Definition:        er.Definition,
-				EnglishDefinition: er.EnglishDefinition,
-				Example:           er.Example,
-				English:           er.English,
-				TargetTranslation: er.TargetTranslation,
-				Notes:             er.Notes,
-				Connotation:       er.Connotation,
-				Register:          er.Register,
-				ContrastiveNotes:  er.ContrastiveNotes,
-				Tags:              er.Tags,
-			})
-		}
+	// Fetch words
+	var wordEntries []output.Entry
+	words, _, err := s.store.ListWords(r.Context(), filter)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, wr := range words {
+		wordEntries = append(wordEntries, output.Entry{
+			Word: wr.Word, Type: wr.PartOfSpeech, Article: wr.Article,
+			Definition: wr.Definition, EnglishDefinition: wr.EnglishDefinition,
+			Example: wr.Example, English: wr.English, TargetTranslation: wr.TargetTranslation,
+			Notes: wr.Notes, Connotation: wr.Connotation, Register: wr.Register,
+			Collocations: wr.Collocations, ContrastiveNotes: wr.ContrastiveNotes,
+			SecondaryMeanings: wr.SecondaryMeanings, Tags: wr.Tags,
+		})
 	}
 
-	data, err := output.ExportToExcel(entries, exportType)
+	// Fetch expressions
+	var exprEntries []output.Entry
+	exprs, _, err := s.store.ListExpressions(r.Context(), filter)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, er := range exprs {
+		exprEntries = append(exprEntries, output.Entry{
+			Expression: er.Expression, Definition: er.Definition,
+			EnglishDefinition: er.EnglishDefinition, Example: er.Example,
+			English: er.English, TargetTranslation: er.TargetTranslation,
+			Notes: er.Notes, Connotation: er.Connotation, Register: er.Register,
+			ContrastiveNotes: er.ContrastiveNotes, Tags: er.Tags,
+		})
+	}
+
+	data, err := output.ExportBothToExcel(wordEntries, exprEntries)
 	if err != nil {
 		s.logger.Error("export failed", "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "export failed: "+err.Error())
@@ -599,7 +712,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		lang = "all"
 	}
 	date := time.Now().Format("2006-01-02")
-	filename := fmt.Sprintf("vocabgen-%s-%s-%s.xlsx", lang, exportType, date)
+	filename := fmt.Sprintf("vocabgen-%s-%s.xlsx", lang, date)
 
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))

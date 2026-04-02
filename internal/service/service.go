@@ -421,10 +421,6 @@ func lookupExpression(ctx context.Context, store db.Store, params LookupParams, 
 			return nil, fmt.Errorf("database insert failed: %w", err)
 		}
 		slog.Info("expression processed", slog.String("expression", normalized))
-		if w := checkHallucination(normalized, entry.Example); w != "" {
-			result.Warning = w
-			slog.Warn(w, slog.String("expression", normalized))
-		}
 		return result, nil
 	}
 
@@ -453,10 +449,6 @@ func lookupExpression(ctx context.Context, store db.Store, params LookupParams, 
 		Existing:        existingEntries,
 		ExistingIDs:     existingIDs,
 		NeedsResolution: true,
-	}
-	if w := checkQuality(normalized, entry); w != "" {
-		result.Warning = w
-		slog.Warn(w, slog.String("expression", normalized))
 	}
 
 	if params.OnConflict != "" {
