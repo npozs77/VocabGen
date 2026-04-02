@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Web UI config page reads API keys from environment variables instead of form fields, matching CLI behavior
+- Provider credential hints shown per provider on config page (env var names, setup instructions)
+
+### Fixed
+
+- Web UI test-connection and batch endpoints no longer require API key in request body
+- Added provider credential validation on config save — warns if required env vars are missing
+- Corrected Bedrock model IDs in docs, added cross-region inference profile note
+- Added Windows and macOS Intel installation instructions to user guide
+
+### Docs
+
+- Expanded user guide with Configuration section, Quick Setup via Web UI, CLI flag overrides, and provider credentials table
+- README links to Web UI setup instructions
+
 ## [1.0.0] - 2026-04-02
 
 ### Added
