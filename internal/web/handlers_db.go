@@ -19,6 +19,7 @@ func parseListParams(r *http.Request) (db.ListFilter, error) {
 		SourceLang: r.URL.Query().Get("source_lang"),
 		TargetLang: r.URL.Query().Get("target_lang"),
 		Search:     r.URL.Query().Get("search"),
+		Tags:       r.URL.Query().Get("tags"),
 		Page:       1,
 		PageSize:   50,
 	}
@@ -41,6 +42,12 @@ func parseListParams(r *http.Request) (db.ListFilter, error) {
 
 // handleListWords handles GET /api/words — paginated word list.
 func (s *Server) handleListWords(w http.ResponseWriter, r *http.Request) {
+	// If type=expressions, delegate to the expressions handler.
+	if r.URL.Query().Get("type") == "expressions" {
+		s.handleListExpressions(w, r)
+		return
+	}
+
 	filter, err := parseListParams(r)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
@@ -73,6 +80,7 @@ func (s *Server) handleListWords(w http.ResponseWriter, r *http.Request) {
 			"SourceLang": filter.SourceLang,
 			"TargetLang": filter.TargetLang,
 			"Search":     filter.Search,
+			"Tags":       filter.Tags,
 		}
 		renderPartial(w, "entry_table", data)
 		return
@@ -114,10 +122,11 @@ func (s *Server) handleListExpressions(w http.ResponseWriter, r *http.Request) {
 			"PrevPage":    filter.Page - 1,
 			"NextPage":    filter.Page + 1,
 			"IsWords":     false,
-			"BaseURL":     "/api/expressions",
+			"BaseURL":     "/api/words?type=expressions",
 			"SourceLang":  filter.SourceLang,
 			"TargetLang":  filter.TargetLang,
 			"Search":      filter.Search,
+			"Tags":        filter.Tags,
 		}
 		renderPartial(w, "entry_table", data)
 		return
@@ -138,9 +147,15 @@ func (s *Server) handleUpdateWord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var row db.WordRow
+	// Load existing row so we preserve fields not in the form.
+	existing, err := s.store.GetWord(r.Context(), id)
+	if err != nil || existing == nil {
+		writeJSONError(w, http.StatusNotFound, "word not found")
+		return
+	}
+
 	if r.Header.Get("Content-Type") == "application/json" {
-		if err := decodeJSON(r, &row); err != nil {
+		if err := decodeJSON(r, existing); err != nil {
 			writeJSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -149,32 +164,109 @@ func (s *Server) handleUpdateWord(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusBadRequest, "invalid form")
 			return
 		}
-		row = db.WordRow{
-			Word:              r.FormValue("word"),
-			PartOfSpeech:      r.FormValue("part_of_speech"),
-			Article:           r.FormValue("article"),
-			Definition:        r.FormValue("definition"),
-			Example:           r.FormValue("example"),
-			English:           r.FormValue("english"),
-			TargetTranslation: r.FormValue("target_translation"),
-			Notes:             r.FormValue("notes"),
-			Tags:              r.FormValue("tags"),
+		// Only overwrite fields that are present in the form.
+		if v := r.FormValue("word"); v != "" || r.Form.Has("word") {
+			existing.Word = v
+		}
+		if v := r.FormValue("part_of_speech"); v != "" || r.Form.Has("part_of_speech") {
+			existing.PartOfSpeech = v
+		}
+		if v := r.FormValue("article"); v != "" || r.Form.Has("article") {
+			existing.Article = v
+		}
+		if v := r.FormValue("definition"); v != "" || r.Form.Has("definition") {
+			existing.Definition = v
+		}
+		if v := r.FormValue("english_definition"); v != "" || r.Form.Has("english_definition") {
+			existing.EnglishDefinition = v
+		}
+		if v := r.FormValue("example"); v != "" || r.Form.Has("example") {
+			existing.Example = v
+		}
+		if v := r.FormValue("english"); v != "" || r.Form.Has("english") {
+			existing.English = v
+		}
+		if v := r.FormValue("target_translation"); v != "" || r.Form.Has("target_translation") {
+			existing.TargetTranslation = v
+		}
+		if v := r.FormValue("notes"); v != "" || r.Form.Has("notes") {
+			existing.Notes = v
+		}
+		if v := r.FormValue("connotation"); v != "" || r.Form.Has("connotation") {
+			existing.Connotation = v
+		}
+		if v := r.FormValue("register"); v != "" || r.Form.Has("register") {
+			existing.Register = v
+		}
+		if v := r.FormValue("collocations"); v != "" || r.Form.Has("collocations") {
+			existing.Collocations = v
+		}
+		if v := r.FormValue("contrastive_notes"); v != "" || r.Form.Has("contrastive_notes") {
+			existing.ContrastiveNotes = v
+		}
+		if v := r.FormValue("secondary_meanings"); v != "" || r.Form.Has("secondary_meanings") {
+			existing.SecondaryMeanings = v
+		}
+		if r.Form.Has("tags") {
+			existing.Tags = r.FormValue("tags")
+		}
+		if v := r.FormValue("source_language"); v != "" {
+			existing.SourceLanguage = v
+		}
+		if v := r.FormValue("target_language"); v != "" {
+			existing.TargetLanguage = v
 		}
 	}
-	row.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	existing.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 
-	if err := s.store.UpdateWord(r.Context(), id, &row); err != nil {
+	if err := s.store.UpdateWord(r.Context(), id, existing); err != nil {
 		s.logger.Error("update word failed", "id", id, "error", err)
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// For HTMX, re-render the table
 	if r.Header.Get("HX-Request") == "true" {
 		s.handleListWords(w, r)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+func (s *Server) handleEditWord(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	word, err := s.store.GetWord(r.Context(), id)
+	if err != nil || word == nil {
+		writeJSONError(w, http.StatusNotFound, "word not found")
+		return
+	}
+
+	if err := renderPartial(w, "entry_edit", word); err != nil {
+		s.logger.Error("render entry_edit failed", "error", err)
+		http.Error(w, "render error", http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) handleEditExpression(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	expr, err := s.store.GetExpression(r.Context(), id)
+	if err != nil || expr == nil {
+		writeJSONError(w, http.StatusNotFound, "expression not found")
+		return
+	}
+
+	if err := renderPartial(w, "entry_edit", expr); err != nil {
+		s.logger.Error("render entry_edit failed", "error", err)
+		http.Error(w, "render error", http.StatusInternalServerError)
+	}
 }
 
 // handleUpdateExpression handles PUT /api/expressions/{id}.
@@ -185,9 +277,14 @@ func (s *Server) handleUpdateExpression(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var row db.ExpressionRow
+	existing, err := s.store.GetExpression(r.Context(), id)
+	if err != nil || existing == nil {
+		writeJSONError(w, http.StatusNotFound, "expression not found")
+		return
+	}
+
 	if r.Header.Get("Content-Type") == "application/json" {
-		if err := decodeJSON(r, &row); err != nil {
+		if err := decodeJSON(r, existing); err != nil {
 			writeJSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -196,19 +293,49 @@ func (s *Server) handleUpdateExpression(w http.ResponseWriter, r *http.Request) 
 			writeJSONError(w, http.StatusBadRequest, "invalid form")
 			return
 		}
-		row = db.ExpressionRow{
-			Expression:        r.FormValue("expression"),
-			Definition:        r.FormValue("definition"),
-			Example:           r.FormValue("example"),
-			English:           r.FormValue("english"),
-			TargetTranslation: r.FormValue("target_translation"),
-			Notes:             r.FormValue("notes"),
-			Tags:              r.FormValue("tags"),
+		if v := r.FormValue("expression"); v != "" || r.Form.Has("expression") {
+			existing.Expression = v
+		}
+		if v := r.FormValue("definition"); v != "" || r.Form.Has("definition") {
+			existing.Definition = v
+		}
+		if v := r.FormValue("english_definition"); v != "" || r.Form.Has("english_definition") {
+			existing.EnglishDefinition = v
+		}
+		if v := r.FormValue("example"); v != "" || r.Form.Has("example") {
+			existing.Example = v
+		}
+		if v := r.FormValue("english"); v != "" || r.Form.Has("english") {
+			existing.English = v
+		}
+		if v := r.FormValue("target_translation"); v != "" || r.Form.Has("target_translation") {
+			existing.TargetTranslation = v
+		}
+		if v := r.FormValue("notes"); v != "" || r.Form.Has("notes") {
+			existing.Notes = v
+		}
+		if v := r.FormValue("connotation"); v != "" || r.Form.Has("connotation") {
+			existing.Connotation = v
+		}
+		if v := r.FormValue("register"); v != "" || r.Form.Has("register") {
+			existing.Register = v
+		}
+		if v := r.FormValue("contrastive_notes"); v != "" || r.Form.Has("contrastive_notes") {
+			existing.ContrastiveNotes = v
+		}
+		if r.Form.Has("tags") {
+			existing.Tags = r.FormValue("tags")
+		}
+		if v := r.FormValue("source_language"); v != "" {
+			existing.SourceLanguage = v
+		}
+		if v := r.FormValue("target_language"); v != "" {
+			existing.TargetLanguage = v
 		}
 	}
-	row.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	existing.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 
-	if err := s.store.UpdateExpression(r.Context(), id, &row); err != nil {
+	if err := s.store.UpdateExpression(r.Context(), id, existing); err != nil {
 		s.logger.Error("update expression failed", "id", id, "error", err)
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

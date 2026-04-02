@@ -38,6 +38,12 @@ func (s *stubStore) FindWord(ctx context.Context, word, sourceLang string) (*db.
 func (s *stubStore) FindExpression(ctx context.Context, expr, sourceLang string) (*db.ExpressionRow, error) {
 	return nil, nil
 }
+func (s *stubStore) GetWord(ctx context.Context, id int64) (*db.WordRow, error) {
+	return &db.WordRow{ID: id, Word: "stub", SourceLanguage: "nl", TargetLanguage: "hu", CreatedAt: "2026-01-01T00:00:00Z", UpdatedAt: "2026-01-01T00:00:00Z"}, nil
+}
+func (s *stubStore) GetExpression(ctx context.Context, id int64) (*db.ExpressionRow, error) {
+	return &db.ExpressionRow{ID: id, Expression: "stub", SourceLanguage: "nl", TargetLanguage: "hu", CreatedAt: "2026-01-01T00:00:00Z", UpdatedAt: "2026-01-01T00:00:00Z"}, nil
+}
 func (s *stubStore) FindWords(ctx context.Context, word, sourceLang string) ([]db.WordRow, error) {
 	return nil, nil
 }

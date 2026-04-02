@@ -30,19 +30,23 @@
     </div>
     <fieldset id="db-type-filter">
       <legend class="block text-sm font-medium text-gray-700 mb-1">Type</legend>
-      <div class="flex gap-3">
-        <label class="flex items-center gap-1">
-          <input type="radio" name="type" value="words" checked
-                 hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-                 hx-include="#db-filters"> Words
-        </label>
-        <label class="flex items-center gap-1">
-          <input type="radio" name="type" value="expressions"
-                 hx-get="/api/expressions" hx-target="#entry-table" hx-swap="innerHTML"
-                 hx-include="#db-filters"> Expressions
-        </label>
-      </div>
+      <select name="type"
+              hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
+              hx-include="#db-filters"
+              class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="words" selected>Words</option>
+        <option value="expressions">Expressions</option>
+      </select>
     </fieldset>
+    <div>
+      <label for="db-tags" class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+      <input type="text" id="db-tags" name="tags"
+             hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
+             hx-trigger="keyup changed delay:300ms"
+             hx-include="#db-filters"
+             class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+             placeholder="e.g. HS2.2">
+    </div>
     <div class="flex-1 min-w-[200px]">
       <label for="db-search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
       <input type="text" id="db-search" name="search"

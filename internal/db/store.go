@@ -13,6 +13,12 @@ type Store interface {
 	// Returns the first matching entry or nil.
 	FindExpression(ctx context.Context, expr, sourceLang string) (*ExpressionRow, error)
 
+	// GetWord returns a single word entry by ID, or nil if not found.
+	GetWord(ctx context.Context, id int64) (*WordRow, error)
+
+	// GetExpression returns a single expression entry by ID, or nil if not found.
+	GetExpression(ctx context.Context, id int64) (*ExpressionRow, error)
+
 	// FindWords returns all matching word entries for a given word and source language.
 	// Returns an empty slice (not nil) when no entries exist.
 	FindWords(ctx context.Context, word, sourceLang string) ([]WordRow, error)
@@ -66,6 +72,7 @@ type ListFilter struct {
 	SourceLang string
 	TargetLang string
 	Search     string // matches against word/expression, definition, english, tags
+	Tags       string // filter entries containing this tag
 	Page       int    // 1-based
 	PageSize   int    // default 50
 }

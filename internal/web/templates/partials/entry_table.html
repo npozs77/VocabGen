@@ -60,13 +60,13 @@
 {{if gt .TotalPages 1}}
 <div class="flex gap-2 mt-4 justify-center">
   {{if gt .Page 1}}
-  <button hx-get="{{.BaseURL}}?page={{.PrevPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}"
+  <button hx-get="{{.BaseURL}}?page={{.PrevPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}&tags={{.Tags}}"
           hx-target="#entry-table" hx-swap="innerHTML"
           class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">← Prev</button>
   {{end}}
   <span class="px-3 py-1 text-sm text-gray-600">Page {{.Page}} of {{.TotalPages}}</span>
   {{if lt .Page .TotalPages}}
-  <button hx-get="{{.BaseURL}}?page={{.NextPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}"
+  <button hx-get="{{.BaseURL}}?page={{.NextPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}&tags={{.Tags}}"
           hx-target="#entry-table" hx-swap="innerHTML"
           class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">Next →</button>
   {{end}}

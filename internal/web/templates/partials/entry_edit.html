@@ -4,7 +4,7 @@
     <form class="space-y-3">
       <input type="hidden" name="id" value="{{.ID}}">
       {{if .Word}}
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-4 gap-3">
         <div>
           <label class="block text-xs font-medium text-gray-600">Word</label>
           <input type="text" name="word" value="{{.Word}}" class="w-full border rounded px-2 py-1 text-sm">
@@ -17,16 +17,30 @@
           <label class="block text-xs font-medium text-gray-600">Article</label>
           <input type="text" name="article" value="{{.Article}}" class="w-full border rounded px-2 py-1 text-sm">
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Register</label>
+          <input type="text" name="register" value="{{.Register}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
       </div>
       {{else}}
-      <div>
-        <label class="block text-xs font-medium text-gray-600">Expression</label>
-        <input type="text" name="expression" value="{{.Expression}}" class="w-full border rounded px-2 py-1 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Expression</label>
+          <input type="text" name="expression" value="{{.Expression}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Register</label>
+          <input type="text" name="register" value="{{.Register}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
       </div>
       {{end}}
       <div>
         <label class="block text-xs font-medium text-gray-600">Definition</label>
         <input type="text" name="definition" value="{{.Definition}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600">English Definition</label>
+        <input type="text" name="english_definition" value="{{.EnglishDefinition}}" class="w-full border rounded px-2 py-1 text-sm">
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-600">Example</label>
@@ -43,8 +57,42 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-600">Tags</label>
-        <input type="text" name="tags" value="{{.Tags}}" class="w-full border rounded px-2 py-1 text-sm">
+        <label class="block text-xs font-medium text-gray-600">Notes</label>
+        <input type="text" name="notes" value="{{.Notes}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600">Connotation</label>
+        <input type="text" name="connotation" value="{{.Connotation}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600">Contrastive Notes</label>
+        <input type="text" name="contrastive_notes" value="{{.ContrastiveNotes}}" class="w-full border rounded px-2 py-1 text-sm">
+      </div>
+      {{if .Word}}
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Collocations</label>
+          <input type="text" name="collocations" value="{{.Collocations}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Secondary Meanings</label>
+          <input type="text" name="secondary_meanings" value="{{.SecondaryMeanings}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+      </div>
+      {{end}}
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Tags</label>
+          <input type="text" name="tags" value="{{.Tags}}" class="w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Source Language</label>
+          <input type="text" name="source_language" value="{{.SourceLanguage}}" class="w-full border rounded px-2 py-1 text-sm bg-gray-50" readonly>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600">Target Language</label>
+          <input type="text" name="target_language" value="{{.TargetLanguage}}" class="w-full border rounded px-2 py-1 text-sm bg-gray-50" readonly>
+        </div>
       </div>
       <div class="flex gap-2">
         {{if .Word}}
@@ -62,6 +110,8 @@
                 hx-confirm="Are you sure?"
                 class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">Delete</button>
         {{end}}
+        <button type="button" onclick="document.getElementById('edit-row-{{.ID}}').remove()"
+                class="border border-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-50">Cancel</button>
       </div>
     </form>
   </td>

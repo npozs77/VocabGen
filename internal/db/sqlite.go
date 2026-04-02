@@ -72,6 +72,18 @@ func (s *SQLiteStore) FindWord(ctx context.Context, word, sourceLang string) (*W
 	)
 	return scanWordRow(row)
 }
+// GetWord returns a single word entry by ID, or nil if not found.
+func (s *SQLiteStore) GetWord(ctx context.Context, id int64) (*WordRow, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, word, part_of_speech, article, definition, english_definition,
+			example, english, target_translation, notes, connotation, register,
+			collocations, contrastive_notes, secondary_meanings, tags,
+			source_language, target_language, created_at, updated_at
+		FROM words WHERE id = ?`,
+		id,
+	)
+	return scanWordRow(row)
+}
 
 // FindWords returns all matching word entries for a given word and source language.
 // Returns an empty slice (not nil) when no entries exist.
@@ -169,6 +181,18 @@ func (s *SQLiteStore) FindExpression(ctx context.Context, expr, sourceLang strin
 			source_language, target_language, created_at, updated_at
 		FROM expressions WHERE expression = ? AND source_language = ? LIMIT 1`,
 		expr, sourceLang,
+	)
+	return scanExpressionRow(row)
+}
+// GetExpression returns a single expression entry by ID, or nil if not found.
+func (s *SQLiteStore) GetExpression(ctx context.Context, id int64) (*ExpressionRow, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, expression, definition, english_definition,
+			example, english, target_translation, notes, connotation, register,
+			contrastive_notes, tags,
+			source_language, target_language, created_at, updated_at
+		FROM expressions WHERE id = ?`,
+		id,
 	)
 	return scanExpressionRow(row)
 }
@@ -608,6 +632,10 @@ func buildWordFilter(f ListFilter) (string, []any) {
 		pattern := "%" + f.Search + "%"
 		args = append(args, pattern, pattern, pattern, pattern)
 	}
+	if f.Tags != "" {
+		clauses = append(clauses, "(',' || tags || ',') LIKE ?")
+		args = append(args, "%,"+f.Tags+",%")
+	}
 
 	if len(clauses) == 0 {
 		return "", nil
@@ -632,6 +660,10 @@ func buildExpressionFilter(f ListFilter) (string, []any) {
 		clauses = append(clauses, "(expression LIKE ? OR definition LIKE ? OR english LIKE ? OR tags LIKE ?)")
 		pattern := "%" + f.Search + "%"
 		args = append(args, pattern, pattern, pattern, pattern)
+	}
+	if f.Tags != "" {
+		clauses = append(clauses, "(',' || tags || ',') LIKE ?")
+		args = append(args, "%,"+f.Tags+",%")
 	}
 
 	if len(clauses) == 0 {
