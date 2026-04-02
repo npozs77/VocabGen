@@ -28,11 +28,20 @@ tar xzf vocabgen_darwin_arm64.tar.gz
 chmod +x vocabgen
 sudo mv vocabgen /usr/local/bin/
 
+# macOS (Intel)
+curl -LO https://github.com/user/vocabgen/releases/latest/download/vocabgen_darwin_amd64.tar.gz
+tar xzf vocabgen_darwin_amd64.tar.gz
+chmod +x vocabgen
+sudo mv vocabgen /usr/local/bin/
+
 # Linux (amd64)
 curl -LO https://github.com/user/vocabgen/releases/latest/download/vocabgen_linux_amd64.tar.gz
 tar xzf vocabgen_linux_amd64.tar.gz
 chmod +x vocabgen
 sudo mv vocabgen /usr/local/bin/
+
+# Windows (amd64)
+# Download vocabgen_windows_amd64.zip from the Releases page, extract, and add to PATH.
 ```
 
 ## First Run
@@ -195,11 +204,14 @@ Via the web UI database page: export filtered entries as an `.xlsx` file. The do
 
 ```bash
 # Uses AWS credential chain (env vars, ~/.aws/credentials, IAM role)
-vocabgen lookup "werk" -l nl
+# For cross-region inference profiles, prefix with region (e.g., us.)
+vocabgen lookup "werk" -l nl --model-id us.anthropic.claude-sonnet-4-20250514-v1:0
 
 # Specify profile and region
-vocabgen lookup "werk" -l nl --profile my-profile --region eu-west-1
+vocabgen lookup "werk" -l nl --profile my-profile --region us-east-1 --model-id us.anthropic.claude-3-5-haiku-20241022-v1:0
 ```
+
+> **Note:** Bedrock model IDs differ from direct Anthropic API IDs. Use the Bedrock format (e.g., `us.anthropic.claude-sonnet-4-20250514-v1:0`) not the Anthropic format (`claude-sonnet-4-20250514`). For cross-region inference profiles, include the region prefix (`us.`).
 
 #### AWS IAM: Least Privilege Setup
 

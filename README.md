@@ -102,7 +102,7 @@ vocabgen serve --port 3000    # custom port
 
 | Provider | Auth | Example |
 |----------|------|---------|
-| Bedrock (default) | AWS credential chain | `vocabgen lookup "word" -l nl --profile my-profile --region eu-west-1` |
+| Bedrock (default) | AWS credential chain | `vocabgen lookup "word" -l nl --profile my-profile --region us-east-1 --model-id us.anthropic.claude-sonnet-4-20250514-v1:0` |
 | OpenAI | API key | `vocabgen lookup "word" -l nl --provider openai --api-key sk-...` |
 | Anthropic | API key | `vocabgen lookup "word" -l nl --provider anthropic --api-key sk-ant-...` |
 | Vertex AI | Google ADC | `vocabgen lookup "word" -l nl --provider vertexai --gcp-project my-proj` |
@@ -129,7 +129,7 @@ aws_region: us-east-1
 default_source_language: nl
 default_target_language: hu
 db_path: ~/.vocabgen/vocabgen.db
-# model_id: claude-sonnet-4-20250514
+# model_id: us.anthropic.claude-sonnet-4-20250514-v1:0  # Bedrock cross-region inference profile
 # aws_profile: my-profile
 # base_url: http://localhost:11434/v1
 # gcp_project: my-project
