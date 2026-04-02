@@ -140,6 +140,7 @@ func (s *Server) handleLookupHTML(w http.ResponseWriter, r *http.Request) {
 	renderPartial(w, "lookup_result", map[string]any{
 		"Entry":     result.Entry,
 		"FromCache": result.FromCache,
+		"Warning":   result.Warning,
 	})
 }
 

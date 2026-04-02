@@ -107,6 +107,8 @@ func (s *Server) registerRoutes() {
 	// Database API
 	s.mux.HandleFunc("GET /api/words", s.handleListWords)
 	s.mux.HandleFunc("GET /api/expressions", s.handleListExpressions)
+	s.mux.HandleFunc("GET /api/words/{id}/edit", s.handleEditWord)
+	s.mux.HandleFunc("GET /api/expressions/{id}/edit", s.handleEditExpression)
 	s.mux.HandleFunc("PUT /api/words/{id}", s.handleUpdateWord)
 	s.mux.HandleFunc("PUT /api/expressions/{id}", s.handleUpdateExpression)
 	s.mux.HandleFunc("DELETE /api/words/{id}", s.handleDeleteWord)

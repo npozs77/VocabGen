@@ -444,3 +444,78 @@ func TestImportWords_SkipsDuplicates(t *testing.T) {
 		t.Errorf("failed = %d, want 0", failed)
 	}
 }
+
+func TestGetWord_ByID(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	row := &WordRow{
+		Word: "huis", PartOfSpeech: "znw", Article: "het",
+		Definition: "gebouw", Example: "Het huis is groot.",
+		English: "house", TargetTranslation: "ház",
+		SourceLanguage: "nl", TargetLanguage: "hu",
+		CreatedAt: "2026-01-01T00:00:00Z", UpdatedAt: "2026-01-01T00:00:00Z",
+	}
+	if err := store.InsertWord(ctx, row); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	// Find the ID
+	found, err := store.FindWord(ctx, "huis", "nl")
+	if err != nil || found == nil {
+		t.Fatalf("FindWord: %v", err)
+	}
+
+	// GetWord by ID
+	got, err := store.GetWord(ctx, found.ID)
+	if err != nil {
+		t.Fatalf("GetWord: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetWord returned nil")
+	}
+	if got.Word != "huis" || got.ID != found.ID {
+		t.Errorf("GetWord returned wrong entry: got %q (ID %d), want %q (ID %d)", got.Word, got.ID, "huis", found.ID)
+	}
+
+	// GetWord with non-existent ID
+	missing, err := store.GetWord(ctx, 99999)
+	if err != nil {
+		t.Fatalf("GetWord non-existent: %v", err)
+	}
+	if missing != nil {
+		t.Error("GetWord should return nil for non-existent ID")
+	}
+}
+
+func TestGetExpression_ByID(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	row := &ExpressionRow{
+		Expression: "op de hoogte", Definition: "informed",
+		Example: "Ik ben op de hoogte.", English: "up to date",
+		TargetTranslation: "naprakész",
+		SourceLanguage:    "nl", TargetLanguage: "hu",
+		CreatedAt: "2026-01-01T00:00:00Z", UpdatedAt: "2026-01-01T00:00:00Z",
+	}
+	if err := store.InsertExpression(ctx, row); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	found, err := store.FindExpression(ctx, "op de hoogte", "nl")
+	if err != nil || found == nil {
+		t.Fatalf("FindExpression: %v", err)
+	}
+
+	got, err := store.GetExpression(ctx, found.ID)
+	if err != nil {
+		t.Fatalf("GetExpression: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetExpression returned nil")
+	}
+	if got.Expression != "op de hoogte" {
+		t.Errorf("got %q, want %q", got.Expression, "op de hoogte")
+	}
+}

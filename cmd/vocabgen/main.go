@@ -335,6 +335,10 @@ var lookupCmd = &cobra.Command{
 			slog.Info("conflict resolved", "strategy", onConflict)
 		}
 
+		if result.Warning != "" {
+			fmt.Fprintln(os.Stderr, result.Warning)
+		}
+
 		return printJSON(result.Entry)
 	},
 }

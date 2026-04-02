@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/user/vocabgen/internal/db"
@@ -950,5 +951,109 @@ func TestBatchSkipsEmptyTokens(t *testing.T) {
 	}
 	if result.Processed != 2 {
 		t.Fatalf("expected 2 processed, got %d", result.Processed)
+	}
+}
+
+func TestIsValidToken(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"simple word", "gezellig", true},
+		{"word with spaces", "op de hoogte", true},
+		{"word with hyphen", "niet-roker", true},
+		{"word with apostrophe", "s'avonds", true},
+		{"word with parens", "lopen (liep)", true},
+		{"unicode letters", "ő ű ë ï", true},
+		{"cyrillic", "делать", true},
+		{"contains digit", "test123", false},
+		{"contains special char", "hello@world", false},
+		{"contains exclamation", "wow!", false},
+		{"only digits", "12345", false},
+		{"mixed valid and digit", "werk2", false},
+		{"empty string", "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isValidToken(tc.input)
+			if got != tc.want {
+				t.Errorf("isValidToken(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCheckHallucination(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		example  string
+		wantWarn bool
+	}{
+		{"token in example", "huis", "Het huis is groot.", false},
+		{"token not in example", "ervel", "De erwten zijn lekker.", true},
+		{"empty example", "huis", "", false},
+		{"prefix match (conjugation)", "werken", "Hij werkt elke dag.", false},
+		{"case insensitive", "Huis", "het huis is groot", false},
+		{"dash example", "werk", "—", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := checkHallucination(tc.token, tc.example)
+			if (got != "") != tc.wantWarn {
+				t.Errorf("checkHallucination(%q, %q) = %q, wantWarn=%v", tc.token, tc.example, got, tc.wantWarn)
+			}
+		})
+	}
+}
+
+func TestCheckNonWord(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		entry    *output.Entry
+		wantWarn bool
+	}{
+		{"valid word", "huis", &output.Entry{Word: "huis", Type: "znw", Definition: "een gebouw", Example: "Het huis is groot."}, false},
+		{"type is dash", "xyz", &output.Entry{Word: "xyz", Type: "—", Definition: "not valid", Example: "—"}, true},
+		{"type is empty", "xyz", &output.Entry{Word: "xyz", Type: "", Definition: "something", Example: "test"}, true},
+		{"definition says not valid", "abc", &output.Entry{Word: "abc", Type: "znw", Definition: "Dit is geen geldig Nederlands woord", Example: "test"}, true},
+		{"example is dash", "abc", &output.Entry{Word: "abc", Type: "znw", Definition: "something", Example: "—"}, true},
+		{"example is empty", "abc", &output.Entry{Word: "abc", Type: "znw", Definition: "something", Example: ""}, true},
+		{"expression skips type check", "op de hoogte", &output.Entry{Expression: "op de hoogte", Type: "", Definition: "iets weten", Example: "test"}, false},
+		{"nil entry", "test", nil, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := checkNonWord(tc.token, tc.entry)
+			if (got != "") != tc.wantWarn {
+				t.Errorf("checkNonWord(%q) = %q, wantWarn=%v", tc.token, got, tc.wantWarn)
+			}
+		})
+	}
+}
+
+func TestLookup_RejectsInvalidToken(t *testing.T) {
+	store, cleanup, err := newTempStore()
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	_, err = Lookup(ctx, store, LookupParams{
+		SourceLang: "nl",
+		LookupType: "word",
+		Text:       "test123",
+		Provider:   &mockProvider{},
+		ModelID:    "test",
+		TargetLang: "hu",
+	})
+	if err == nil {
+		t.Fatal("expected error for token with digits, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid input") {
+		t.Errorf("expected 'invalid input' error, got: %v", err)
 	}
 }

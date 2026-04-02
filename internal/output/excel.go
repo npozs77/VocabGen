@@ -57,6 +57,42 @@ func ExportToExcel(entries []Entry, mode string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// ExportBothToExcel writes words and expressions to separate sheets in one .xlsx file.
+func ExportBothToExcel(words []Entry, expressions []Entry) ([]byte, error) {
+	f := excelize.NewFile()
+	defer f.Close()
+
+	// Words sheet (rename default Sheet1)
+	f.SetSheetName("Sheet1", "Words")
+	writeSheet(f, "Words", wordsColumns, words, "words")
+
+	// Expressions sheet
+	if _, err := f.NewSheet("Expressions"); err != nil {
+		return nil, err
+	}
+	writeSheet(f, "Expressions", expressionsColumns, expressions, "expressions")
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func writeSheet(f *excelize.File, sheet string, cols []string, entries []Entry, mode string) {
+	for i, h := range cols {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	for rowIdx, e := range entries {
+		row := entryToRow(e, mode)
+		for colIdx, val := range row {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
+			f.SetCellValue(sheet, cell, val)
+		}
+	}
+}
+
 // entryToRow returns the cell values for an Entry in column order.
 func entryToRow(e Entry, mode string) []string {
 	if mode == "expressions" {
