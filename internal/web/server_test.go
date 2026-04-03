@@ -165,7 +165,7 @@ func TestAPIRoutesRegistered(t *testing.T) {
 		{"health", http.MethodGet, "/api/health", http.StatusOK},
 		{"words", http.MethodGet, "/api/words", http.StatusOK},
 		{"expressions", http.MethodGet, "/api/expressions", http.StatusOK},
-		{"batch-stream", http.MethodGet, "/api/batch/stream", http.StatusOK},
+		{"batch-stream", http.MethodPost, "/api/batch/stream", 0},
 		// POST without body → expect 400 (bad request) not 404/501
 		{"lookup", http.MethodPost, "/api/lookup", http.StatusBadRequest},
 		{"lookup-html", http.MethodPost, "/api/lookup/html", 0},

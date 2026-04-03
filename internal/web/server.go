@@ -97,7 +97,7 @@ func (s *Server) registerRoutes() {
 	// Batch API
 	s.mux.HandleFunc("POST /api/batch", s.handleBatchJSON)
 	s.mux.HandleFunc("POST /api/batch/html", s.handleBatchHTML)
-	s.mux.HandleFunc("GET /api/batch/stream", s.handleBatchStream)
+	s.mux.HandleFunc("POST /api/batch/stream", s.handleBatchStream)
 
 	// Config API
 	s.mux.HandleFunc("GET /api/config", s.handleGetConfig)

@@ -499,6 +499,12 @@ func ResolveConflict(ctx context.Context, store db.Store, strategy ConflictStrat
 	}
 }
 
+// ProgressFunc is called after each item during batch processing.
+// current is the 1-based index of the item just processed, total is the
+// total number of items, token is the raw input token, and status describes
+// the outcome (e.g. "processed", "cached", "failed", "skipped").
+type ProgressFunc func(current, total int, token, status string)
+
 // BatchParams holds all parameters for batch processing.
 type BatchParams struct {
 	SourceLang string
@@ -512,6 +518,7 @@ type BatchParams struct {
 	DryRun     bool
 	Timeout    time.Duration
 	OnConflict ConflictStrategy // default: "skip"
+	OnProgress ProgressFunc     // optional progress callback
 }
 
 // BatchResult holds the outcome of batch processing.
@@ -532,6 +539,13 @@ type BatchError struct {
 	Message string
 }
 
+// reportProgress calls the progress callback if set.
+func reportProgress(fn ProgressFunc, current, total int, token, status string) {
+	if fn != nil {
+		fn(current, total, token, status)
+	}
+}
+
 // ProcessBatch processes a list of tokens through the LLM with caching.
 func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*BatchResult, error) {
 	if params.OnConflict == "" {
@@ -543,8 +557,9 @@ func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*Bat
 
 	result := &BatchResult{}
 	newCount := 0 // tracks items counting toward limit
+	total := len(params.Tokens)
 
-	for _, tc := range params.Tokens {
+	for i, tc := range params.Tokens {
 		// Normalize
 		var normalized string
 		if params.Mode == "words" {
@@ -554,12 +569,14 @@ func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*Bat
 		}
 		if normalized == "" {
 			result.Skipped++
+			reportProgress(params.OnProgress, i+1, total, tc.Token, "skipped")
 			continue
 		}
 
 		// Dry-run: just count, no LLM or DB
 		if params.DryRun {
 			result.Processed++
+			reportProgress(params.OnProgress, i+1, total, normalized, "processed")
 			continue
 		}
 
@@ -568,12 +585,38 @@ func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*Bat
 			break
 		}
 
+		// Snapshot counters to determine outcome after processing
+		prevProcessed := result.Processed
+		prevCached := result.Cached
+		prevFailed := result.Failed
+		prevReplaced := result.Replaced
+		prevAdded := result.Added
+		prevSkipped := result.Skipped
+
 		// Cache check + process
 		if params.Mode == "words" {
 			processBatchWord(ctx, store, params, sourceLang, targetLang, normalized, tc.Context, result, &newCount)
 		} else {
 			processBatchExpression(ctx, store, params, sourceLang, targetLang, normalized, tc.Context, result, &newCount)
 		}
+
+		// Determine status from counter changes
+		status := "processed"
+		switch {
+		case result.Cached > prevCached:
+			status = "cached"
+		case result.Failed > prevFailed:
+			status = "failed"
+		case result.Replaced > prevReplaced:
+			status = "replaced"
+		case result.Added > prevAdded:
+			status = "added"
+		case result.Skipped > prevSkipped:
+			status = "skipped"
+		case result.Processed > prevProcessed:
+			status = "processed"
+		}
+		reportProgress(params.OnProgress, i+1, total, normalized, status)
 	}
 
 	return result, nil

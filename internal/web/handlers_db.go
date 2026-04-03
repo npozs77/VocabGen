@@ -265,7 +265,26 @@ func (s *Server) handleEditExpression(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := renderPartial(w, "entry_edit", expr); err != nil {
+	// Convert to map so template can check {{if .Word}} without error
+	data := map[string]any{
+		"ID":                expr.ID,
+		"Word":              "", // empty → template takes the expression branch
+		"Expression":        expr.Expression,
+		"Definition":        expr.Definition,
+		"EnglishDefinition": expr.EnglishDefinition,
+		"Example":           expr.Example,
+		"English":           expr.English,
+		"TargetTranslation": expr.TargetTranslation,
+		"Notes":             expr.Notes,
+		"Connotation":       expr.Connotation,
+		"Register":          expr.Register,
+		"ContrastiveNotes":  expr.ContrastiveNotes,
+		"Tags":              expr.Tags,
+		"SourceLanguage":    expr.SourceLanguage,
+		"TargetLanguage":    expr.TargetLanguage,
+	}
+
+	if err := renderPartial(w, "entry_edit", data); err != nil {
 		s.logger.Error("render entry_edit failed", "error", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}

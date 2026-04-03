@@ -195,7 +195,7 @@ func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleBatchStream handles GET /api/batch/stream — SSE endpoint for batch progress.
+// handleBatchStream handles POST /api/batch/stream — SSE endpoint for batch progress.
 func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -203,19 +203,115 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintf(w, "event: error\ndata: {\"message\":\"Upload exceeds 10 MB limit\"}\n\n")
+		flusher.Flush()
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintf(w, "event: error\ndata: {\"message\":\"CSV file is required\"}\n\n")
+		flusher.Flush()
+		return
+	}
+	defer file.Close()
+
+	tokens, err := readCSVFromReader(file)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/event-stream")
+		data, _ := json.Marshal(map[string]string{"message": err.Error()})
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
+	sourceLang := r.FormValue("source_language")
+	if sourceLang == "" {
+		sourceLang = s.cfg.DefaultSourceLanguage
+	}
+	targetLang := r.FormValue("target_language")
+	if targetLang == "" {
+		targetLang = s.cfg.DefaultTargetLanguage
+	}
+	mode := r.FormValue("mode")
+	if mode == "" {
+		mode = "words"
+	}
+	tags := r.FormValue("tags")
+	onConflictStr := r.FormValue("on_conflict")
+	if onConflictStr == "" {
+		onConflictStr = "skip"
+	}
+	onConflict, err := service.ParseConflictStrategy(onConflictStr)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/event-stream")
+		data, _ := json.Marshal(map[string]string{"message": err.Error()})
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
+	provider, err := s.createProvider()
+	if err != nil {
+		w.Header().Set("Content-Type", "text/event-stream")
+		data, _ := json.Marshal(map[string]string{"message": "Provider error: " + err.Error()})
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// Send an initial event to confirm connection
-	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\"}\n\n")
+	// Send initial connected event
+	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"total\":%d}\n\n", len(tokens))
 	flusher.Flush()
 
-	// SSE endpoint waits for batch processing to be triggered separately.
-	// For now, send a complete event since batch processing is synchronous.
+	// Progress callback streams SSE events per item
+	progressFn := func(current, total int, token, status string) {
+		data, _ := json.Marshal(map[string]any{
+			"current": current,
+			"total":   total,
+			"token":   token,
+			"status":  status,
+		})
+		fmt.Fprintf(w, "event: progress\ndata: %s\n\n", data)
+		flusher.Flush()
+	}
+
+	result, err := service.ProcessBatch(r.Context(), s.store, service.BatchParams{
+		SourceLang: sourceLang,
+		Mode:       mode,
+		Tokens:     tokens,
+		Provider:   provider,
+		ModelID:    s.cfg.ModelID,
+		TargetLang: targetLang,
+		Tags:       tags,
+		OnConflict: onConflict,
+		OnProgress: progressFn,
+	})
+	if err != nil {
+		s.logger.Error("batch stream processing failed", "error", err)
+		data, _ := json.Marshal(map[string]string{"message": err.Error()})
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
+	// Send final complete event with summary
 	data, _ := json.Marshal(map[string]any{
-		"status":  "complete",
-		"message": "Use POST /api/batch/html for batch processing",
+		"processed": result.Processed,
+		"cached":    result.Cached,
+		"failed":    result.Failed,
+		"skipped":   result.Skipped,
+		"replaced":  result.Replaced,
+		"added":     result.Added,
+		"errors":    result.Errors,
 	})
 	fmt.Fprintf(w, "event: complete\ndata: %s\n\n", data)
 	flusher.Flush()
