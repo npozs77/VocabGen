@@ -2,8 +2,8 @@
 {{define "content"}}
 <h1 class="text-2xl font-bold mb-6">Batch Processing</h1>
 
-<form hx-post="/api/batch/html" hx-target="#batch-result" hx-swap="innerHTML"
-      hx-encoding="multipart/form-data" class="space-y-4 max-w-lg">
+<form id="batch-form" class="space-y-4 max-w-lg"
+      enctype="multipart/form-data">
   <div>
     <label for="file" class="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
     <input type="file" id="file" name="file" accept=".csv" required
@@ -58,11 +58,180 @@
            placeholder="e.g. chapter-1, B2">
   </div>
 
-  <button type="submit"
+  <button type="submit" id="batch-submit"
           class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
     Process Batch
   </button>
 </form>
 
+<!-- Progress indicator (hidden by default) -->
+<div id="batch-progress" class="mt-6 max-w-lg hidden">
+  <div class="flex items-center gap-3 mb-2">
+    <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    <span id="progress-text" class="text-sm text-gray-700">Starting batch processing...</span>
+  </div>
+  <div class="w-full bg-gray-200 rounded-full h-2.5">
+    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+  </div>
+  <div id="progress-token" class="text-xs text-gray-500 mt-1"></div>
+</div>
+
 <div id="batch-result" class="mt-8"></div>
+
+<script>
+(function() {
+  var form = document.getElementById('batch-form');
+  var submitBtn = document.getElementById('batch-submit');
+  var progressDiv = document.getElementById('batch-progress');
+  var progressText = document.getElementById('progress-text');
+  var progressBar = document.getElementById('progress-bar');
+  var progressToken = document.getElementById('progress-token');
+  var resultDiv = document.getElementById('batch-result');
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    var fileInput = document.getElementById('file');
+    if (!fileInput.files.length) return;
+
+    // Reset UI
+    resultDiv.innerHTML = '';
+    progressDiv.classList.remove('hidden');
+    progressText.textContent = 'Starting batch processing...';
+    progressBar.style.width = '0%';
+    progressToken.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+    var formData = new FormData(form);
+
+    // Use fetch with ReadableStream to process SSE from POST
+    fetch('/api/batch/stream', {
+      method: 'POST',
+      body: formData
+    }).then(function(response) {
+      if (!response.ok) {
+        throw new Error('Server error: ' + response.status);
+      }
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+
+      function processChunk(result) {
+        if (result.done) {
+          onDone();
+          return;
+        }
+        buffer += decoder.decode(result.value, {stream: true});
+        var lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        var eventType = '';
+        var dataStr = '';
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (line.indexOf('event: ') === 0) {
+            eventType = line.substring(7);
+          } else if (line.indexOf('data: ') === 0) {
+            dataStr = line.substring(6);
+            if (eventType && dataStr) {
+              handleEvent(eventType, dataStr);
+              eventType = '';
+              dataStr = '';
+            }
+          }
+        }
+        return reader.read().then(processChunk);
+      }
+
+      return reader.read().then(processChunk);
+    }).catch(function(err) {
+      progressDiv.classList.add('hidden');
+      resultDiv.innerHTML = '<div class="bg-red-50 border border-red-200 text-red-700 rounded p-4">' + escapeHtml(err.message) + '</div>';
+      resetButton();
+    });
+  });
+
+  function handleEvent(type, dataStr) {
+    try {
+      var data = JSON.parse(dataStr);
+    } catch(e) {
+      return;
+    }
+
+    if (type === 'progress') {
+      var pct = Math.round((data.current / data.total) * 100);
+      progressBar.style.width = pct + '%';
+      progressText.textContent = 'Processing ' + data.current + '/' + data.total + '...';
+      progressToken.textContent = data.token + ' \u2014 ' + data.status;
+    } else if (type === 'complete') {
+      progressDiv.classList.add('hidden');
+      renderSummary(data);
+      resetButton();
+    } else if (type === 'error') {
+      progressDiv.classList.add('hidden');
+      resultDiv.innerHTML = '<div class="bg-red-50 border border-red-200 text-red-700 rounded p-4">' + escapeHtml(data.message || 'Unknown error') + '</div>';
+      resetButton();
+    }
+  }
+
+  function onDone() {
+    // Stream ended — if progress is still showing, hide it
+    if (!progressDiv.classList.contains('hidden')) {
+      progressDiv.classList.add('hidden');
+    }
+    resetButton();
+  }
+
+  function resetButton() {
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+
+  function renderSummary(data) {
+    var html = '<div class="space-y-4">';
+    html += '<div class="grid grid-cols-3 gap-4 text-center">';
+    html += statCard(data.processed || 0, 'Processed', 'green');
+    html += statCard(data.cached || 0, 'Cached', 'gray');
+    html += statCard(data.failed || 0, 'Failed', 'red');
+    html += '</div>';
+    if ((data.replaced || 0) > 0) {
+      html += '<div class="bg-orange-50 border border-orange-200 rounded p-3 text-center">';
+      html += '<div class="text-lg font-bold text-orange-700">' + data.replaced + '</div>';
+      html += '<div class="text-sm text-orange-600">Replaced</div></div>';
+    }
+    if ((data.added || 0) > 0) {
+      html += '<div class="bg-blue-50 border border-blue-200 rounded p-3 text-center">';
+      html += '<div class="text-lg font-bold text-blue-700">' + data.added + '</div>';
+      html += '<div class="text-sm text-blue-600">Added</div></div>';
+    }
+    if (data.errors && data.errors.length > 0) {
+      html += '<div><h3 class="font-medium text-gray-700 mb-2">Failed Items</h3>';
+      html += '<ul class="bg-red-50 border border-red-200 rounded divide-y divide-red-100">';
+      for (var i = 0; i < data.errors.length; i++) {
+        html += '<li class="px-4 py-2 text-sm"><span class="font-medium text-red-800">' + escapeHtml(data.errors[i].Token || data.errors[i].token || '') + '</span>';
+        html += ' <span class="text-red-600">\u2014 ' + escapeHtml(data.errors[i].Message || data.errors[i].message || '') + '</span></li>';
+      }
+      html += '</ul></div>';
+    }
+    html += '</div>';
+    resultDiv.innerHTML = html;
+  }
+
+  function statCard(value, label, color) {
+    return '<div class="bg-' + color + '-50 border border-' + color + '-200 rounded p-3">'
+      + '<div class="text-2xl font-bold text-' + color + '-700">' + value + '</div>'
+      + '<div class="text-sm text-' + color + '-600">' + label + '</div></div>';
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+})();
+</script>
 {{end}}

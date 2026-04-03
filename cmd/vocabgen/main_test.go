@@ -343,8 +343,8 @@ func TestCreateProviderOpenAIRequiresAPIKey(t *testing.T) {
 
 	// Clear env var to ensure no fallback
 	origKey := os.Getenv("OPENAI_API_KEY")
-	os.Unsetenv("OPENAI_API_KEY")
-	defer os.Setenv("OPENAI_API_KEY", origKey)
+	_ = os.Unsetenv("OPENAI_API_KEY")
+	defer func() { _ = os.Setenv("OPENAI_API_KEY", origKey) }()
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("api-key", "", "")
@@ -368,8 +368,8 @@ func TestCreateProviderAnthropicRequiresAPIKey(t *testing.T) {
 	defer func() { appConfig = saved }()
 
 	origKey := os.Getenv("ANTHROPIC_API_KEY")
-	os.Unsetenv("ANTHROPIC_API_KEY")
-	defer os.Setenv("ANTHROPIC_API_KEY", origKey)
+	_ = os.Unsetenv("ANTHROPIC_API_KEY")
+	defer func() { _ = os.Setenv("ANTHROPIC_API_KEY", origKey) }()
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("api-key", "", "")
@@ -394,8 +394,8 @@ func TestCreateProviderVertexAIRequiresGCPProject(t *testing.T) {
 	defer func() { appConfig = saved }()
 
 	origProject := os.Getenv("GCP_PROJECT")
-	os.Unsetenv("GCP_PROJECT")
-	defer os.Setenv("GCP_PROJECT", origProject)
+	_ = os.Unsetenv("GCP_PROJECT")
+	defer func() { _ = os.Setenv("GCP_PROJECT", origProject) }()
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("api-key", "", "")
@@ -417,8 +417,8 @@ func TestCreateProviderOpenAIAllowsNoKeyWithBaseURL(t *testing.T) {
 	defer func() { appConfig = saved }()
 
 	origKey := os.Getenv("OPENAI_API_KEY")
-	os.Unsetenv("OPENAI_API_KEY")
-	defer os.Setenv("OPENAI_API_KEY", origKey)
+	_ = os.Unsetenv("OPENAI_API_KEY")
+	defer func() { _ = os.Setenv("OPENAI_API_KEY", origKey) }()
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("api-key", "", "")
@@ -440,10 +440,9 @@ func TestCreateProviderAPIKeyFlagOverridesEnv(t *testing.T) {
 	appConfig.BaseURL = ""
 	defer func() { appConfig = saved }()
 
-	// Set env var to one value
 	origKey := os.Getenv("OPENAI_API_KEY")
-	os.Setenv("OPENAI_API_KEY", "env-key")
-	defer os.Setenv("OPENAI_API_KEY", origKey)
+	_ = os.Setenv("OPENAI_API_KEY", "env-key")
+	defer func() { _ = os.Setenv("OPENAI_API_KEY", origKey) }()
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("api-key", "", "")
@@ -469,7 +468,7 @@ func TestOpenStoreCreatesDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openStore failed: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Verify the DB file was created
 	if _, err := os.Stat(tmpDir + "/test.db"); os.IsNotExist(err) {
@@ -491,7 +490,7 @@ func TestOpenStoreExpandsTilde(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openStore failed: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 }
 
 func TestCLIBatchInputFileNotFound(t *testing.T) {
@@ -531,8 +530,8 @@ func TestCLIErrorMessagesAreActionable(t *testing.T) {
 			// Clear relevant env vars
 			for _, env := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GCP_PROJECT"} {
 				orig := os.Getenv(env)
-				os.Unsetenv(env)
-				defer os.Setenv(env, orig)
+				_ = os.Unsetenv(env)
+				defer func() { _ = os.Setenv(env, orig) }()
 			}
 
 			cmd := &cobra.Command{}

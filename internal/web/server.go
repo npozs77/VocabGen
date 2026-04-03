@@ -97,7 +97,7 @@ func (s *Server) registerRoutes() {
 	// Batch API
 	s.mux.HandleFunc("POST /api/batch", s.handleBatchJSON)
 	s.mux.HandleFunc("POST /api/batch/html", s.handleBatchHTML)
-	s.mux.HandleFunc("GET /api/batch/stream", s.handleBatchStream)
+	s.mux.HandleFunc("POST /api/batch/stream", s.handleBatchStream)
 
 	// Config API
 	s.mux.HandleFunc("GET /api/config", s.handleGetConfig)
@@ -143,14 +143,14 @@ func (s *Server) handlePage(name string) http.HandlerFunc {
 // handleHealth returns a simple health check response.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // handleLanguages returns the supported languages list as JSON.
 func (s *Server) handleLanguages(w http.ResponseWriter, r *http.Request) {
 	langs := service.GetSupportedLanguages()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(langs)
+	_ = json.NewEncoder(w).Encode(langs)
 }
 
 // createProvider creates an LLM provider from the current config.
@@ -189,14 +189,14 @@ func (s *Server) createProvider() (llm.Provider, error) {
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"detail": msg})
+	_ = json.NewEncoder(w).Encode(map[string]string{"detail": msg})
 }
 
 // writeJSON writes a JSON response.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // decodeJSONBody decodes a JSON request body into v.

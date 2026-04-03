@@ -144,7 +144,7 @@ func (p *OpenAIProvider) doRequest(ctx context.Context, url string, body []byte)
 			Err:      err,
 		}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

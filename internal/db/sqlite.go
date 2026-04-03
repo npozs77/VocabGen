@@ -100,7 +100,7 @@ func (s *SQLiteStore) FindWords(ctx context.Context, word, sourceLang string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]WordRow, 0)
 	for rows.Next() {
@@ -212,7 +212,7 @@ func (s *SQLiteStore) FindExpressions(ctx context.Context, expr, sourceLang stri
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]ExpressionRow, 0)
 	for rows.Next() {
@@ -314,7 +314,7 @@ func (s *SQLiteStore) ListWords(ctx context.Context, filter ListFilter) ([]WordR
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]WordRow, 0)
 	for rows.Next() {
@@ -362,7 +362,7 @@ func (s *SQLiteStore) ListExpressions(ctx context.Context, filter ListFilter) ([
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]ExpressionRow, 0)
 	for rows.Next() {
@@ -503,13 +503,13 @@ func (s *SQLiteStore) BackupTo(ctx context.Context, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("open source db: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	dst, err := os.Create(destPath)
 	if err != nil {
 		return fmt.Errorf("create backup file: %w", err)
 	}
-	defer dst.Close()
+	defer func() { _ = dst.Close() }()
 
 	if _, err := io.Copy(dst, src); err != nil {
 		return fmt.Errorf("copy database: %w", err)
@@ -548,13 +548,13 @@ func (s *SQLiteStore) RestoreFrom(ctx context.Context, srcPath string) error {
 	if err != nil {
 		return fmt.Errorf("open backup: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	dst, err := os.Create(s.dbPath)
 	if err != nil {
 		return fmt.Errorf("overwrite db: %w", err)
 	}
-	defer dst.Close()
+	defer func() { _ = dst.Close() }()
 
 	if _, err := io.Copy(dst, src); err != nil {
 		return fmt.Errorf("copy backup: %w", err)

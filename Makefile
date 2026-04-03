@@ -15,7 +15,7 @@ coverage:
 	@go tool cover -func=coverage.out | tail -1
 
 lint:
-	staticcheck ./...
+	golangci-lint run ./...
 
 vet:
 	go vet ./...
@@ -36,6 +36,9 @@ quality:
 	@echo "=== Format Check ==="
 	@test -z "$$(gofmt -l .)" || { echo "Files not formatted:"; gofmt -l .; exit 1; }
 	@echo "All files formatted."
+	@echo ""
+	@echo "=== Lint ==="
+	golangci-lint run ./...
 	@echo ""
 	@echo "=== Tests + Coverage ==="
 	go test -race -coverprofile=coverage.out ./...

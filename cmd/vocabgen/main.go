@@ -255,7 +255,7 @@ var lookupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		var conflictStrategy service.ConflictStrategy
 		if onConflict != "" {
@@ -305,7 +305,7 @@ var lookupCmd = &cobra.Command{
 
 			fmt.Fprint(os.Stderr, "\nChoose action — (r)eplace, (a)dd, (s)kip: ")
 			var choice string
-			fmt.Scanln(&choice)
+			_, _ = fmt.Scanln(&choice)
 
 			switch strings.ToLower(strings.TrimSpace(choice)) {
 			case "r", "replace":
@@ -402,7 +402,7 @@ var batchCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(timeout)*time.Second*time.Duration(len(tokens)+1))
 		defer cancel()
@@ -444,7 +444,7 @@ var batchCmd = &cobra.Command{
 
 		fmt.Fprintf(os.Stderr, "\n--- Batch Summary ---\n")
 		fmt.Fprintf(os.Stderr, "Processed: %d\n", result.Processed)
-		fmt.Fprintf(os.Stderr, "Cached:    %d\n", result.Cached)
+		fmt.Fprintf(os.Stderr, "Already in DB: %d\n", result.Cached)
 		fmt.Fprintf(os.Stderr, "Failed:    %d\n", result.Failed)
 		fmt.Fprintf(os.Stderr, "Skipped:   %d\n", result.Skipped)
 		fmt.Fprintf(os.Stderr, "Replaced:  %d\n", result.Replaced)
@@ -483,7 +483,7 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		addr := fmt.Sprintf(":%d", port)
 		slog.Info("starting web server", "addr", addr)
@@ -510,7 +510,7 @@ var backupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		// Build timestamped backup path
 		dbPath := appConfig.DBPath
@@ -546,14 +546,14 @@ var restoreCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		if err := store.RestoreFrom(cmd.Context(), backupFile); err != nil {
 			return fmt.Errorf("restore failed: %w", err)
 		}
 
 		slog.Info("database restored", "from", backupFile)
-		fmt.Fprintln(cmd.OutOrStdout(), "Database restored successfully.")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Database restored successfully.")
 		return nil
 	},
 }
@@ -563,6 +563,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprintf(cmd.OutOrStdout(), "vocabgen %s (%s, built %s)\n", version, runtime.Version(), buildDate)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "vocabgen %s (%s, built %s)\n", version, runtime.Version(), buildDate)
 	},
 }

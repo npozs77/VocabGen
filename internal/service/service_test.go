@@ -22,7 +22,7 @@ func newTestStore(t *testing.T) *db.SQLiteStore {
 	if err != nil {
 		t.Fatalf("failed to create test store: %v", err)
 	}
-	t.Cleanup(func() { store.Close() })
+	t.Cleanup(func() { _ = store.Close() })
 	return store
 }
 
@@ -35,12 +35,12 @@ func newTempStore() (*db.SQLiteStore, func(), error) {
 	dbPath := filepath.Join(dir, "test.db")
 	store, err := db.NewSQLiteStore(dbPath)
 	if err != nil {
-		os.RemoveAll(dir)
+		_ = os.RemoveAll(dir)
 		return nil, nil, err
 	}
 	cleanup := func() {
-		store.Close()
-		os.RemoveAll(dir)
+		_ = store.Close()
+		_ = os.RemoveAll(dir)
 	}
 	return store, cleanup, nil
 }

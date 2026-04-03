@@ -24,7 +24,7 @@ func ReadInputFile(path string) ([]TokenWithContext, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot open input file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	reader := csv.NewReader(f)
 	reader.FieldsPerRecord = -1 // variable number of fields

@@ -2,13 +2,21 @@
 # Release checklist script. Ensures quality gates pass before tagging.
 # Usage:
 #   ./scripts/release.sh v1.0.0
+#   ./scripts/release.sh -y v1.0.0   # skip confirmation prompt
 
 set -euo pipefail
 
+AUTO_YES=false
+if [ "${1:-}" = "-y" ]; then
+    AUTO_YES=true
+    shift
+fi
+
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
-    echo "Usage: ./scripts/release.sh <version>"
+    echo "Usage: ./scripts/release.sh [-y] <version>"
     echo "Example: ./scripts/release.sh v1.0.0"
+    echo "  -y  Skip confirmation prompt (for CI/automation)"
     exit 1
 fi
 
@@ -54,8 +62,12 @@ echo "  1. Create git tag $VERSION"
 echo "  2. Push the tag to origin"
 echo "  3. GitHub Actions + goreleaser will build and publish the release"
 echo ""
-read -p "Proceed? (y/N) " -n 1 -r
-echo ""
+if [ "$AUTO_YES" = true ]; then
+    REPLY=y
+else
+    read -p "Proceed? (y/N) " -n 1 -r
+    echo ""
+fi
 
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Aborted."
