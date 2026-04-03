@@ -116,19 +116,19 @@ jobs:
 
 ## Release Process
 
-Use the release script to enforce all quality gates before tagging:
+Changelog is updated as part of each feature/fix PR — not as a separate step. Each PR adds its entry under the target version heading in `CHANGELOG.md` (e.g., `## [1.0.3] - 2026-04-04`).
+
+When ready to release:
 
 ```bash
-./scripts/release.sh v1.0.0
+./scripts/release.sh v1.0.3
 ```
 
-The script verifies: clean working directory, on `main` branch, then runs build + vet + fmt-check + tests. If everything passes, it tags and pushes. GitHub Actions + goreleaser handle the rest.
-
-Manual steps (if not using the script):
-
-1. Ensure `main` is green: `make quality`
-2. Tag a release: `git tag -a v1.0.0 -m "Release v1.0.0" && git push origin v1.0.0`
-3. GitHub Actions triggers
+The script:
+1. Verifies `CHANGELOG.md` has an entry for the version
+2. Checks clean working directory, switches to `main`, pulls latest
+3. Runs build + vet + fmt-check + tests
+4. Tags and pushes — GitHub Actions + goreleaser handle the rest
 
 ## Versioning
 

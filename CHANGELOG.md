@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] - 2026-04-03
+
+### Added
+
+- Real-time SSE batch streaming with per-item progress events in web UI (Fixes #12)
+- Dependabot for Go modules and GitHub Actions (weekly updates)
+
+### Fixed
+
+- Satisfied errcheck linter across all packages — proper error handling for `defer Close()`, `fmt.Fprintf`, `w.Write`, `os.Setenv`, `json.Encode`, and more
+- Added `golangci-lint run ./...` step to `make quality` target
+- Expression edit template rendering
+
+### Changed
+
+- CI hardened with explicit permissions and dependency review on PRs
+- Switched from staticcheck to golangci-lint in CI (includes errcheck, vet, staticcheck)
+- Simplified release process — changelog updates are now part of each PR, no separate changelog PR needed
+- `release.sh` verifies `CHANGELOG.md` has an entry for the target version before tagging
+- Added `-y` flag to `release.sh` for non-interactive automation
+
 ## [1.0.2] - 2026-04-03
 
 ### Changed

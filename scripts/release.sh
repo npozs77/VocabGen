@@ -25,6 +25,15 @@ if ! echo "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
     exit 1
 fi
 
+# Strip leading 'v' for changelog lookup (CHANGELOG uses [1.0.3], not [v1.0.3])
+CHANGELOG_VER="${VERSION#v}"
+
+if ! grep -q "## \[${CHANGELOG_VER}\]" CHANGELOG.md; then
+    echo "ERROR: CHANGELOG.md has no entry for [${CHANGELOG_VER}]."
+    echo "Each PR should update CHANGELOG.md under the target version heading."
+    exit 1
+fi
+
 if [ -n "$(git status --porcelain)" ]; then
     echo "ERROR: Working directory is not clean. Commit or stash changes first."
     exit 1
