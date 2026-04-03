@@ -22,7 +22,7 @@ jobs:
       - run: make vet
       - run: make fmt-check
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
       - run: make test
