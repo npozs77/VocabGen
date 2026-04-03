@@ -272,14 +272,14 @@ func TestIntegration_Import_Multipart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
 	}
-	fmt.Fprintln(part, "huis,a house,house,chapter-1")
-	fmt.Fprintln(part, "werk,work/job,work,chapter-1")
+	_, _ = fmt.Fprintln(part, "huis,a house,house,chapter-1")
+	_, _ = fmt.Fprintln(part, "werk,work/job,work,chapter-1")
 
 	// Add form fields
-	writer.WriteField("source_lang", "nl")
-	writer.WriteField("target_lang", "hu")
-	writer.WriteField("type", "words")
-	writer.Close()
+	_ = writer.WriteField("source_lang", "nl")
+	_ = writer.WriteField("target_lang", "hu")
+	_ = writer.WriteField("type", "words")
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/import", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -323,9 +323,9 @@ func TestIntegration_Batch_OversizedBody(t *testing.T) {
 	// Write >10 MB of data
 	line := strings.Repeat("a", 1024) + "\n"
 	for i := 0; i < 11*1024; i++ { // ~11 MB
-		part.Write([]byte(line))
+		_, _ = part.Write([]byte(line))
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/batch", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())

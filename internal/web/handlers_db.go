@@ -84,7 +84,7 @@ func (s *Server) handleListWords(w http.ResponseWriter, r *http.Request) {
 			"Search":     filter.Search,
 			"Tags":       filter.Tags,
 		}
-		renderPartial(w, "entry_table", data)
+		_ = renderPartial(w, "entry_table", data)
 		return
 	}
 
@@ -130,7 +130,7 @@ func (s *Server) handleListExpressions(w http.ResponseWriter, r *http.Request) {
 			"Search":      filter.Search,
 			"Tags":        filter.Tags,
 		}
-		renderPartial(w, "entry_table", data)
+		_ = renderPartial(w, "entry_table", data)
 		return
 	}
 
@@ -424,7 +424,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
@@ -449,7 +449,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 			msg := "XLSX parse error: " + err.Error()
 			if r.Header.Get("HX-Request") == "true" {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				fmt.Fprintf(w, `<p class="text-red-600 text-sm">%s</p>`, msg)
+				_, _ = fmt.Fprintf(w, `<p class="text-red-600 text-sm">%s</p>`, msg)
 				return
 			}
 			writeJSONError(w, http.StatusBadRequest, msg)
@@ -462,7 +462,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 			msg := `File is not UTF-8 encoded. Use "Export XLSX" then re-import the .xlsx file, or save CSV as UTF-8.`
 			if r.Header.Get("HX-Request") == "true" {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				fmt.Fprintf(w, `<p class="text-red-600 text-sm">⚠ %s</p>`, msg)
+				_, _ = fmt.Fprintf(w, `<p class="text-red-600 text-sm">⚠ %s</p>`, msg)
 				return
 			}
 			writeJSONError(w, http.StatusBadRequest, msg)
@@ -570,7 +570,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 			if skippedGarbage > 0 {
 				msg += fmt.Sprintf(`<p class="text-yellow-600 text-sm">⚠ %d rows skipped due to encoding issues</p>`, skippedGarbage)
 			}
-			fmt.Fprint(w, msg)
+			_, _ = fmt.Fprint(w, msg)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"imported": imported, "skipped": skipped, "failed": failed, "type": "words"})
@@ -621,7 +621,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 			if skippedGarbage > 0 {
 				msg += fmt.Sprintf(`<p class="text-yellow-600 text-sm">⚠ %d rows skipped due to encoding issues</p>`, skippedGarbage)
 			}
-			fmt.Fprint(w, msg)
+			_, _ = fmt.Fprint(w, msg)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"imported": imported, "skipped": skipped, "failed": failed, "type": "expressions"})
@@ -635,7 +635,7 @@ func parseXLSXRecords(data []byte, importType string) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open xlsx: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Pick the right sheet
 	sheetName := ""
@@ -736,7 +736,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 // decodeJSON is a helper to decode JSON request bodies.

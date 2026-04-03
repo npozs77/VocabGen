@@ -63,7 +63,7 @@ func (s *Server) handleBatchJSON(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	tokens, err := readCSVFromReader(file)
 	if err != nil {
@@ -123,20 +123,20 @@ func (s *Server) handleBatchJSON(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-		renderPartial(w, "batch_summary", map[string]any{"Error": "Upload exceeds 10 MB limit"})
+		_ = renderPartial(w, "batch_summary", map[string]any{"Error": "Upload exceeds 10 MB limit"})
 		return
 	}
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		renderPartial(w, "batch_summary", map[string]any{"Error": "CSV file is required"})
+		_ = renderPartial(w, "batch_summary", map[string]any{"Error": "CSV file is required"})
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	tokens, err := readCSVFromReader(file)
 	if err != nil {
-		renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
 		return
 	}
 
@@ -159,13 +159,13 @@ func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 	}
 	onConflict, err := service.ParseConflictStrategy(onConflictStr)
 	if err != nil {
-		renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
 		return
 	}
 
 	provider, err := s.createProvider()
 	if err != nil {
-		renderPartial(w, "batch_summary", map[string]any{"Error": "Provider error: " + err.Error()})
+		_ = renderPartial(w, "batch_summary", map[string]any{"Error": "Provider error: " + err.Error()})
 		return
 	}
 
@@ -181,11 +181,11 @@ func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		s.logger.Error("batch processing failed", "error", err)
-		renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
 		return
 	}
 
-	renderPartial(w, "batch_summary", map[string]any{
+	_ = renderPartial(w, "batch_summary", map[string]any{
 		"Processed": result.Processed,
 		"Cached":    result.Cached,
 		"Failed":    result.Failed,
@@ -206,7 +206,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "event: error\ndata: {\"message\":\"Upload exceeds 10 MB limit\"}\n\n")
+		_, _ = fmt.Fprintf(w, "event: error\ndata: {\"message\":\"Upload exceeds 10 MB limit\"}\n\n")
 		flusher.Flush()
 		return
 	}
@@ -214,17 +214,17 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "event: error\ndata: {\"message\":\"CSV file is required\"}\n\n")
+		_, _ = fmt.Fprintf(w, "event: error\ndata: {\"message\":\"CSV file is required\"}\n\n")
 		flusher.Flush()
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	tokens, err := readCSVFromReader(file)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/event-stream")
 		data, _ := json.Marshal(map[string]string{"message": err.Error()})
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
 		flusher.Flush()
 		return
 	}
@@ -250,7 +250,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "text/event-stream")
 		data, _ := json.Marshal(map[string]string{"message": err.Error()})
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
 		flusher.Flush()
 		return
 	}
@@ -259,7 +259,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "text/event-stream")
 		data, _ := json.Marshal(map[string]string{"message": "Provider error: " + err.Error()})
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
 		flusher.Flush()
 		return
 	}
@@ -269,7 +269,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	// Send initial connected event
-	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"total\":%d}\n\n", len(tokens))
+	_, _ = fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"total\":%d}\n\n", len(tokens))
 	flusher.Flush()
 
 	// Progress callback streams SSE events per item
@@ -280,7 +280,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 			"token":   token,
 			"status":  status,
 		})
-		fmt.Fprintf(w, "event: progress\ndata: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "event: progress\ndata: %s\n\n", data)
 		flusher.Flush()
 	}
 
@@ -298,7 +298,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Error("batch stream processing failed", "error", err)
 		data, _ := json.Marshal(map[string]string{"message": err.Error()})
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
 		flusher.Flush()
 		return
 	}
@@ -313,6 +313,6 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 		"added":     result.Added,
 		"errors":    result.Errors,
 	})
-	fmt.Fprintf(w, "event: complete\ndata: %s\n\n", data)
+	_, _ = fmt.Fprintf(w, "event: complete\ndata: %s\n\n", data)
 	flusher.Flush()
 }

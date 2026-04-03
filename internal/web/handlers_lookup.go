@@ -104,14 +104,14 @@ func (s *Server) handleLookupJSON(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLookupHTML(w http.ResponseWriter, r *http.Request) {
 	params, err := s.parseLookupParams(r)
 	if err != nil {
-		renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
 		return
 	}
 
 	result, err := service.Lookup(r.Context(), s.store, params)
 	if err != nil {
 		s.logger.Error("lookup failed", "error", err)
-		renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
 		return
 	}
 
@@ -131,11 +131,11 @@ func (s *Server) handleLookupHTML(w http.ResponseWriter, r *http.Request) {
 			"TargetLang":  params.TargetLang,
 			"Tags":        params.Tags,
 		}
-		renderPartial(w, "lookup_conflict", data)
+		_ = renderPartial(w, "lookup_conflict", data)
 		return
 	}
 
-	renderPartial(w, "lookup_result", map[string]any{
+	_ = renderPartial(w, "lookup_result", map[string]any{
 		"Entry":     result.Entry,
 		"FromCache": result.FromCache,
 		"Warning":   result.Warning,
@@ -173,26 +173,26 @@ func (s *Server) handleLookupResolveJSON(w http.ResponseWriter, r *http.Request)
 // handleLookupResolveHTML handles POST /api/lookup/resolve/html — HTMX endpoint.
 func (s *Server) handleLookupResolveHTML(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		renderPartial(w, "lookup_result", map[string]any{"Error": "invalid form"})
+		_ = renderPartial(w, "lookup_result", map[string]any{"Error": "invalid form"})
 		return
 	}
 
 	strategyStr := r.FormValue("strategy")
 	strategy, err := service.ParseConflictStrategy(strategyStr)
 	if err != nil {
-		renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
 		return
 	}
 
 	var entry output.Entry
 	entryJSON := r.FormValue("entry")
 	if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
-		renderPartial(w, "lookup_result", map[string]any{"Error": "invalid entry data"})
+		_ = renderPartial(w, "lookup_result", map[string]any{"Error": "invalid entry data"})
 		return
 	}
 
 	var targetID int64
-	fmt.Sscanf(r.FormValue("target_id"), "%d", &targetID)
+	_, _ = fmt.Sscanf(r.FormValue("target_id"), "%d", &targetID)
 
 	mode := r.FormValue("mode")
 	sourceLang := r.FormValue("source_language")
@@ -201,9 +201,9 @@ func (s *Server) handleLookupResolveHTML(w http.ResponseWriter, r *http.Request)
 
 	if err := service.ResolveConflict(r.Context(), s.store, strategy, mode, &entry, targetID, sourceLang, targetLang, tags); err != nil {
 		s.logger.Error("resolve conflict failed", "error", err)
-		renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
+		_ = renderPartial(w, "lookup_result", map[string]any{"Error": err.Error()})
 		return
 	}
 
-	renderPartial(w, "lookup_result", map[string]any{"Entry": &entry})
+	_ = renderPartial(w, "lookup_result", map[string]any{"Entry": &entry})
 }

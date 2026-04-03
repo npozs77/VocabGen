@@ -160,7 +160,7 @@ func TestReadInputFileErrors(t *testing.T) {
 			name: "empty file",
 			setup: func(dir string) string {
 				p := filepath.Join(dir, "empty.csv")
-				os.WriteFile(p, []byte(""), 0644)
+				_ = os.WriteFile(p, []byte(""), 0644)
 				return p
 			},
 			wantErr: "input file is empty",
@@ -169,7 +169,7 @@ func TestReadInputFileErrors(t *testing.T) {
 			name: "whitespace-only lines",
 			setup: func(dir string) string {
 				p := filepath.Join(dir, "blanks.csv")
-				os.WriteFile(p, []byte("  \n\t\n   \n"), 0644)
+				_ = os.WriteFile(p, []byte("  \n\t\n   \n"), 0644)
 				return p
 			},
 			wantErr: "input file is empty",
@@ -199,7 +199,7 @@ func TestReadInputFileSkipsWhitespaceLines(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "mixed.csv")
 	content := "hello\n  \nworld\n\t\nfoo,bar\n"
-	os.WriteFile(p, []byte(content), 0644)
+	_ = os.WriteFile(p, []byte(content), 0644)
 
 	results, err := ReadInputFile(p)
 	if err != nil {

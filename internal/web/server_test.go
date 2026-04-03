@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 	config.SetConfigDirForTest(tmpDir)
 	code := m.Run()
 	config.SetConfigDirForTest("")
-	os.RemoveAll(tmpDir)
+	_ = os.RemoveAll(tmpDir)
 	os.Exit(code)
 }
 

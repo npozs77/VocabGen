@@ -26,7 +26,7 @@ var expressionsColumns = []string{
 // Mode determines which columns to include ("words" or "expressions").
 func ExportToExcel(entries []Entry, mode string) ([]byte, error) {
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sheet := "Sheet1"
 
@@ -38,7 +38,7 @@ func ExportToExcel(entries []Entry, mode string) ([]byte, error) {
 	// Write headers.
 	for i, h := range cols {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
+		_ = f.SetCellValue(sheet, cell, h)
 	}
 
 	// Write rows.
@@ -46,7 +46,7 @@ func ExportToExcel(entries []Entry, mode string) ([]byte, error) {
 		row := entryToRow(e, mode)
 		for colIdx, val := range row {
 			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
-			f.SetCellValue(sheet, cell, val)
+			_ = f.SetCellValue(sheet, cell, val)
 		}
 	}
 
@@ -60,10 +60,10 @@ func ExportToExcel(entries []Entry, mode string) ([]byte, error) {
 // ExportBothToExcel writes words and expressions to separate sheets in one .xlsx file.
 func ExportBothToExcel(words []Entry, expressions []Entry) ([]byte, error) {
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Words sheet (rename default Sheet1)
-	f.SetSheetName("Sheet1", "Words")
+	_ = f.SetSheetName("Sheet1", "Words")
 	writeSheet(f, "Words", wordsColumns, words, "words")
 
 	// Expressions sheet
@@ -82,13 +82,13 @@ func ExportBothToExcel(words []Entry, expressions []Entry) ([]byte, error) {
 func writeSheet(f *excelize.File, sheet string, cols []string, entries []Entry, mode string) {
 	for i, h := range cols {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
+		_ = f.SetCellValue(sheet, cell, h)
 	}
 	for rowIdx, e := range entries {
 		row := entryToRow(e, mode)
 		for colIdx, val := range row {
 			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
-			f.SetCellValue(sheet, cell, val)
+			_ = f.SetCellValue(sheet, cell, val)
 		}
 	}
 }

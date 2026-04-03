@@ -55,7 +55,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	// Validate provider credentials are available via environment.
 	if warning := validateProviderEnv(updated.Provider, updated.BaseURL, updated.GCPProject); warning != "" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<p class="text-red-600 text-sm mt-1">` + warning + `</p>`))
+		_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">` + warning + `</p>`))
 		return
 	}
 
@@ -69,7 +69,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	*s.cfg = updated
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Configuration saved.</p>`))
+	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Configuration saved.</p>`))
 }
 
 // handleConfigHTML handles GET /api/config/html — render config form partial.
@@ -91,7 +91,7 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 		Config:    &cfg,
 		Languages: service.GetSupportedLanguages(),
 	}
-	renderPartial(w, "config_form", data)
+	_ = renderPartial(w, "config_form", data)
 }
 
 // handleTestConnection handles POST /api/test-connection.
@@ -99,7 +99,7 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	provider, err := s.createProvider()
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<div class="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">` +
+		_, _ = w.Write([]byte(`<div class="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">` +
 			"Failed to create provider: " + err.Error() + `</div>`))
 		return
 	}
@@ -108,13 +108,13 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	_, err = provider.Invoke(r.Context(), "Say hello in one word.", s.cfg.ModelID)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<div class="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">` +
+		_, _ = w.Write([]byte(`<div class="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">` +
 			"Connection failed: " + err.Error() + `</div>`))
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<div class="bg-green-50 border border-green-200 text-green-700 rounded p-3 text-sm">` +
+	_, _ = w.Write([]byte(`<div class="bg-green-50 border border-green-200 text-green-700 rounded p-3 text-sm">` +
 		"Connection successful! Provider: " + provider.Name() + `</div>`))
 }
 
