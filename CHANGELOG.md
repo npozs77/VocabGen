@@ -4,26 +4,29 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-04-04
+
+### Added
+
+- Help dropdown menu in navigation bar replacing standalone About link
+- Documentation pages with embedded markdown rendering via goldmark (Architecture, Deployment, User Guide)
+- Check for Update page with GitHub Releases API integration, semver comparison, and OS/arch-aware download links
+- Delta changelog rendering — shows combined release notes for all versions between current and latest
+- Update notification banner on all pages when a newer version is available (dismissible, resets on restart)
+- Changelog page rendering embedded CHANGELOG.md as formatted HTML
+- `vocabgen update` CLI subcommand — checks GitHub Releases for newer versions, shows download URL and delta changelog
+- `vocabgen version` now appends a one-line update notice when a newer version is available
+- Shared `internal/update` package for reusable semver parsing, version comparison, and GitHub Releases API client
+
 ## [1.0.3] - 2026-04-03
 
 ### Added
 
-- Real-time SSE batch streaming with per-item progress events in web UI (Fixes #12)
-- Dependabot for Go modules and GitHub Actions (weekly updates)
+- Real-time SSE batch streaming with per-item progress events in web UI (#12)
 
 ### Fixed
 
-- Satisfied errcheck linter across all packages — proper error handling for `defer Close()`, `fmt.Fprintf`, `w.Write`, `os.Setenv`, `json.Encode`, and more
-- Added `golangci-lint run ./...` step to `make quality` target
 - Expression edit template rendering
-
-### Changed
-
-- CI hardened with explicit permissions and dependency review on PRs
-- Switched from staticcheck to golangci-lint in CI (includes errcheck, vet, staticcheck)
-- Simplified release process — changelog updates are now part of each PR, no separate changelog PR needed
-- `release.sh` verifies `CHANGELOG.md` has an entry for the target version before tagging
-- Added `-y` flag to `release.sh` for non-interactive automation
 
 ## [1.0.2] - 2026-04-03
 
@@ -35,14 +38,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 ### Fixed
 
 - Web UI test-connection and batch endpoints no longer require API key in request body
-- Added provider credential validation on config save — warns if required env vars are missing
-- Corrected Bedrock model IDs in docs, added cross-region inference profile note
-- Added Windows and macOS Intel installation instructions to user guide
-
-### Docs
-
-- Expanded user guide with Configuration section, Quick Setup via Web UI, CLI flag overrides, and provider credentials table
-- README links to Web UI setup instructions
+- Provider credential validation on config save — warns if required env vars are missing
 
 ## [1.0.0] - 2026-04-02
 
@@ -70,11 +66,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 - Config manager with YAML persistence (`~/.vocabgen/config.yaml`), API keys never stored
 - Database backup/restore subcommands
 - Structured logging via `log/slog` (INFO/DEBUG/ERROR levels, `--verbose` for debug)
-- Build-time version injection via `-ldflags`
-- GitHub Actions CI: build, vet, fmt-check, staticcheck, tests with race detection
-- `workflow_dispatch` for manual CI runs on any branch
-- Database helper script (`scripts/db-helper.sh`) for mass updates, tag additions, POS listing
-- Property-based tests (P1–P19) with `rapid`, table-driven tests, fuzz tests, integration tests
 - Cross-compilation support via goreleaser (macOS amd64/arm64, Linux amd64/arm64, Windows amd64)
 
 ### Supported Languages

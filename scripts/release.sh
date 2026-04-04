@@ -88,4 +88,4 @@ git push origin "$VERSION"
 
 echo ""
 echo "Tag $VERSION pushed. GitHub Actions will handle the rest."
-echo "Watch the release at: https://github.com/user/vocabgen/actions"
+echo "Watch the release at: https://github.com/npozs77/VocabGen/actions"

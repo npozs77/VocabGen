@@ -154,10 +154,12 @@ Any language name or code can be passed via `-l` — unregistered languages are 
 | [Architecture](docs/architecture.md) | System design, package layout, data flows, data models, error handling, API routes |
 | [Deployment](docs/deployment.md) | Cross-compilation, GitHub Actions CI/CD, goreleaser, Docker, release process |
 
+Documentation is also available in the web UI via Help → Documentation when running `vocabgen serve`.
+
 ## Build from Source
 
 ```bash
-git clone https://github.com/user/vocabgen.git
+git clone https://github.com/npozs77/VocabGen.git
 cd vocabgen
 make build        # produces ./vocabgen binary
 make test         # run all tests with race detection

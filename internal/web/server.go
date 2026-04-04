@@ -24,16 +24,19 @@ type Server struct {
 	version   string
 	buildDate string
 	goVersion string
+	updater   *updateChecker
 }
 
 // pageData is the common data passed to all page templates.
 type pageData struct {
-	ActivePage string
-	Languages  []service.LanguageInfo
-	Config     *config.Config
-	Version    string
-	BuildDate  string
-	GoVersion  string
+	ActivePage      string
+	Languages       []service.LanguageInfo
+	Config          *config.Config
+	Version         string
+	BuildDate       string
+	GoVersion       string
+	UpdateAvailable bool
+	LatestVersion   string
 }
 
 // NewServer creates a Server with all routes registered.
@@ -46,6 +49,7 @@ func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version,
 		version:   version,
 		buildDate: buildDate,
 		goVersion: goVersion,
+		updater:   newUpdateChecker(version, logger),
 	}
 	s.registerRoutes()
 	return s
@@ -54,6 +58,8 @@ func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version,
 // ListenAndServe starts the HTTP server. Blocks until ctx is cancelled,
 // then performs graceful shutdown with a 5-second timeout.
 func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
+	s.updater.startBackground(ctx)
+
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: s.mux,
@@ -87,6 +93,14 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /config", s.handlePage("config"))
 	s.mux.HandleFunc("GET /database", s.handlePage("database"))
 	s.mux.HandleFunc("GET /about", s.handlePage("about"))
+	s.mux.HandleFunc("GET /docs", s.handleDocsIndex)
+	s.mux.HandleFunc("GET /docs/{slug}", s.handleDocsPage)
+	s.mux.HandleFunc("GET /update", s.handleUpdatePage)
+	s.mux.HandleFunc("GET /changelog", s.handleChangelog)
+
+	// Update API
+	s.mux.HandleFunc("GET /api/update/check", s.handleUpdateCheck)
+	s.mux.HandleFunc("POST /api/update/dismiss", s.handleUpdateDismiss)
 
 	// Lookup API
 	s.mux.HandleFunc("POST /api/lookup", s.handleLookupJSON)
@@ -125,19 +139,29 @@ func (s *Server) registerRoutes() {
 // handlePage returns a handler that renders a full page template.
 func (s *Server) handlePage(name string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data := pageData{
-			ActivePage: name,
-			Languages:  service.GetSupportedLanguages(),
-			Config:     s.cfg,
-			Version:    s.version,
-			BuildDate:  s.buildDate,
-			GoVersion:  s.goVersion,
-		}
+		data := s.newPageData(name)
 		if err := renderPage(w, name, data); err != nil {
 			s.logger.Error("render page failed", "page", name, "error", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 	}
+}
+
+// newPageData creates a pageData populated with common fields including update status.
+func (s *Server) newPageData(activePage string) pageData {
+	pd := pageData{
+		ActivePage: activePage,
+		Languages:  service.GetSupportedLanguages(),
+		Config:     s.cfg,
+		Version:    s.version,
+		BuildDate:  s.buildDate,
+		GoVersion:  s.goVersion,
+	}
+	if info := s.updater.cached(); info != nil && info.HasUpdate && !s.updater.isDismissed() {
+		pd.UpdateAvailable = true
+		pd.LatestVersion = info.LatestVersion
+	}
+	return pd
 }
 
 // handleHealth returns a simple health check response.

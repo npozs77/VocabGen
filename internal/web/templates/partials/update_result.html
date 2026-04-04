@@ -1,0 +1,28 @@
+{{define "update_result"}}
+{{if .Error}}
+<div class="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+  <p class="text-sm text-yellow-800 font-medium">Update check failed</p>
+  <p class="text-sm text-yellow-700 mt-1">{{.Error}}</p>
+  <p class="text-sm text-yellow-700 mt-2">
+    Check manually at
+    <a href="https://github.com/npozs77/VocabGen/releases" target="_blank" rel="noopener noreferrer" class="underline font-medium">GitHub Releases</a>.
+  </p>
+</div>
+{{else if .HasUpdate}}
+<div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+  <p class="text-sm text-blue-800 font-medium">Update available: v{{.LatestVersion}}</p>
+  <p class="text-sm text-blue-700 mt-1">You are running v{{.CurrentVersion}}.</p>
+  <a href="{{.DownloadURL}}" class="inline-block mt-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+    Download v{{.LatestVersion}}
+  </a>
+  <a href="/changelog" class="inline-block mt-2 ml-2 px-3 py-1.5 bg-white text-blue-600 text-sm rounded border border-blue-300 hover:bg-blue-50">
+    View Changelog
+  </a>
+</div>
+{{else}}
+<div class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+  <p class="text-sm text-green-800 font-medium">You're up to date</p>
+  <p class="text-sm text-green-700 mt-1">v{{.CurrentVersion}} is the latest version.</p>
+</div>
+{{end}}
+{{end}}

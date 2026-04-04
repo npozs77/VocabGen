@@ -140,6 +140,36 @@ Version is injected at build time via ldflags:
 go build -ldflags "-X main.version=v1.0.0 -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o vocabgen ./cmd/vocabgen
 ```
 
+## Upgrading
+
+vocabgen can check for newer versions via the GitHub Releases API. User data in `~/.vocabgen/` (config and database) is independent of the binary and unaffected by upgrades.
+
+### Check for Updates
+
+From the CLI:
+
+```bash
+vocabgen update
+```
+
+Displays current version, latest version, a platform-specific download link, and a delta changelog. `vocabgen version` also appends a one-line notice when a newer version exists.
+
+From the web UI: navigate to Help → Check for Update (`/update`). The page queries GitHub Releases on load and shows the same information. A dismissible banner also appears on all pages when an update is detected at server startup.
+
+### Apply an Update
+
+Download the new binary for your platform and replace the existing one:
+
+```bash
+# macOS (Apple Silicon) example
+curl -LO https://github.com/npozs77/VocabGen/releases/latest/download/vocabgen_darwin_arm64.tar.gz
+tar xzf vocabgen_darwin_arm64.tar.gz
+chmod +x vocabgen
+sudo mv vocabgen /usr/local/bin/
+```
+
+No migration steps needed — `~/.vocabgen/config.yaml` and `~/.vocabgen/vocabgen.db` are preserved across binary replacements.
+
 ## Docker (Optional)
 
 Minimal `FROM scratch` image since vocabgen is a static binary:

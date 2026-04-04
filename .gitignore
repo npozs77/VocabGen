@@ -34,6 +34,7 @@ Thumbs.db
 # Project-specific ignores
 .kiro/
 reference/
+docs/changelog.md
 
 # PBT failure replay data
 **/testdata/rapid/
