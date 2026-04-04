@@ -1,0 +1,21 @@
+{{define "title"}}Check for Update{{end}}
+{{define "content"}}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold text-gray-800 mb-6">Check for Update</h1>
+
+  <div class="bg-white rounded-lg shadow p-6 space-y-4">
+    <div class="grid grid-cols-2 gap-2 text-sm">
+      <span class="text-gray-500">Current Version</span>
+      <span class="font-mono">{{.Version}}</span>
+    </div>
+
+    <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+      <p class="text-sm text-blue-800">
+        Automatic update checking is a planned feature. For now, visit the
+        <a href="https://github.com/npozs77/VocabGen/releases" target="_blank" rel="noopener noreferrer" class="underline font-medium">GitHub Releases</a>
+        page to check for new versions.
+      </p>
+    </div>
+  </div>
+</div>
+{{end}}

@@ -19,23 +19,23 @@ Note on model quality: vocabgen's prompts are designed for large, capable models
 
 ## Installation
 
-Download the binary for your platform from the [GitHub Releases](https://github.com/user/vocabgen/releases) page.
+Download the binary for your platform from the [GitHub Releases](https://github.com/npozs77/VocabGen/releases) page.
 
 ```bash
 # macOS (Apple Silicon)
-curl -LO https://github.com/user/vocabgen/releases/latest/download/vocabgen_darwin_arm64.tar.gz
+curl -LO https://github.com/npozs77/VocabGen/releases/latest/download/vocabgen_darwin_arm64.tar.gz
 tar xzf vocabgen_darwin_arm64.tar.gz
 chmod +x vocabgen
 sudo mv vocabgen /usr/local/bin/
 
 # macOS (Intel)
-curl -LO https://github.com/user/vocabgen/releases/latest/download/vocabgen_darwin_amd64.tar.gz
+curl -LO https://github.com/npozs77/VocabGen/releases/latest/download/vocabgen_darwin_amd64.tar.gz
 tar xzf vocabgen_darwin_amd64.tar.gz
 chmod +x vocabgen
 sudo mv vocabgen /usr/local/bin/
 
 # Linux (amd64)
-curl -LO https://github.com/user/vocabgen/releases/latest/download/vocabgen_linux_amd64.tar.gz
+curl -LO https://github.com/npozs77/VocabGen/releases/latest/download/vocabgen_linux_amd64.tar.gz
 tar xzf vocabgen_linux_amd64.tar.gz
 chmod +x vocabgen
 sudo mv vocabgen /usr/local/bin/
@@ -215,6 +215,15 @@ Open `http://localhost:8080` in your browser.
 - **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Summary shows processed/cached/failed/replaced/added counts.
 - **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically.
 - **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Import CSV, export to Excel. Filter by language, search text, or tags.
+
+### Help Menu
+
+The navigation bar includes a Help dropdown with:
+
+- **About** (`/about`): Version info, build date, Go version, and links to the GitHub repository.
+- **Report an Issue**: Opens the [GitHub Issues](https://github.com/npozs77/VocabGen/issues) page in a new tab.
+- **Documentation** (`/docs`): Browsable documentation index with deep links into Architecture, Deployment, and User Guide sections. Mermaid diagrams and flowcharts render inline.
+- **Check for Update** (`/update`): Displays the current version with a link to GitHub Releases.
 
 ## Tags
 

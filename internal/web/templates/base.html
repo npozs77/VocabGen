@@ -17,12 +17,37 @@
       <a href="/config" class="{{if eq .ActivePage "config"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Config</a>
       <a href="/database" class="{{if eq .ActivePage "database"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Database</a>
       <div class="flex-1"></div>
-      <a href="/about" class="{{if eq .ActivePage "about"}}text-blue-600 font-medium{{else}}text-gray-500 hover:text-blue-600{{end}} text-sm">About</a>
+      <div class="relative" id="help-menu">
+        <button onclick="document.getElementById('help-dropdown').classList.toggle('hidden')"
+                class="text-sm {{if isHelpPage .ActivePage}}text-blue-600 font-medium{{else}}text-gray-500 hover:text-blue-600{{end}}">
+          Help ▾
+        </button>
+        <div id="help-dropdown" class="hidden absolute right-0 mt-1 w-48 bg-white rounded shadow-lg border z-50">
+          <a href="/about" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">About</a>
+          <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Report an Issue ↗</a>
+          <a href="/docs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Documentation</a>
+          <a href="/update" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check for Update</a>
+        </div>
+      </div>
     </div>
   </nav>
   <main class="max-w-7xl mx-auto px-4 py-8">
     {{template "content" .}}
   </main>
+  <footer class="max-w-7xl mx-auto px-4 py-4 mt-8 border-t border-gray-200 text-xs text-gray-400 flex gap-4">
+    <a href="/docs" class="hover:text-blue-500">Documentation</a>
+    <span>·</span>
+    <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500">Report an Issue ↗</a>
+  </footer>
+  <script>
+  document.addEventListener('click', function(e) {
+    var menu = document.getElementById('help-menu');
+    var dd = document.getElementById('help-dropdown');
+    if (menu && dd && !menu.contains(e.target)) {
+      dd.classList.add('hidden');
+    }
+  });
+  </script>
 </body>
 </html>
 {{end}}

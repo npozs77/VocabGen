@@ -444,7 +444,7 @@ var batchCmd = &cobra.Command{
 
 		fmt.Fprintf(os.Stderr, "\n--- Batch Summary ---\n")
 		fmt.Fprintf(os.Stderr, "Processed: %d\n", result.Processed)
-		fmt.Fprintf(os.Stderr, "Already in DB: %d\n", result.Cached)
+		fmt.Fprintf(os.Stderr, "Cached:    %d\n", result.Cached)
 		fmt.Fprintf(os.Stderr, "Failed:    %d\n", result.Failed)
 		fmt.Fprintf(os.Stderr, "Skipped:   %d\n", result.Skipped)
 		fmt.Fprintf(os.Stderr, "Replaced:  %d\n", result.Replaced)

@@ -87,6 +87,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /config", s.handlePage("config"))
 	s.mux.HandleFunc("GET /database", s.handlePage("database"))
 	s.mux.HandleFunc("GET /about", s.handlePage("about"))
+	s.mux.HandleFunc("GET /docs", s.handleDocsIndex)
+	s.mux.HandleFunc("GET /docs/{slug}", s.handleDocsPage)
+	s.mux.HandleFunc("GET /update", s.handlePage("update"))
 
 	// Lookup API
 	s.mux.HandleFunc("POST /api/lookup", s.handleLookupJSON)
