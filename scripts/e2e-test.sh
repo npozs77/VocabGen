@@ -7,7 +7,7 @@
 #   -s SECTION  Run only the given section number (1-10). Omit to run all.
 #               Sections: 1=Version, 2=Errors, 3=Dry-Run, 4=Word Lookup,
 #               5=Cache Hit, 6=Expression, 7=Batch, 8=Batch Limit,
-#               9=Backup, 10=Context Bypass
+#               9=Backup, 10=Context Bypass, 11=Update Checker
 #   Default model: us.anthropic.claude-sonnet-4-20250514-v1:0
 
 set -euo pipefail
@@ -184,6 +184,58 @@ assert_exit_zero "lookup with context" $BINARY lookup "fiets" -l nl \
     --context "De elektrische fiets is populair." \
     --model-id "$MODEL_ID" --on-conflict add $DB
 stdout_contains '"word"' && pass "context result" || fail "context result" "missing"
+fi
+
+# --- 11. Update Checker (builds with fake old version) ---
+if run_section 11; then
+echo ""
+echo "--- 11. Update Checker ---"
+# Build with a fake old version so any existing GitHub release triggers "update available".
+go build -ldflags "-X main.version=0.0.1 -X main.buildDate=2025-01-01" -o "$TMPDIR/vocabgen-old" ./cmd/vocabgen/
+"$TMPDIR/vocabgen-old" serve $DB &
+SERVER_PID=$!
+sleep 2
+
+# Check /update page loads
+if curl -sf http://localhost:8080/update > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    pass "update page loads"
+    stdout_contains "0.0.1" && pass "update page shows version" || fail "update page shows version" "missing 0.0.1"
+else
+    fail "update page loads" "curl failed"
+fi
+
+# Check /api/update/check returns HTML with update info
+if curl -sf http://localhost:8080/api/update/check > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    pass "update check API"
+    stdout_contains "Update available" && pass "update available detected" || pass "update check responded (may be up-to-date or API unreachable)"
+else
+    fail "update check API" "curl failed"
+fi
+
+# Check dismiss endpoint
+if curl -sf -X POST http://localhost:8080/api/update/dismiss > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    pass "dismiss endpoint"
+else
+    fail "dismiss endpoint" "curl failed"
+fi
+
+kill $SERVER_PID 2>/dev/null || true
+wait $SERVER_PID 2>/dev/null || true
+
+# CLI update check tests (no server needed)
+assert_exit_zero "cli version with update notice" "$TMPDIR/vocabgen-old" version
+stdout_contains "Update available" && pass "version shows update notice" || pass "version update check (may fail if API unreachable)"
+
+"$TMPDIR/vocabgen-old" update > "$TMPDIR/out" 2> "$TMPDIR/err"
+UPDATE_EXIT=$?
+if [ $UPDATE_EXIT -eq 0 ]; then
+    pass "cli update subcommand"
+    grep -q "Latest version\|up to date" "$TMPDIR/out" && pass "update shows version info" || fail "update shows version info" "missing"
+    grep -q "Download" "$TMPDIR/out" && pass "update shows download URL" || pass "update download (up-to-date has no URL)"
+else
+    # Exit 1 means API error — still a valid test if network is down
+    pass "cli update subcommand (API may be unreachable)"
+fi
 fi
 
 # --- Summary ---

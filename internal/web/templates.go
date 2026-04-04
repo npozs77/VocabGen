@@ -16,7 +16,7 @@ var templates map[string]*template.Template
 // IsHelpPage reports whether the given page name belongs to the Help menu section.
 func IsHelpPage(page string) bool {
 	switch page {
-	case "about", "docs", "docs_page", "update":
+	case "about", "docs", "docs_page", "update", "changelog":
 		return true
 	}
 	return false
@@ -31,7 +31,7 @@ func init() {
 	templates = make(map[string]*template.Template)
 
 	// Parse page templates — each page combines base.html + its own template.
-	pages := []string{"lookup", "batch", "config", "database", "about", "docs", "update"}
+	pages := []string{"lookup", "batch", "config", "database", "about", "docs", "update", "changelog"}
 	for _, page := range pages {
 		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS,
 			"templates/base.html",
@@ -58,7 +58,7 @@ func init() {
 	// Parse partial templates individually.
 	partials := []string{
 		"lookup_result", "lookup_conflict", "batch_summary",
-		"config_form", "entry_edit", "entry_table",
+		"config_form", "entry_edit", "entry_table", "update_result",
 	}
 	for _, partial := range partials {
 		t, err := template.ParseFS(templateFS,

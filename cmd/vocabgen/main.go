@@ -20,6 +20,7 @@ import (
 	"github.com/user/vocabgen/internal/llm"
 	"github.com/user/vocabgen/internal/parsing"
 	"github.com/user/vocabgen/internal/service"
+	"github.com/user/vocabgen/internal/update"
 	"github.com/user/vocabgen/internal/web"
 )
 
@@ -45,8 +46,8 @@ var rootCmd = &cobra.Command{
 	Long:    "A CLI and embedded web app for generating structured vocabulary lists using LLM providers.",
 	Version: version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip config loading for version subcommand
-		if cmd.Name() == "version" {
+		// Skip config loading for version and update subcommands
+		if cmd.Name() == "version" || cmd.Name() == "update" {
 			return nil
 		}
 
@@ -135,6 +136,7 @@ func init() {
 	rootCmd.AddCommand(backupCmd)
 	rootCmd.AddCommand(restoreCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(updateCmd)
 }
 
 // createProvider builds a Provider from the current config and CLI flags.
@@ -562,7 +564,51 @@ var restoreCmd = &cobra.Command{
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "vocabgen %s (%s, built %s)\n", version, runtime.Version(), buildDate)
+
+		// Best-effort update check with 5-second timeout — never fails the version command.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		info := update.CheckNow(ctx, version)
+		if info.HasUpdate && info.Error == "" {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Update available: v%s — run 'vocabgen update' for details\n", info.LatestVersion)
+		}
+
+		return nil
+	},
+}
+
+// updateCmd implements the "vocabgen update" subcommand.
+var updateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Check for newer versions",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
+		defer cancel()
+
+		info := update.CheckNow(ctx, version)
+
+		if info.Error != "" {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "vocabgen %s\n", info.CurrentVersion)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error: %s\n", info.Error)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Visit https://github.com/npozs77/VocabGen/releases for manual download.\n")
+			return fmt.Errorf("%s", info.Error)
+		}
+
+		if !info.HasUpdate {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "vocabgen %s is up to date.\n", info.CurrentVersion)
+			return nil
+		}
+
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Current version: %s\n", info.CurrentVersion)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Latest version:  %s\n", info.LatestVersion)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Download: %s\n", info.DownloadURL)
+		if info.ChangelogText != "" {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nChangelog:\n%s", info.ChangelogText)
+		}
+
+		return nil
 	},
 }

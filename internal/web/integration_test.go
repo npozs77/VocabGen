@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/user/vocabgen/internal/config"
+	"pgregory.net/rapid"
 )
 
 // --- Test 1: GET /api/health returns 200 {"status": "ok"} ---
@@ -409,4 +413,467 @@ func TestIntegration_ErrorResponseFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+// --- Test: About page backward compatibility ---
+
+// TestIntegration_AboutPage_BackwardCompatibility verifies that GET /about
+// returns 200 with text/html and contains expected content.
+//
+// Validates: Requirements 2.1, 2.2
+func TestIntegration_AboutPage_BackwardCompatibility(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/about", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	// Verify status code
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /about: expected 200, got %d", w.Code)
+	}
+
+	// Verify content type
+	ct := w.Header().Get("Content-Type")
+	if ct != "text/html; charset=utf-8" {
+		t.Fatalf("GET /about: expected text/html; charset=utf-8, got %q", ct)
+	}
+
+	body := w.Body.String()
+
+	// Verify "About VocabGen" heading is present
+	if !strings.Contains(body, "About VocabGen") {
+		t.Fatal("GET /about: response body does not contain 'About VocabGen'")
+	}
+
+	// Verify version is rendered (the test server uses "test" as version)
+	if !strings.Contains(body, "test") {
+		t.Fatal("GET /about: response body does not contain the version string")
+	}
+
+	// Verify build date is rendered
+	if !strings.Contains(body, "unknown") {
+		t.Fatal("GET /about: response body does not contain the build date")
+	}
+
+	// Verify Go version is rendered
+	if !strings.Contains(body, "go1.22") {
+		t.Fatal("GET /about: response body does not contain the Go version")
+	}
+
+	// Verify key structural elements from about.html template
+	if !strings.Contains(body, "Version") {
+		t.Fatal("GET /about: response body does not contain 'Version' label")
+	}
+	if !strings.Contains(body, "Build Date") {
+		t.Fatal("GET /about: response body does not contain 'Build Date' label")
+	}
+	if !strings.Contains(body, "Go Version") {
+		t.Fatal("GET /about: response body does not contain 'Go Version' label")
+	}
+	if !strings.Contains(body, "Provider") {
+		t.Fatal("GET /about: response body does not contain 'Provider' label")
+	}
+	if !strings.Contains(body, "Database") {
+		t.Fatal("GET /about: response body does not contain 'Database' label")
+	}
+
+	// Verify links section
+	if !strings.Contains(body, "GitHub Repository") {
+		t.Fatal("GET /about: response body does not contain 'GitHub Repository' link")
+	}
+	if !strings.Contains(body, "Report an Issue") {
+		t.Fatal("GET /about: response body does not contain 'Report an Issue' link")
+	}
+	if !strings.Contains(body, "MIT License") {
+		t.Fatal("GET /about: response body does not contain 'MIT License' link")
+	}
+}
+
+// TestPropertyP21_AboutPageContentIdentical verifies that the About page
+// content remains identical regardless of the version, build date, and Go
+// version passed to the server. The structural elements (headings, labels,
+// links) are always present — only the dynamic values change.
+//
+// Property P2.1: About page content is identical before and after the navigation restructure
+// Validates: Requirements 2.1, 2.2
+func TestPropertyP21_AboutPageContentIdentical(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		// Generate arbitrary version strings
+		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
+		buildDate := rapid.StringMatching(`[0-9]{4}-[0-9]{2}-[0-9]{2}`).Draw(t, "buildDate")
+		goVersion := rapid.StringMatching(`go1\.[0-9]{1,2}(\.[0-9]{1,2})?`).Draw(t, "goVersion")
+
+		cfg := config.DefaultConfig()
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, buildDate, goVersion)
+
+		req := httptest.NewRequest(http.MethodGet, "/about", nil)
+		w := httptest.NewRecorder()
+		srv.mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET /about: expected 200, got %d", w.Code)
+		}
+
+		body := w.Body.String()
+
+		// Structural invariants: these elements must always be present
+		// regardless of the dynamic values passed to the server.
+		invariants := []string{
+			"About VocabGen",
+			"Version",
+			"Build Date",
+			"Go Version",
+			"Provider",
+			"Database",
+			"GitHub Repository",
+			"Report an Issue",
+			"MIT License",
+		}
+		for _, inv := range invariants {
+			if !strings.Contains(body, inv) {
+				t.Errorf("About page missing structural element %q for version=%q buildDate=%q goVersion=%q",
+					inv, version, buildDate, goVersion)
+			}
+		}
+
+		// Dynamic values must appear in the rendered output
+		if !strings.Contains(body, version) {
+			t.Errorf("About page does not contain version %q", version)
+		}
+		if !strings.Contains(body, buildDate) {
+			t.Errorf("About page does not contain buildDate %q", buildDate)
+		}
+		if !strings.Contains(body, goVersion) {
+			t.Errorf("About page does not contain goVersion %q", goVersion)
+		}
+	})
+}
+
+// TestPropertyP22_AboutURLServesAboutPage verifies that the /about URL
+// always serves the About page with correct status and content type,
+// regardless of the server configuration.
+//
+// Property P2.2: The /about URL continues to serve the About page
+// Validates: Requirements 2.1, 2.2
+func TestPropertyP22_AboutURLServesAboutPage(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
+
+		cfg := config.DefaultConfig()
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22")
+
+		req := httptest.NewRequest(http.MethodGet, "/about", nil)
+		w := httptest.NewRecorder()
+		srv.mux.ServeHTTP(w, req)
+
+		// /about must always return 200
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET /about: expected 200, got %d (version=%q)", w.Code, version)
+		}
+
+		// /about must always return text/html
+		ct := w.Header().Get("Content-Type")
+		if ct != "text/html; charset=utf-8" {
+			t.Fatalf("GET /about: expected text/html; charset=utf-8, got %q (version=%q)", ct, version)
+		}
+
+		// /about must always contain "About VocabGen" (proves it's the About page, not a redirect)
+		body := w.Body.String()
+		if !strings.Contains(body, "About VocabGen") {
+			t.Fatalf("GET /about: response does not contain 'About VocabGen' (version=%q)", version)
+		}
+	})
+}
+
+// --- Test: Help dropdown links in rendered HTML ---
+
+// TestIntegration_HelpDropdownLinks verifies that rendered pages contain the
+// Help dropdown markup with the correct links in the correct order.
+//
+// Validates: Requirements 1.2, 3.1, 3.2
+func TestIntegration_HelpDropdownLinks(t *testing.T) {
+	srv := newTestServer()
+
+	// Test across multiple pages to ensure the dropdown is present on all of them
+	pages := []struct {
+		name string
+		path string
+	}{
+		{"lookup", "/"},
+		{"batch", "/batch"},
+		{"config", "/config"},
+		{"about", "/about"},
+		{"docs", "/docs"},
+		{"update", "/update"},
+	}
+
+	for _, pg := range pages {
+		t.Run(pg.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, pg.path, nil)
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("GET %s: expected 200, got %d", pg.path, w.Code)
+			}
+
+			body := w.Body.String()
+
+			// Verify Help dropdown container exists
+			if !strings.Contains(body, `id="help-menu"`) {
+				t.Fatalf("GET %s: response does not contain help-menu container", pg.path)
+			}
+			if !strings.Contains(body, `id="help-dropdown"`) {
+				t.Fatalf("GET %s: response does not contain help-dropdown panel", pg.path)
+			}
+
+			// Verify Help button text
+			if !strings.Contains(body, "Help ▾") {
+				t.Fatalf("GET %s: response does not contain 'Help ▾' button text", pg.path)
+			}
+
+			// Verify all five dropdown links are present
+			expectedLinks := []struct {
+				href string
+				text string
+			}{
+				{`href="/about"`, "About"},
+				{`href="https://github.com/npozs77/VocabGen/issues"`, "Report an Issue"},
+				{`href="/docs"`, "Documentation"},
+				{`href="/changelog"`, "Changelog"},
+				{`href="/update"`, "Check for Update"},
+			}
+			for _, link := range expectedLinks {
+				if !strings.Contains(body, link.href) {
+					t.Errorf("GET %s: response does not contain link %s", pg.path, link.href)
+				}
+				if !strings.Contains(body, link.text) {
+					t.Errorf("GET %s: response does not contain link text %q", pg.path, link.text)
+				}
+			}
+
+			// Verify Report an Issue link has target="_blank" and rel="noopener noreferrer"
+			if !strings.Contains(body, `target="_blank"`) {
+				t.Errorf("GET %s: Report an Issue link missing target=\"_blank\"", pg.path)
+			}
+			if !strings.Contains(body, `rel="noopener noreferrer"`) {
+				t.Errorf("GET %s: Report an Issue link missing rel=\"noopener noreferrer\"", pg.path)
+			}
+		})
+	}
+}
+
+// TestIntegration_HelpDropdownLinkOrder verifies that the five Help dropdown
+// links appear in the specified order: About, Report an Issue, Documentation,
+// Changelog, Check for Update.
+//
+// Validates: Requirements 1.2
+func TestIntegration_HelpDropdownLinkOrder(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /: expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Find positions of each link text within the dropdown
+	orderedTexts := []string{
+		"/about",
+		"https://github.com/npozs77/VocabGen/issues",
+		`href="/docs"`,
+		"/changelog",
+		"/update",
+	}
+
+	prevIdx := -1
+	for _, text := range orderedTexts {
+		idx := strings.Index(body, text)
+		if idx == -1 {
+			t.Fatalf("link %q not found in response body", text)
+		}
+		if idx <= prevIdx {
+			t.Fatalf("link %q (at %d) appears before or at same position as previous link (at %d); expected ascending order", text, idx, prevIdx)
+		}
+		prevIdx = idx
+	}
+}
+
+// TestIntegration_ReportAnIssueSecureAttributes verifies that the Report an
+// Issue link in the Help dropdown has the correct GitHub URL, target="_blank",
+// and rel="noopener noreferrer" attributes.
+//
+// Validates: Requirements 3.1, 3.2
+func TestIntegration_ReportAnIssueSecureAttributes(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /: expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// The Report an Issue link should contain all three attributes in the same <a> tag.
+	// We check for the combined pattern that appears in base.html.
+	issueLink := `href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer"`
+	if !strings.Contains(body, issueLink) {
+		t.Fatal("Report an Issue link does not contain the expected href + target + rel attributes together")
+	}
+}
+
+// TestPropertyP12_HelpDropdownContainsFiveLinksInOrder verifies that the Help
+// dropdown always contains exactly five links in the specified order regardless
+// of which page is rendered.
+//
+// Property P1.2: Help_Dropdown contains exactly five links in the specified order
+// Validates: Requirements 1.2
+func TestPropertyP12_HelpDropdownContainsFiveLinksInOrder(t *testing.T) {
+	pagePaths := []string{"/", "/batch", "/config", "/about", "/docs", "/update"}
+
+	rapid.Check(t, func(t *rapid.T) {
+		// Pick a random page to render
+		idx := rapid.IntRange(0, len(pagePaths)-1).Draw(t, "pageIndex")
+		path := pagePaths[idx]
+
+		cfg := config.DefaultConfig()
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22")
+
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		srv.mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET %s: expected 200, got %d", path, w.Code)
+		}
+
+		body := w.Body.String()
+
+		// Extract the help-dropdown section
+		dropdownStart := strings.Index(body, `id="help-dropdown"`)
+		if dropdownStart == -1 {
+			t.Fatalf("GET %s: help-dropdown not found", path)
+		}
+
+		// Find the closing </div> for the dropdown
+		dropdownSection := body[dropdownStart:]
+		closingDiv := strings.Index(dropdownSection, "</div>")
+		if closingDiv == -1 {
+			t.Fatalf("GET %s: help-dropdown closing tag not found", path)
+		}
+		dropdownHTML := dropdownSection[:closingDiv]
+
+		// Count the number of <a links in the dropdown
+		linkCount := strings.Count(dropdownHTML, "<a ")
+		if linkCount != 5 {
+			t.Fatalf("GET %s: expected exactly 5 links in help-dropdown, got %d", path, linkCount)
+		}
+
+		// Verify order: each link href must appear after the previous one
+		orderedHrefs := []string{
+			`href="/about"`,
+			`href="https://github.com/npozs77/VocabGen/issues"`,
+			`href="/docs"`,
+			`href="/changelog"`,
+			`href="/update"`,
+		}
+
+		prevPos := -1
+		for _, href := range orderedHrefs {
+			pos := strings.Index(dropdownHTML, href)
+			if pos == -1 {
+				t.Fatalf("GET %s: link %s not found in help-dropdown", path, href)
+			}
+			if pos <= prevPos {
+				t.Fatalf("GET %s: link %s (at %d) is not after previous link (at %d)", path, href, pos, prevPos)
+			}
+			prevPos = pos
+		}
+	})
+}
+
+// TestPropertyP31_ReportAnIssueOpensCorrectURL verifies that the Report an
+// Issue link always points to the correct GitHub issues URL regardless of
+// server configuration.
+//
+// Property P3.1: Report an Issue link opens the correct GitHub issues URL
+// Validates: Requirements 3.1
+func TestPropertyP31_ReportAnIssueOpensCorrectURL(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
+
+		cfg := config.DefaultConfig()
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22")
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+		srv.mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET /: expected 200, got %d (version=%q)", w.Code, version)
+		}
+
+		body := w.Body.String()
+
+		expectedURL := "https://github.com/npozs77/VocabGen/issues"
+		if !strings.Contains(body, fmt.Sprintf(`href="%s"`, expectedURL)) {
+			t.Fatalf("Report an Issue link does not contain expected URL %q (version=%q)", expectedURL, version)
+		}
+	})
+}
+
+// TestPropertyP32_ReportAnIssueOpensInNewTabSecurely verifies that the Report
+// an Issue link always has target="_blank" and rel="noopener noreferrer"
+// attributes regardless of server configuration.
+//
+// Property P3.2: Report an Issue link opens in a new tab with secure attributes
+// Validates: Requirements 3.2
+func TestPropertyP32_ReportAnIssueOpensInNewTabSecurely(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
+
+		cfg := config.DefaultConfig()
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22")
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+		srv.mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET /: expected 200, got %d (version=%q)", w.Code, version)
+		}
+
+		body := w.Body.String()
+
+		// Find the Report an Issue link in the help dropdown
+		issueURL := `href="https://github.com/npozs77/VocabGen/issues"`
+		issueIdx := strings.Index(body, issueURL)
+		if issueIdx == -1 {
+			t.Fatalf("Report an Issue link not found (version=%q)", version)
+		}
+
+		// Extract the <a> tag containing the issue link
+		// Search backward for "<a " and forward for ">"
+		tagStart := strings.LastIndex(body[:issueIdx], "<a ")
+		if tagStart == -1 {
+			t.Fatalf("could not find <a tag start for Report an Issue link (version=%q)", version)
+		}
+		tagEnd := strings.Index(body[issueIdx:], ">")
+		if tagEnd == -1 {
+			t.Fatalf("could not find <a tag end for Report an Issue link (version=%q)", version)
+		}
+		aTag := body[tagStart : issueIdx+tagEnd+1]
+
+		if !strings.Contains(aTag, `target="_blank"`) {
+			t.Fatalf("Report an Issue <a> tag missing target=\"_blank\" (version=%q): %s", version, aTag)
+		}
+		if !strings.Contains(aTag, `rel="noopener noreferrer"`) {
+			t.Fatalf("Report an Issue <a> tag missing rel=\"noopener noreferrer\" (version=%q): %s", version, aTag)
+		}
+	})
 }

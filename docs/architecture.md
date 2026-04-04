@@ -30,6 +30,8 @@ graph TB
         DB["internal/db<br/>SQLite · Cache"]
         CFG["internal/config<br/>YAML Config"]
         OUT["internal/output<br/>Field Mapping · Excel"]
+        UPD["internal/update<br/>Semver · GitHub API"]
+        DOCS["docs<br/>Embedded Markdown"]
     end
 
     CLI --> SVC
@@ -45,6 +47,9 @@ graph TB
     LLM --> VERTEXAI["Google Vertex AI"]
     CLI --> CFG
     WEB --> CFG
+    WEB --> DOCS
+    WEB --> UPD
+    CLI --> UPD
     DB --> SQLITE["~/.vocabgen/vocabgen.db"]
     CFG --> YAML["~/.vocabgen/config.yaml"]
 ```
@@ -53,8 +58,13 @@ graph TB
 
 ```
 vocabgen/
-├── cmd/vocabgen/          # Cobra CLI entry point
+├── cmd/vocabgen/          # Cobra CLI entry point (lookup, batch, serve, update, version)
 │   └── main.go
+├── docs/                  # Embedded markdown documentation (go:embed)
+│   ├── embed.go           # Render(slug) via goldmark, DocInfo registry
+│   ├── architecture.md
+│   ├── deployment.md
+│   └── user-guide.md
 ├── internal/
 │   ├── config/            # YAML config manager (LoadConfig, SaveConfig)
 │   ├── db/                # SQLite schema, migrations, CRUD, cache layer
@@ -63,6 +73,7 @@ vocabgen/
 │   ├── output/            # Field mapping, translation flattening, Excel export
 │   ├── parsing/           # CSV reading, word/expression normalization
 │   ├── service/           # Lookup, ProcessBatch — shared business logic
+│   ├── update/            # Shared update checker (semver, GitHub API, download URLs)
 │   └── web/               # HTTP handlers, routes, embedded templates
 │       └── templates/     # Go html/template files (go:embed)
 ├── go.mod
@@ -147,11 +158,27 @@ Config file at `~/.vocabgen/config.yaml`. `LoadConfig` returns defaults if file 
 
 Default values: provider=bedrock, aws_region=us-east-1, default_source_language=nl, default_target_language=hu, db_path=~/.vocabgen/vocabgen.db.
 
+### `docs` — Embedded Markdown Documentation
+
+Top-level package alongside the `docs/*.md` files. Uses `//go:embed *.md` to compile documentation into the binary. Exposes `Render(slug string) (template.HTML, string, error)` which reads the embedded file for a given slug and converts it to HTML via goldmark (with GFM extension for tables and fenced code blocks).
+
+`Available` lists the registered docs (architecture, deployment, user-guide, changelog). The changelog entry (`docs/changelog.md`) is a build artifact — the Makefile copies `CHANGELOG.md` into `docs/` before compilation.
+
+### `internal/update` — Shared Update Checker
+
+Reusable package for semver parsing, version comparison, and GitHub Releases API integration. Used by both the web server and CLI.
+
+Exported functions: `ParseSemver` (strips `v` prefix, extracts major/minor/patch), `IsNewer` (semver comparison), `CheckNow` (queries GitHub Releases API, computes delta changelog, constructs OS/arch download URL), `BuildDownloadURL` (goreleaser archive URL from version + `runtime.GOOS` + `runtime.GOARCH`).
+
+The web package wraps this with an `updateChecker` struct that adds mutex-protected caching, banner dismissal state, and a background startup goroutine (5-second timeout).
+
 ### `internal/web` — HTTP Server and Web UI
 
 Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All templates embedded via `go:embed`. No JavaScript build step.
 
-**Pages**: Lookup (`/`), Batch (`/batch`), Config (`/config`), Database (`/database`).
+**Pages**: Lookup (`/`), Batch (`/batch`), Config (`/config`), Database (`/database`), Help dropdown (About `/about`, Documentation `/docs`, Changelog `/changelog`, Check for Update `/update`).
+
+**Help menu**: A dropdown in the nav bar groups help-related pages. `isHelpPage` template function highlights the Help item when any subpage is active. Documentation pages render embedded `docs/*.md` via goldmark. The update page queries GitHub Releases via HTMX on load. A dismissible update banner appears on all pages when a newer version is detected at startup.
 
 **HTMX pattern**: Forms use `hx-post` to send requests; server returns HTML fragments that HTMX swaps into the page. No JSON parsing on the client side for UI interactions.
 
@@ -161,11 +188,11 @@ Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All t
 
 ### `cmd/vocabgen` — CLI Entry Point
 
-Cobra CLI with subcommands: `lookup`, `batch`, `serve`, `backup`, `restore`, `version`.
+Cobra CLI with subcommands: `lookup`, `batch`, `serve`, `backup`, `restore`, `version`, `update`.
 
-`PersistentPreRunE` on the root command loads config, applies CLI flag overrides, and configures `slog`. Provider is created from config + flags via the registry. SQLite store is opened from the configured path.
+`PersistentPreRunE` on the root command loads config, applies CLI flag overrides, and configures `slog`. Provider is created from config + flags via the registry. SQLite store is opened from the configured path. Config loading is skipped for `version` and `update` subcommands.
 
-Version injected at build time via `-ldflags -X main.version=... -X main.buildDate=...`.
+Version injected at build time via `-ldflags -X main.version=... -X main.buildDate=...`. The `version` subcommand performs a quick update check (5-second timeout) and appends a notice if a newer version exists. The `update` subcommand runs a full check (10-second timeout) and displays version info, download URL, and delta changelog.
 
 ## Data Flow: Single Lookup
 
@@ -324,18 +351,24 @@ Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All t
 
 ```
 internal/web/templates/
-├── base.html              # Shared layout: nav, head, Tailwind/HTMX CDN
+├── base.html              # Shared layout: nav (with Help dropdown + update banner), head, Tailwind/HTMX CDN
 ├── lookup.html            # Lookup page
 ├── batch.html             # Batch upload page
 ├── config.html            # Settings page
 ├── database.html          # Browse/edit/import/export page
+├── about.html             # About page (version, build info, links)
+├── docs.html              # Documentation index (Table of Contents)
+├── docs_page.html         # Documentation content page (rendered markdown)
+├── changelog.html         # Changelog page (rendered CHANGELOG.md)
+├── update.html            # Check for Update page (HTMX-driven version check)
 └── partials/
     ├── lookup_result.html     # Vocabulary entry display
     ├── lookup_conflict.html   # Side-by-side existing vs new with resolve buttons
     ├── batch_summary.html     # Processed/cached/failed/replaced/added counts
     ├── config_form.html       # Config form with conditional provider fields
     ├── entry_edit.html        # Edit form for a single entry
-    └── entry_table.html       # Paginated table rows
+    ├── entry_table.html       # Paginated table rows
+    └── update_result.html     # Update check result (up-to-date / update available / error)
 ```
 
 ### HTMX Interaction Pattern
@@ -380,6 +413,12 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | GET | /api/export | Excel export |
 | GET | /api/health | Health check |
 | GET | /api/languages | Supported languages list |
+| GET | /docs | Documentation index |
+| GET | /docs/{slug} | Documentation content page |
+| GET | /changelog | Changelog page |
+| GET | /update | Check for Update page |
+| GET | /api/update/check | HTMX partial: update check result |
+| POST | /api/update/dismiss | Dismiss update banner |
 
 ## Testing Strategy
 
@@ -403,3 +442,5 @@ See the design document for the full list of correctness properties (P1–P19).
 | Logging | `log/slog` | Stdlib, structured, leveled |
 | Templates | `go:embed` + `html/template` | Compiled into binary, auto-escaping |
 | Prompt formatting | `strings.NewReplacer` | Named placeholders, single-pass, order-independent |
+| Markdown rendering | `github.com/yuin/goldmark` | Pure Go, GFM support (tables, fenced code), used for docs and changelog |
+| Update checking | GitHub Releases API (public, no auth) | Simple HTTP GET, semver comparison, delta changelog |

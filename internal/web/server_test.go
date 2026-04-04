@@ -132,6 +132,8 @@ func TestPageRoutes(t *testing.T) {
 		{"batch", "/batch"},
 		{"config", "/config"},
 		{"database", "/database"},
+		{"docs", "/docs"},
+		{"update", "/update"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -145,6 +147,40 @@ func TestPageRoutes(t *testing.T) {
 			ct := w.Header().Get("Content-Type")
 			if ct != "text/html; charset=utf-8" {
 				t.Fatalf("expected text/html; charset=utf-8, got %q", ct)
+			}
+		})
+	}
+}
+
+// TestDocsSlugRoutes verifies that known doc slugs return 200 and unknown slugs return 404.
+// Validates: Requirements 4.1, 4.3, 5.1
+func TestDocsSlugRoutes(t *testing.T) {
+	srv := newTestServer()
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{"architecture", "/docs/architecture", http.StatusOK},
+		{"deployment", "/docs/deployment", http.StatusOK},
+		{"user-guide", "/docs/user-guide", http.StatusOK},
+		{"nonexistent", "/docs/nonexistent", http.StatusNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if w.Code != tc.wantStatus {
+				t.Fatalf("expected %d, got %d", tc.wantStatus, w.Code)
+			}
+			if tc.wantStatus == http.StatusOK {
+				ct := w.Header().Get("Content-Type")
+				if ct != "text/html; charset=utf-8" {
+					t.Fatalf("expected text/html; charset=utf-8, got %q", ct)
+				}
 			}
 		})
 	}

@@ -26,11 +26,18 @@
           <a href="/about" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">About</a>
           <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Report an Issue ↗</a>
           <a href="/docs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Documentation</a>
+          <a href="/changelog" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Changelog</a>
           <a href="/update" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check for Update</a>
         </div>
       </div>
     </div>
   </nav>
+  {{if .UpdateAvailable}}
+  <div id="update-banner" class="bg-blue-50 border-b border-blue-200 px-4 py-2 text-sm text-blue-800 flex items-center justify-between max-w-7xl mx-auto">
+    <span>A new version (v{{.LatestVersion}}) is available. <a href="/update" class="underline font-medium">View details</a></span>
+    <button hx-post="/api/update/dismiss" hx-swap="outerHTML" hx-target="#update-banner" class="text-blue-600 hover:text-blue-800 ml-4">✕</button>
+  </div>
+  {{end}}
   <main class="max-w-7xl mx-auto px-4 py-8">
     {{template "content" .}}
   </main>

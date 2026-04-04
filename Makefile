@@ -1,7 +1,12 @@
 .PHONY: build test lint vet fmt-check clean coverage quality e2e
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -X main.version=$(VERSION) -X main.buildDate=$(BUILD_DATE)
+
 build:
-	go build -o vocabgen ./cmd/vocabgen
+	cp CHANGELOG.md docs/changelog.md
+	go build -ldflags "$(LDFLAGS)" -o vocabgen ./cmd/vocabgen
 
 test:
 	go test -race ./...
@@ -28,7 +33,8 @@ clean:
 
 quality:
 	@echo "=== Build ==="
-	go build ./cmd/vocabgen/
+	cp CHANGELOG.md docs/changelog.md
+	go build -ldflags "$(LDFLAGS)" ./cmd/vocabgen/
 	@echo ""
 	@echo "=== Vet ==="
 	go vet ./...

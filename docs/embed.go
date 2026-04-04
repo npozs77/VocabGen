@@ -26,6 +26,7 @@ var Available = []DocInfo{
 	{Slug: "architecture", Title: "Architecture", File: "architecture.md"},
 	{Slug: "deployment", Title: "Deployment", File: "deployment.md"},
 	{Slug: "user-guide", Title: "User Guide", File: "user-guide.md"},
+	{Slug: "changelog", Title: "Changelog", File: "changelog.md"},
 }
 
 var slugToFile map[string]DocInfo

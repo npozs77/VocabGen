@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-04-04
+
+### Added
+
+- Help dropdown menu in navigation bar replacing standalone About link
+- Documentation pages with embedded markdown rendering via goldmark (Architecture, Deployment, User Guide)
+- Check for Update page with GitHub Releases API integration, semver comparison, and OS/arch-aware download links
+- Delta changelog rendering — shows combined release notes for all versions between current and latest
+- Update notification banner on all pages when a newer version is available (dismissible, resets on restart)
+- Changelog page rendering embedded CHANGELOG.md as formatted HTML
+- `vocabgen update` CLI subcommand — checks GitHub Releases for newer versions, shows download URL and delta changelog
+- `vocabgen version` now appends a one-line update notice when a newer version is available
+- Shared `internal/update` package for reusable semver parsing, version comparison, and GitHub Releases API client
+
 ## [1.0.3] - 2026-04-03
 
 ### Added

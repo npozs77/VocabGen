@@ -7,13 +7,30 @@
     <div class="grid grid-cols-2 gap-2 text-sm">
       <span class="text-gray-500">Current Version</span>
       <span class="font-mono">{{.Version}}</span>
+      <span class="text-gray-500">Build Date</span>
+      <span class="font-mono">{{.BuildDate}}</span>
+      <span class="text-gray-500">Platform</span>
+      <span class="font-mono">{{.OS}}/{{.Arch}}</span>
     </div>
 
-    <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-      <p class="text-sm text-blue-800">
-        Automatic update checking is a planned feature. For now, visit the
-        <a href="https://github.com/npozs77/VocabGen/releases" target="_blank" rel="noopener noreferrer" class="underline font-medium">GitHub Releases</a>
-        page to check for new versions.
+    <div id="update-result"
+         hx-get="/api/update/check"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+      <div class="flex items-center gap-2 text-sm text-gray-500 mt-4">
+        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Checking for updates…
+      </div>
+    </div>
+
+    <div class="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
+      <p class="text-xs text-gray-500">
+        Your settings (<code>~/.vocabgen/config.yaml</code>) and vocabulary database
+        (<code>~/.vocabgen/vocabgen.db</code>) are stored separately and are not affected
+        by replacing the binary.
       </p>
     </div>
   </div>

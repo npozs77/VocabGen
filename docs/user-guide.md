@@ -222,8 +222,11 @@ The navigation bar includes a Help dropdown with:
 
 - **About** (`/about`): Version info, build date, Go version, and links to the GitHub repository.
 - **Report an Issue**: Opens the [GitHub Issues](https://github.com/npozs77/VocabGen/issues) page in a new tab.
-- **Documentation** (`/docs`): Browsable documentation index with deep links into Architecture, Deployment, and User Guide sections. Mermaid diagrams and flowcharts render inline.
-- **Check for Update** (`/update`): Displays the current version with a link to GitHub Releases.
+- **Documentation** (`/docs`): Browsable documentation index with deep links into Architecture, Deployment, and User Guide sections. Rendered from the embedded `docs/*.md` files via goldmark.
+- **Changelog** (`/changelog`): Full project changelog rendered as formatted HTML from the embedded `CHANGELOG.md`.
+- **Check for Update** (`/update`): Displays the current version, build date, and OS/architecture. On page load, queries the GitHub Releases API to check for newer versions. If an update is available, shows the latest version, a direct download link for your platform, and a delta changelog covering all releases between your version and the latest. If the API is unreachable, displays a fallback message with a manual link to GitHub Releases.
+
+When the web server starts, it performs a background update check. If a newer version is detected, a dismissible banner appears below the navigation bar on all pages with a link to the update page. The banner does not reappear after dismissal until the server is restarted.
 
 ## Tags
 
@@ -410,6 +413,41 @@ vocabgen batch --input-file ch1.csv --mode words -l nl --dry-run
 ```
 
 Dry-run normalizes tokens and checks the cache but skips LLM invocation and DB writes. Use this to verify your input file and estimate API costs before processing.
+
+## Checking for Updates
+
+Check for newer versions from the command line without starting the web server:
+
+```bash
+vocabgen update
+```
+
+This queries the GitHub Releases API and displays the current version, latest available version, a download link for your OS and architecture, and a delta changelog covering all releases between your version and the latest. If you're already on the latest version, it prints a "You're up to date" message. If the API is unreachable, it prints an error and exits with a non-zero status.
+
+The `vocabgen version` command also performs a quick update check:
+
+```bash
+vocabgen version
+```
+
+If a newer version is available, it appends a one-line notice:
+
+```
+Update available: v1.1.0 — run 'vocabgen update' for details
+```
+
+If the current version is the latest or the API is unreachable, no extra output is shown. Update checks are only performed on the `version` and `update` subcommands — no other command makes network calls to GitHub.
+
+## User Data and Updates
+
+All user data is stored in `~/.vocabgen/`, independent of where the vocabgen binary is located:
+
+| File | Purpose |
+|------|---------|
+| `~/.vocabgen/config.yaml` | Application configuration (provider, languages, model) |
+| `~/.vocabgen/vocabgen.db` | SQLite vocabulary database (cached lookups, entries) |
+
+Replacing the binary (e.g., downloading a new release) does not affect your configuration or vocabulary data. You can safely update vocabgen by overwriting the binary in place — your settings and database remain untouched.
 
 ## Conflict Resolution
 
