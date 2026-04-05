@@ -17,14 +17,15 @@ import (
 
 // Server holds the HTTP server and its dependencies.
 type Server struct {
-	store     db.Store
-	cfg       *config.Config
-	mux       *http.ServeMux
-	logger    *slog.Logger
-	version   string
-	buildDate string
-	goVersion string
-	updater   *updateChecker
+	store         db.Store
+	cfg           *config.Config
+	activeProfile string
+	mux           *http.ServeMux
+	logger        *slog.Logger
+	version       string
+	buildDate     string
+	goVersion     string
+	updater       *updateChecker
 }
 
 // pageData is the common data passed to all page templates.
@@ -41,15 +42,19 @@ type pageData struct {
 
 // NewServer creates a Server with all routes registered.
 func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version, buildDate, goVersion string) *Server {
+	// Resolve the initial active profile name.
+	_, defaultProfile, _ := config.ListProfiles()
+
 	s := &Server{
-		store:     store,
-		cfg:       cfg,
-		mux:       http.NewServeMux(),
-		logger:    logger,
-		version:   version,
-		buildDate: buildDate,
-		goVersion: goVersion,
-		updater:   newUpdateChecker(version, logger),
+		store:         store,
+		cfg:           cfg,
+		activeProfile: defaultProfile,
+		mux:           http.NewServeMux(),
+		logger:        logger,
+		version:       version,
+		buildDate:     buildDate,
+		goVersion:     goVersion,
+		updater:       newUpdateChecker(version, logger),
 	}
 	s.registerRoutes()
 	return s
@@ -118,6 +123,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/config", s.handlePutConfig)
 	s.mux.HandleFunc("GET /api/config/html", s.handleConfigHTML)
 	s.mux.HandleFunc("POST /api/test-connection", s.handleTestConnection)
+	s.mux.HandleFunc("GET /api/profiles", s.handleGetProfiles)
+	s.mux.HandleFunc("POST /api/profiles", s.handleCreateProfile)
+	s.mux.HandleFunc("PUT /api/profile/switch", s.handleSwitchProfile)
 
 	// Database API
 	s.mux.HandleFunc("GET /api/words", s.handleListWords)

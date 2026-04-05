@@ -1,10 +1,14 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/user/vocabgen/internal/config"
 )
 
 func TestValidateProviderEnv(t *testing.T) {
@@ -191,5 +195,365 @@ func TestPutConfig_EnvVarValidation(t *testing.T) {
 				t.Fatalf("expected body to contain %q, got %q", tc.wantSubstr, w.Body.String())
 			}
 		})
+	}
+}
+
+// TestGetProfiles_ReturnsList tests GET /api/profiles returns profile list.
+//
+// Validates: Requirement 58.7
+func TestGetProfiles_ReturnsList(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/profiles", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	var body struct {
+		Profiles []string `json:"profiles"`
+		Active   string   `json:"active"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+	// With default flat config, should return ["default"]
+	if len(body.Profiles) == 0 {
+		t.Fatal("expected at least one profile")
+	}
+	if body.Active == "" {
+		t.Fatal("expected non-empty active profile")
+	}
+}
+
+// TestGetProfiles_MultiProfile tests GET /api/profiles with multi-profile config.
+//
+// Validates: Requirement 58.7
+func TestGetProfiles_MultiProfile(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/profiles", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	var body struct {
+		Profiles []string `json:"profiles"`
+		Active   string   `json:"active"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+	if body.Active != "prod" {
+		t.Fatalf("expected active 'prod', got %q", body.Active)
+	}
+	if len(body.Profiles) != 2 {
+		t.Fatalf("expected 2 profiles, got %d: %v", len(body.Profiles), body.Profiles)
+	}
+}
+
+// TestSwitchProfile_ChangesActiveConfig tests PUT /api/profile/switch.
+//
+// Validates: Requirement 58.8
+func TestSwitchProfile_ChangesActiveConfig(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1", ModelID: "claude-v1"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "mistral"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+
+	// Switch to "local" profile.
+	body := `{"profile":"local"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Switched to profile") {
+		t.Fatalf("expected success message, got: %s", w.Body.String())
+	}
+
+	// Verify in-memory config was updated.
+	if srv.cfg.Provider != "openai" {
+		t.Fatalf("expected provider 'openai' after switch, got %q", srv.cfg.Provider)
+	}
+	if srv.cfg.BaseURL != "http://localhost:11434/v1" {
+		t.Fatalf("expected base_url from local profile, got %q", srv.cfg.BaseURL)
+	}
+	if srv.cfg.ModelID != "mistral" {
+		t.Fatalf("expected model_id 'mistral', got %q", srv.cfg.ModelID)
+	}
+}
+
+// TestSwitchProfile_InvalidProfile tests PUT /api/profile/switch with bad profile name.
+//
+// Validates: Requirement 58.4
+func TestSwitchProfile_InvalidProfile(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod": {Provider: "bedrock"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+
+	body := `{"profile":"nonexistent"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "not found") {
+		t.Fatalf("expected 'not found' in error, got: %s", w.Body.String())
+	}
+}
+
+// TestSwitchProfile_EmptyProfile tests PUT /api/profile/switch with empty profile.
+func TestSwitchProfile_EmptyProfile(t *testing.T) {
+	srv := newTestServer()
+
+	body := `{"profile":""}`
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestConfigFormRendersWithProfileSelector tests that the config form HTML
+// includes the profile selector when multiple profiles exist.
+//
+// Validates: Requirement 58.7
+func TestConfigFormRendersWithProfileSelector(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/config/html", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "profile_selector") {
+		t.Fatal("expected profile_selector in config form HTML")
+	}
+}
+
+// TestConfigFormAlwaysShowsProfileSelector tests that the profile selector
+// is always visible, even when only one profile exists (flat config).
+func TestConfigFormAlwaysShowsProfileSelector(t *testing.T) {
+	// Write a flat config directly (bypass SaveConfig's multi-profile detection).
+	dir, _ := os.MkdirTemp("", "vocabgen-flat-*")
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() {
+		config.SetConfigDirForTest(os.TempDir()) // restore to shared test dir
+		_ = os.RemoveAll(dir)
+	})
+
+	cfg := config.DefaultConfig()
+	if err := config.SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/config/html", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "profile_selector") {
+		t.Fatal("expected profile_selector to always be visible, even for single-profile config")
+	}
+	if !strings.Contains(body, "default") {
+		t.Fatal("expected 'default' profile name in selector")
+	}
+}
+
+// TestCreateProfile_ValidName tests POST /api/profiles with a valid new profile name.
+//
+// Validates: Requirements 58.10, 58.11
+func TestCreateProfile_ValidName(t *testing.T) {
+	// Write a multi-profile config so we have a known source.
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod": {Provider: "bedrock", AWSRegion: "us-east-1", ModelID: "claude-v1"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+
+	body := "name=sandbox&source_profile=prod"
+	req := httptest.NewRequest(http.MethodPost, "/api/profiles", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "sandbox") {
+		t.Fatalf("expected success message mentioning 'sandbox', got: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "created") {
+		t.Fatalf("expected 'created' in response, got: %s", w.Body.String())
+	}
+
+	// Verify in-memory config was updated to the new profile.
+	if srv.cfg.Provider != "bedrock" {
+		t.Fatalf("expected provider 'bedrock' (copied from prod), got %q", srv.cfg.Provider)
+	}
+
+	// Verify the profile was actually persisted.
+	profiles, def, err := config.ListProfiles()
+	if err != nil {
+		t.Fatalf("ListProfiles: %v", err)
+	}
+	if def != "sandbox" {
+		t.Fatalf("expected default 'sandbox', got %q", def)
+	}
+	found := false
+	for _, p := range profiles {
+		if p == "sandbox" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected 'sandbox' in profiles, got %v", profiles)
+	}
+}
+
+// TestCreateProfile_DuplicateName tests POST /api/profiles with a name that already exists.
+//
+// Validates: Requirement 58.12
+func TestCreateProfile_DuplicateName(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock"},
+			"local": {Provider: "openai"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+
+	body := "name=prod&source_profile=local"
+	req := httptest.NewRequest(http.MethodPost, "/api/profiles", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "already exists") {
+		t.Fatalf("expected 'already exists' in error, got: %s", w.Body.String())
+	}
+}
+
+// TestCreateProfile_EmptyName tests POST /api/profiles with an empty name.
+//
+// Validates: Requirement 58.10
+func TestCreateProfile_EmptyName(t *testing.T) {
+	srv := newTestServer()
+
+	body := "name=&source_profile=default"
+	req := httptest.NewRequest(http.MethodPost, "/api/profiles", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "required") {
+		t.Fatalf("expected 'required' in error, got: %s", w.Body.String())
+	}
+}
+
+// TestAPIRoutesRegistered_CreateProfile verifies POST /api/profiles is registered.
+func TestAPIRoutesRegistered_CreateProfile(t *testing.T) {
+	srv := newTestServer()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/profiles", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	// Should not be 404 or 405 — route is registered.
+	if w.Code == http.StatusNotFound || w.Code == http.StatusMethodNotAllowed {
+		t.Fatalf("POST /api/profiles route not registered: got %d", w.Code)
 	}
 }

@@ -14,6 +14,103 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.cfg)
 }
 
+// handleGetProfiles handles GET /api/profiles — return available profiles and active profile.
+func (s *Server) handleGetProfiles(w http.ResponseWriter, r *http.Request) {
+	profiles, defaultProfile, err := config.ListProfiles()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to list profiles: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"profiles": profiles,
+		"active":   defaultProfile,
+	})
+}
+
+// handleSwitchProfile handles PUT /api/profile/switch — switch active profile.
+func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Profile string `json:"profile"`
+	}
+
+	ct := r.Header.Get("Content-Type")
+	if ct == "application/json" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+	} else {
+		if err := r.ParseForm(); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid form: "+err.Error())
+			return
+		}
+		req.Profile = r.FormValue("profile")
+	}
+
+	if req.Profile == "" {
+		writeJSONError(w, http.StatusBadRequest, "profile name is required")
+		return
+	}
+
+	cfg, err := config.LoadConfigWithProfile(req.Profile)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	*s.cfg = cfg
+	s.activeProfile = req.Profile
+	s.logger.Info("switched config profile", "profile", req.Profile)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Switched to profile "` + req.Profile + `".</p>`))
+}
+
+// handleCreateProfile handles POST /api/profiles — create a new profile by copying an existing one.
+func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Invalid form data.</p>`))
+		return
+	}
+
+	name := r.FormValue("name")
+	sourceProfile := r.FormValue("source_profile")
+
+	if name == "" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Profile name is required.</p>`))
+		return
+	}
+
+	if err := config.CreateProfile(name, sourceProfile); err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">` + err.Error() + `</p>`))
+		return
+	}
+
+	// Reload in-memory config with the new profile.
+	cfg, err := config.LoadConfigWithProfile(name)
+	if err != nil {
+		s.logger.Error("reload config after profile creation failed", "error", err)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Profile created but failed to reload: ` + err.Error() + `</p>`))
+		return
+	}
+	*s.cfg = cfg
+	s.activeProfile = name
+	s.logger.Info("created config profile", "profile", name, "source", sourceProfile)
+
+	// Return an HX-Trigger header to reload the config form.
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("HX-Trigger", "profileCreated")
+	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Profile "` + name + `" created.</p>`))
+}
+
 // handlePutConfig handles PUT /api/config — update config file.
 func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	var updated config.Config
@@ -76,6 +173,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 	// If provider query param is set, use it for conditional fields preview
 	cfg := *s.cfg
+	origProvider := cfg.Provider
 	if p := r.URL.Query().Get("provider"); p != "" {
 		cfg.Provider = p
 	}
@@ -83,13 +181,23 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 	if p := r.FormValue("provider"); p != "" {
 		cfg.Provider = p
 	}
+	// Clear model ID when provider changes so the placeholder hint shows.
+	if cfg.Provider != origProvider {
+		cfg.ModelID = ""
+	}
+
+	profiles, _, _ := config.ListProfiles()
 
 	data := struct {
-		Config    *config.Config
-		Languages []service.LanguageInfo
+		Config        *config.Config
+		Languages     []service.LanguageInfo
+		Profiles      []string
+		ActiveProfile string
 	}{
-		Config:    &cfg,
-		Languages: service.GetSupportedLanguages(),
+		Config:        &cfg,
+		Languages:     service.GetSupportedLanguages(),
+		Profiles:      profiles,
+		ActiveProfile: s.activeProfile,
 	}
 	_ = renderPartial(w, "config_form", data)
 }

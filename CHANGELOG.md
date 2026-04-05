@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-04-05
+
+### Added
+
+- Multiple config profiles — save different LLM setups (local, sandbox, prod) and switch via `--profile` or the Web UI (#23)
+
 ## [1.1.0] - 2026-04-04
 
 ### Added

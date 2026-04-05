@@ -222,6 +222,9 @@ func TestAPIRoutesRegistered(t *testing.T) {
 		{"put-config", http.MethodPut, "/api/config", 0},
 		// Test connection with no provider configured
 		{"test-connection", http.MethodPost, "/api/test-connection", 0},
+		// Profile endpoints
+		{"get-profiles", http.MethodGet, "/api/profiles", http.StatusOK},
+		{"switch-profile", http.MethodPut, "/api/profile/switch", http.StatusBadRequest},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

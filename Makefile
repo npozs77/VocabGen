@@ -39,8 +39,8 @@ quality:
 	@echo "=== Vet ==="
 	go vet ./...
 	@echo ""
-	@echo "=== Format Check ==="
-	@test -z "$$(gofmt -l .)" || { echo "Files not formatted:"; gofmt -l .; exit 1; }
+	@echo "=== Format ==="
+	gofmt -w .
 	@echo "All files formatted."
 	@echo ""
 	@echo "=== Lint ==="

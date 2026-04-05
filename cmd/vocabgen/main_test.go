@@ -263,7 +263,7 @@ func TestCLIPersistentFlagsExist(t *testing.T) {
 	flags := []string{
 		"verbose", "provider", "region", "timeout", "tags",
 		"source-language", "target-language", "model-id",
-		"api-key", "base-url", "profile", "gcp-project", "gcp-region",
+		"api-key", "base-url", "profile", "aws-profile", "gcp-project", "gcp-region",
 	}
 
 	for _, name := range flags {
@@ -545,5 +545,149 @@ func TestCLIErrorMessagesAreActionable(t *testing.T) {
 				t.Errorf("error should contain %q, got: %s", tc.expectInErr, err.Error())
 			}
 		})
+	}
+}
+
+// TestCLIProfileFlagResolution tests that --profile resolves config profiles correctly.
+//
+// Validates: Requirements 58.3, 58.4
+func TestCLIProfileFlagResolution(t *testing.T) {
+	// Set up a temp config dir with multi-profile config.
+	origDir := config.FilePath()
+	_ = origDir
+	tmpDir := t.TempDir()
+	config.SetConfigDirForTest(tmpDir)
+	t.Cleanup(func() { config.SetConfigDirForTest("") })
+
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod": {
+				Provider:  "bedrock",
+				AWSRegion: "us-east-1",
+				ModelID:   "us.anthropic.claude-sonnet-4-20250514-v1:0",
+			},
+			"local": {
+				Provider: "openai",
+				BaseURL:  "http://localhost:11434/v1",
+				ModelID:  "mistral",
+			},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		profile      string
+		wantErr      bool
+		wantErrSub   string
+		wantProvider string
+		wantModelID  string
+	}{
+		{
+			name:         "local profile resolves",
+			profile:      "local",
+			wantProvider: "openai",
+			wantModelID:  "mistral",
+		},
+		{
+			name:         "prod profile resolves",
+			profile:      "prod",
+			wantProvider: "bedrock",
+			wantModelID:  "us.anthropic.claude-sonnet-4-20250514-v1:0",
+		},
+		{
+			name:       "nonexistent profile returns error",
+			profile:    "nonexistent",
+			wantErr:    true,
+			wantErrSub: "not found",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := config.LoadConfigWithProfile(tc.profile)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tc.wantErrSub != "" && !strings.Contains(err.Error(), tc.wantErrSub) {
+					t.Fatalf("expected error containing %q, got: %v", tc.wantErrSub, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if cfg.Provider != tc.wantProvider {
+				t.Fatalf("Provider: got %q, want %q", cfg.Provider, tc.wantProvider)
+			}
+			if cfg.ModelID != tc.wantModelID {
+				t.Fatalf("ModelID: got %q, want %q", cfg.ModelID, tc.wantModelID)
+			}
+		})
+	}
+}
+
+// TestCLINoProfileFlagUsesDefault tests that when --profile is not set,
+// LoadConfig uses the default_profile from the config file.
+//
+// Validates: Requirement 58.2
+func TestCLINoProfileFlagUsesDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	config.SetConfigDirForTest(tmpDir)
+	t.Cleanup(func() { config.SetConfigDirForTest("") })
+
+	fc := config.FileConfig{
+		DefaultProfile: "local",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "mistral"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	// LoadConfig (no profile specified) should use default_profile "local".
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.Provider != "openai" {
+		t.Fatalf("expected default profile 'local' with provider 'openai', got %q", cfg.Provider)
+	}
+	if cfg.BaseURL != "http://localhost:11434/v1" {
+		t.Fatalf("expected base_url from local profile, got %q", cfg.BaseURL)
+	}
+}
+
+// TestCLIProfileFlagDefault tests that the --profile flag has an empty default.
+func TestCLIProfileFlagDefault(t *testing.T) {
+	f := rootCmd.PersistentFlags().Lookup("profile")
+	if f == nil {
+		t.Fatal("flag --profile not found")
+	}
+	if f.DefValue != "" {
+		t.Fatalf("--profile default should be empty, got %q", f.DefValue)
+	}
+}
+
+// TestCLIAWSProfileFlagExists tests that --aws-profile flag exists.
+func TestCLIAWSProfileFlagExists(t *testing.T) {
+	f := rootCmd.PersistentFlags().Lookup("aws-profile")
+	if f == nil {
+		t.Fatal("flag --aws-profile not found")
+	}
+	if f.DefValue != "" {
+		t.Fatalf("--aws-profile default should be empty, got %q", f.DefValue)
 	}
 }

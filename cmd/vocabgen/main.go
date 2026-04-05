@@ -60,11 +60,22 @@ var rootCmd = &cobra.Command{
 		handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})
 		slog.SetDefault(slog.New(handler))
 
-		// Load config
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			slog.Warn("failed to load config, using defaults", "error", err)
-			cfg = config.DefaultConfig()
+		// Load config — use profile-aware loading if --profile is set.
+		profileFlag, _ := cmd.Flags().GetString("profile")
+		var cfg config.Config
+		if profileFlag != "" {
+			var loadErr error
+			cfg, loadErr = config.LoadConfigWithProfile(profileFlag)
+			if loadErr != nil {
+				return loadErr
+			}
+		} else {
+			var loadErr error
+			cfg, loadErr = config.LoadConfig()
+			if loadErr != nil {
+				slog.Warn("failed to load config, using defaults", "error", loadErr)
+				cfg = config.DefaultConfig()
+			}
 		}
 		// Log if config file was not found (using defaults)
 		if _, statErr := os.Stat(config.FilePath()); os.IsNotExist(statErr) {
@@ -84,8 +95,8 @@ var rootCmd = &cobra.Command{
 		if f := cmd.Flags().Lookup("base-url"); f != nil && f.Changed {
 			cfg.BaseURL, _ = cmd.Flags().GetString("base-url")
 		}
-		if f := cmd.Flags().Lookup("profile"); f != nil && f.Changed {
-			cfg.AWSProfile, _ = cmd.Flags().GetString("profile")
+		if f := cmd.Flags().Lookup("aws-profile"); f != nil && f.Changed {
+			cfg.AWSProfile, _ = cmd.Flags().GetString("aws-profile")
 		}
 		if f := cmd.Flags().Lookup("source-language"); f != nil && f.Changed {
 			cfg.DefaultSourceLanguage, _ = cmd.Flags().GetString("source-language")
@@ -124,7 +135,8 @@ func init() {
 	pf.String("model-id", "", "LLM model identifier")
 	pf.String("api-key", "", "API key for OpenAI/Anthropic providers")
 	pf.String("base-url", "", "Custom API base URL (OpenAI-compatible servers)")
-	pf.String("profile", "", "AWS profile name (Bedrock provider)")
+	pf.String("aws-profile", "", "AWS profile name (Bedrock provider)")
+	pf.String("profile", "", "Config profile name (from profiles: in config.yaml)")
 	pf.String("gcp-project", "", "GCP project ID (Vertex AI provider)")
 	pf.String("gcp-region", "us-central1", "GCP region (Vertex AI provider)")
 	pf.String("db-path", "", "Database file path (overrides config)")
