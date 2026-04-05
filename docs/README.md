@@ -44,6 +44,8 @@ Installation, configuration, and daily usage.
 - [Installation](/docs/user-guide#installation) — per-platform download and setup
 - [Configuration](/docs/user-guide#configuration) — Web UI, CLI flags, config file
 - [Provider Credentials](/docs/user-guide#provider-credentials) — Bedrock, OpenAI, Anthropic, Vertex AI, Ollama
+- [Config Profiles](/docs/user-guide#config-profiles) — named profiles, `--profile` flag, Web UI dropdown
+- [Local LLM Setup](/docs/user-guide#local-llm-setup) — one-click Ollama setup via script or Web UI
 - [First Run](/docs/user-guide#first-run) — your first lookup
 - [Batch Processing](/docs/user-guide#batch-processing) — CSV input, limits, dry-run
 - [Web UI](/docs/user-guide#web-ui) — Lookup, Batch, Config, Database pages
@@ -51,5 +53,8 @@ Installation, configuration, and daily usage.
 - [Database Management](/docs/user-guide#database-management) — backup, restore, import, export
 - [Provider Switching](/docs/user-guide#provider-switching) — Bedrock, OpenAI, Anthropic, Ollama, Azure
 - [Dry-Run Mode](/docs/user-guide#dry-run-mode) — preview without API calls
+- [Checking for Updates](/docs/user-guide#checking-for-updates) — CLI update check via GitHub Releases
+- [User Data and Updates](/docs/user-guide#user-data-and-updates) — where data lives, safe binary upgrades
 - [Conflict Resolution](/docs/user-guide#conflict-resolution) — replace, add, skip strategies
+- [E2E Testing](/docs/user-guide#e2e-testing) — end-to-end tests with local or cloud profiles
 - [Adding Languages](/docs/user-guide#adding-languages) — built-in codes and custom additions

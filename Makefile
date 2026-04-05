@@ -53,4 +53,4 @@ quality:
 	@go tool cover -func=coverage.out | tail -1
 
 e2e:
-	@./scripts/e2e-test.sh
+	@E2E_PROFILE=$(E2E_PROFILE) ./scripts/e2e-test.sh

@@ -164,14 +164,25 @@ func ValidateResponse(mode, rawJSON string) (*ValidatedEntry, error) {
 		return nil, &ValidationError{Message: err.Error(), Fields: []string{"target_translation"}}
 	}
 
-	// Validate optional fields: default to "" if absent, error if non-string
+	// Validate optional fields: default to "" if absent, coerce arrays to
+	// comma-separated strings (LLMs sometimes return lists), error on other types.
 	for _, f := range optional {
 		v, exists := data[f]
 		if !exists || v == nil {
 			data[f] = ""
 			continue
 		}
-		if _, ok := v.(string); !ok {
+		switch val := v.(type) {
+		case string:
+			// already fine
+		case []any:
+			// Coerce JSON array to comma-separated string.
+			parts := make([]string, 0, len(val))
+			for _, item := range val {
+				parts = append(parts, fmt.Sprintf("%v", item))
+			}
+			data[f] = strings.Join(parts, ", ")
+		default:
 			return nil, &ValidationError{
 				Message: fmt.Sprintf("field %q: expected string, got %T", f, v),
 				Fields:  []string{f},

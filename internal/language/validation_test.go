@@ -285,7 +285,7 @@ func TestPropertyP4MissingRequiredFieldsReturnValidationError(t *testing.T) {
 			"example":            "ex",
 			"english":            "eng",
 			"target_translation": "tgt",
-			"notes":              42, // non-string
+			"notes":              42, // non-string, non-array
 		}
 		b, _ := json.Marshal(m)
 		_, err := ValidateResponse("words", string(b))
@@ -295,6 +295,31 @@ func TestPropertyP4MissingRequiredFieldsReturnValidationError(t *testing.T) {
 		var ve *ValidationError
 		if !errors.As(err, &ve) {
 			t.Fatalf("expected *ValidationError, got %T", err)
+		}
+	})
+
+	t.Run("array optional field coerced to string", func(t *testing.T) {
+		m := map[string]any{
+			"word":               "bekleding",
+			"type":               "noun",
+			"article":            "de",
+			"definition":         "def",
+			"example":            "ex",
+			"english":            "upholstery",
+			"target_translation": "kárpitozás",
+			"secondary_meanings": []any{"covering", "lining", "cladding"},
+			"collocations":       []any{"auto bekleding", "muur bekleding"},
+		}
+		b, _ := json.Marshal(m)
+		entry, err := ValidateResponse("words", string(b))
+		if err != nil {
+			t.Fatalf("expected array coercion to succeed, got: %v", err)
+		}
+		if entry.SecondaryMeanings != "covering, lining, cladding" {
+			t.Errorf("SecondaryMeanings = %q, want %q", entry.SecondaryMeanings, "covering, lining, cladding")
+		}
+		if entry.Collocations != "auto bekleding, muur bekleding" {
+			t.Errorf("Collocations = %q, want %q", entry.Collocations, "auto bekleding, muur bekleding")
 		}
 	})
 

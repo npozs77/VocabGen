@@ -154,7 +154,17 @@ SQLite database at a configurable path (default `~/.vocabgen/vocabgen.db`). Pure
 
 ### `internal/config` — YAML Configuration
 
-Config file at `~/.vocabgen/config.yaml`. `LoadConfig` returns defaults if file missing. `SaveConfig` creates the directory if needed. API keys are deliberately excluded from the config file — they come from environment variables or `--api-key` CLI flag at runtime.
+Config file at `~/.vocabgen/config.yaml`. Supports named config profiles so users can save multiple LLM setups (e.g., `default` for Bedrock, `local` for Ollama) and switch between them via `--profile` on the CLI or the profile dropdown in the Web UI.
+
+The config uses a two-level data model:
+
+- `FileConfig` — top-level YAML structure: `default_profile` (string), `profiles` (map of `ProfileConfig`), plus global settings (`default_source_language`, `default_target_language`, `db_path`).
+- `ProfileConfig` — per-profile provider settings: `provider`, `aws_profile`, `aws_region`, `model_id`, `base_url`, `gcp_project`, `gcp_region`.
+- `Config` — flattened runtime struct combining the resolved profile's provider fields with global settings. This is what the rest of the application uses.
+
+`LoadConfig` returns defaults if the file is missing. `LoadConfigWithProfile(name)` resolves a named profile. Old flat config files (no `profiles:` key) are treated as a single implicit `default` profile for backward compatibility. `SaveFileConfig` preserves the multi-profile YAML structure. `CreateProfile(newName, sourceProfile)` copies an existing profile's values into a new named profile.
+
+API keys are deliberately excluded from the config file — they come from environment variables or `--api-key` CLI flag at runtime.
 
 Default values: provider=bedrock, aws_region=us-east-1, default_source_language=nl, default_target_language=hu, db_path=~/.vocabgen/vocabgen.db.
 
@@ -368,6 +378,7 @@ internal/web/templates/
     ├── config_form.html       # Config form with conditional provider fields
     ├── entry_edit.html        # Edit form for a single entry
     ├── entry_table.html       # Paginated table rows
+    ├── setup_local_llm.html   # Local LLM setup progress (SSE-driven)
     └── update_result.html     # Update check result (up-to-date / update available / error)
 ```
 
@@ -426,7 +437,7 @@ Dual approach: property-based tests (rapid) for universal invariants + table-dri
 
 19 correctness properties validated via `pgregory.net/rapid` (100+ iterations each). Integration tests with mocked LLM providers and real SQLite. Web API tests via `httptest`.
 
-See the design document for the full list of correctness properties (P1–P19).
+See the design document for the full list of correctness properties (P1–P25).
 
 ## Key Design Decisions
 

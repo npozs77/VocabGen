@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/user/vocabgen/internal/config"
 	"github.com/user/vocabgen/internal/service"
@@ -235,6 +237,12 @@ func validateProviderEnv(provider, baseURL, gcpProject string) string {
 		if os.Getenv("OPENAI_API_KEY") == "" && baseURL == "" {
 			return "OPENAI_API_KEY environment variable is not set. Set it before starting the server: export OPENAI_API_KEY=sk-..."
 		}
+		// When base URL points to a local Ollama server, verify it's reachable.
+		if strings.Contains(baseURL, "localhost:11434") {
+			if msg := checkOllamaReachable(); msg != "" {
+				return msg
+			}
+		}
 	case "anthropic":
 		if os.Getenv("ANTHROPIC_API_KEY") == "" {
 			return "ANTHROPIC_API_KEY environment variable is not set. Set it before starting the server: export ANTHROPIC_API_KEY=sk-ant-..."
@@ -254,5 +262,18 @@ func validateProviderEnv(provider, baseURL, gcpProject string) string {
 			return "GCP project ID is required for Vertex AI. Set the GCP_PROJECT environment variable or fill in the GCP Project field."
 		}
 	}
+	return ""
+}
+
+// checkOllamaReachable performs a lightweight HTTP check against the local
+// Ollama server. Returns an empty string if reachable, or a user-facing
+// warning message if not.
+func checkOllamaReachable() string {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://localhost:11434/api/tags")
+	if err != nil {
+		return "Ollama server is not reachable at localhost:11434. Start it with: ollama serve"
+	}
+	defer func() { _ = resp.Body.Close() }()
 	return ""
 }

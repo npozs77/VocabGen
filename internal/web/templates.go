@@ -58,7 +58,8 @@ func init() {
 	// Parse partial templates individually.
 	partials := []string{
 		"lookup_result", "lookup_conflict", "batch_summary",
-		"config_form", "entry_edit", "entry_table", "update_result",
+		"entry_edit", "entry_table", "update_result",
+		"setup_local_llm",
 	}
 	for _, partial := range partials {
 		t, err := template.ParseFS(templateFS,
@@ -68,6 +69,18 @@ func init() {
 			panic(fmt.Sprintf("parse partial %s: %v", partial, err))
 		}
 		templates[partial] = t
+	}
+
+	// config_form includes setup_local_llm, so parse them together.
+	{
+		t, err := template.ParseFS(templateFS,
+			"templates/partials/config_form.html",
+			"templates/partials/setup_local_llm.html",
+		)
+		if err != nil {
+			panic(fmt.Sprintf("parse partial config_form: %v", err))
+		}
+		templates["config_form"] = t
 	}
 }
 

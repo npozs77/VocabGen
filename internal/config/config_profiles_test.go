@@ -250,7 +250,7 @@ func TestLoadConfigWithProfile_TableDriven(t *testing.T) {
 			"local": {
 				Provider: "openai",
 				BaseURL:  "http://localhost:11434/v1",
-				ModelID:  "mistral",
+				ModelID:  "translategemma",
 			},
 		},
 		DefaultSourceLanguage: "nl",
@@ -283,7 +283,7 @@ func TestLoadConfigWithProfile_TableDriven(t *testing.T) {
 			profile:      "local",
 			wantProvider: "openai",
 			wantBaseURL:  "http://localhost:11434/v1",
-			wantModelID:  "mistral",
+			wantModelID:  "translategemma",
 		},
 		{
 			name:         "prod profile",

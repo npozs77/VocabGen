@@ -301,6 +301,17 @@ func Lookup(ctx context.Context, store db.Store, params LookupParams) (*LookupRe
 	sourceLang := language.ResolveLanguageName(params.SourceLang)
 	targetLang := language.ResolveLanguageName(params.TargetLang)
 
+	// Sentence lookups are ephemeral — always invoke LLM, never cache.
+	if params.LookupType == "sentence" {
+		slog.Info("sentence lookup (ephemeral)", slog.String("text", normalized), slog.String("source_lang", params.SourceLang))
+		entry, err := invokeLLM(ctx, params.Provider, params.ModelID, sourceLang, m, normalized, params.Context, targetLang)
+		if err != nil {
+			return nil, err
+		}
+		entry.Tags = params.Tags
+		return &LookupResult{Entry: entry}, nil
+	}
+
 	// Cache check
 	if m == "words" {
 		return lookupWord(ctx, store, params, m, normalized, sourceLang, targetLang)

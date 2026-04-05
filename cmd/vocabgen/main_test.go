@@ -570,7 +570,7 @@ func TestCLIProfileFlagResolution(t *testing.T) {
 			"local": {
 				Provider: "openai",
 				BaseURL:  "http://localhost:11434/v1",
-				ModelID:  "mistral",
+				ModelID:  "translategemma",
 			},
 		},
 		DefaultSourceLanguage: "nl",
@@ -593,7 +593,7 @@ func TestCLIProfileFlagResolution(t *testing.T) {
 			name:         "local profile resolves",
 			profile:      "local",
 			wantProvider: "openai",
-			wantModelID:  "mistral",
+			wantModelID:  "translategemma",
 		},
 		{
 			name:         "prod profile resolves",
@@ -647,7 +647,7 @@ func TestCLINoProfileFlagUsesDefault(t *testing.T) {
 		DefaultProfile: "local",
 		Profiles: map[string]config.ProfileConfig{
 			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1"},
-			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "mistral"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "translategemma"},
 		},
 		DefaultSourceLanguage: "nl",
 		DefaultTargetLanguage: "hu",

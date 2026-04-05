@@ -140,6 +140,28 @@ Version is injected at build time via ldflags:
 go build -ldflags "-X main.version=v1.0.0 -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o vocabgen ./cmd/vocabgen
 ```
 
+## IDE Setup (VS Code / Kiro)
+
+Install the [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.Go) (`golang.Go`). It provides:
+- `gopls` language server (auto-completion, go-to-definition, rename, diagnostics)
+- `goimports` format-on-save (organizes imports + formats)
+- Package-level lint-on-save via `golangci-lint`
+- Test explorer integration (`go test` from the sidebar)
+- Debugger via Delve (`dlv`)
+
+Recommended `.vscode/settings.json` (already committed):
+
+```json
+{
+  "go.useLanguageServer": true,
+  "editor.formatOnSave": true,
+  "go.formatTool": "goimports",
+  "go.lintOnSave": "package"
+}
+```
+
+This means `golangci-lint` runs on every save at the package level — catching errcheck, vet, and staticcheck issues before you even run `make quality`.
+
 ## Upgrading
 
 vocabgen can check for newer versions via the GitHub Releases API. User data in `~/.vocabgen/` (config and database) is independent of the binary and unaffected by upgrades.

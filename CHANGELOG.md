@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 ### Added
 
 - Multiple config profiles — save different LLM setups (local, sandbox, prod) and switch via `--profile` or the Web UI (#23)
+- One-click local LLM setup — run `scripts/setup-local-llm.sh` or use the Web UI config page to install Ollama and configure a local model (#22)
+- E2E tests default to local Ollama — free, offline testing via `--profile local` with pre-flight checks (#24)
 
 ## [1.1.0] - 2026-04-04
 
