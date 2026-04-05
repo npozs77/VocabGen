@@ -1,6 +1,38 @@
 {{define "config_form"}}
 <form id="config-save-form" class="space-y-4">
   <div>
+    <label for="profile_selector" class="block text-sm font-medium text-gray-700 mb-1">Profile</label>
+    <select id="profile_selector" name="profile_selector"
+            onchange="if(this.value==='__new__'){document.getElementById('new-profile-form').style.display='block';this.dataset.prev=this.dataset.prev||'{{.ActiveProfile}}'}else{document.getElementById('new-profile-form').style.display='none';htmx.ajax('PUT','/api/profile/switch',{target:'#save-status',swap:'innerHTML',values:{profile:this.value}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},300)})}"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      {{range .Profiles}}
+      <option value="{{.}}"{{if eq . $.ActiveProfile}} selected{{end}}>{{.}}</option>
+      {{end}}
+      <option value="__new__">Add new profile…</option>
+    </select>
+  </div>
+
+  <div id="new-profile-form" style="display:none" class="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
+    <label for="new_profile_name" class="block text-sm font-medium text-gray-700">New profile name</label>
+    <input type="text" id="new_profile_name" name="new_profile_name" placeholder="e.g. local, sandbox"
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <p id="new-profile-error" class="text-red-600 text-sm" style="display:none"></p>
+    <div id="new-profile-status"></div>
+    <div class="flex gap-2">
+      <button type="button"
+              onclick="var n=document.getElementById('new_profile_name').value.trim();var ep=document.getElementById('new-profile-error');if(!n){ep.textContent='Profile name cannot be empty.';ep.style.display='block';return}ep.style.display='none';htmx.ajax('POST','/api/profiles',{target:'#new-profile-status',swap:'innerHTML',values:{name:n,source_profile:'{{.ActiveProfile}}'}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},400)})"
+              class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        Create
+      </button>
+      <button type="button"
+              onclick="document.getElementById('new-profile-form').style.display='none';document.getElementById('new_profile_name').value='';document.getElementById('new-profile-error').style.display='none';var sel=document.getElementById('profile_selector');sel.value='{{.ActiveProfile}}'"
+              class="border border-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <div>
     <label for="provider" class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
     <select id="provider" name="provider"
             hx-get="/api/config/html" hx-target="#config-form" hx-swap="innerHTML"
@@ -33,12 +65,14 @@
   <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
     Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable before starting the server.
     Not required when using a local server (Ollama, LM Studio) via Base URL.
+    <br>Examples — Ollama: <code class="font-mono bg-blue-100 px-1 rounded">http://localhost:11434/v1</code> · Model: <code class="font-mono bg-blue-100 px-1 rounded">llama3</code>
+    · OpenAI: <code class="font-mono bg-blue-100 px-1 rounded">https://api.openai.com/v1</code> · Model: <code class="font-mono bg-blue-100 px-1 rounded">gpt-4o</code>
   </div>
   <div>
     <label for="base_url" class="block text-sm font-medium text-gray-700 mb-1">Base URL (optional)</label>
     <input type="text" id="base_url" name="base_url" value="{{.Config.BaseURL}}"
            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="https://api.openai.com/v1">
+           placeholder="e.g. http://localhost:11434/v1 for Ollama">
   </div>
   {{end}}
 
@@ -68,7 +102,8 @@
   <div>
     <label for="model_id" class="block text-sm font-medium text-gray-700 mb-1">Model ID</label>
     <input type="text" id="model_id" name="model_id" value="{{.Config.ModelID}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+           placeholder="{{if eq .Config.Provider "bedrock"}}e.g. us.anthropic.claude-sonnet-4-20250514-v1:0{{else if eq .Config.Provider "openai"}}e.g. gpt-4o, or llama3 for Ollama{{else if eq .Config.Provider "anthropic"}}e.g. claude-sonnet-4-20250514{{else if eq .Config.Provider "vertexai"}}e.g. gemini-2.0-flash{{else}}Enter model ID{{end}}">
   </div>
 
   <div class="grid grid-cols-2 gap-4">

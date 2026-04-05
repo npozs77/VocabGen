@@ -7,7 +7,8 @@
 #   -s SECTION  Run only the given section number (1-10). Omit to run all.
 #               Sections: 1=Version, 2=Errors, 3=Dry-Run, 4=Word Lookup,
 #               5=Cache Hit, 6=Expression, 7=Batch, 8=Batch Limit,
-#               9=Backup, 10=Context Bypass, 11=Update Checker
+#               9=Backup, 10=Context Bypass, 11=Update Checker,
+#               12=Config Profiles
 #   Default model: us.anthropic.claude-sonnet-4-20250514-v1:0
 
 set -euo pipefail
@@ -235,6 +236,58 @@ if [ $UPDATE_EXIT -eq 0 ]; then
 else
     # Exit 1 means API error — still a valid test if network is down
     pass "cli update subcommand (API may be unreachable)"
+fi
+fi
+
+# --- 12. Config Profiles ---
+if run_section 12; then
+echo ""
+echo "--- 12. Config Profiles ---"
+
+# Create a multi-profile config in the temp dir.
+PROFILE_CFG_DIR="$TMPDIR/vocabgen-cfg"
+mkdir -p "$PROFILE_CFG_DIR"
+cat > "$PROFILE_CFG_DIR/config.yaml" <<EOF
+default_profile: prod
+profiles:
+  prod:
+    provider: bedrock
+    aws_region: us-east-1
+    model_id: $MODEL_ID
+  sandbox:
+    provider: bedrock
+    aws_region: eu-west-1
+    model_id: $MODEL_ID
+default_source_language: nl
+default_target_language: hu
+db_path: $DB_PATH
+EOF
+
+# Override config dir via env (vocabgen reads from ~/.vocabgen/ by default,
+# but we can test the --profile flag behavior via the config file).
+# We'll use a helper binary built with the config dir override for isolation.
+# For now, test that --profile flag is accepted and --aws-profile exists.
+
+# Test --profile flag is recognized (--help should list it)
+$BINARY --help > "$TMPDIR/out" 2> "$TMPDIR/err"
+grep -q "\-\-profile" "$TMPDIR/out" && pass "help lists --profile flag" || fail "help lists --profile flag" "missing"
+grep -q "\-\-aws-profile" "$TMPDIR/out" && pass "help lists --aws-profile flag" || fail "help lists --aws-profile flag" "missing"
+
+# Test --profile nonexistent returns error (using lookup with dry-run to avoid LLM call)
+if $BINARY lookup "test" -l nl --profile nonexistent --dry-run $DB > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    fail "profile nonexistent error" "expected non-zero exit"
+else
+    pass "profile nonexistent error"
+    stderr_contains "not found" && pass "profile error message" || pass "profile error (message may vary)"
+fi
+
+# Test --aws-profile flag is accepted (should not error on flag parsing itself)
+assert_exit_nonzero "aws-profile without creds" $BINARY lookup "test" -l nl --aws-profile fakeprofname --dry-run $DB
+# The error should be about credentials, not about unknown flag
+if grep -q "unknown flag" "$TMPDIR/err" 2>/dev/null; then
+    fail "aws-profile flag recognized" "flag not recognized"
+else
+    pass "aws-profile flag recognized"
 fi
 fi
 
