@@ -16,7 +16,7 @@ This app calls LLM APIs to generate vocabulary data. It does not include a built
 
 A free ChatGPT, Claude, or Gemini account does not provide API access. You need a separate API key from the provider's developer platform, which requires a payment method on file.
 
-The cheapest way to get started is Ollama — install it, pull a model (`ollama pull llama3`), and point vocabgen at it with `--provider openai --base-url http://localhost:11434/v1`.
+The cheapest way to get started is Ollama — install it, pull a model (`ollama pull translategemma`), and point vocabgen at it with `--provider openai --base-url http://localhost:11434/v1`.
 
 For best translation quality, use a large model (Claude Sonnet/Opus, GPT-4o). Local models like Llama 3 work but produce noticeably lower quality for nuanced vocabulary tasks — especially for less common languages, connotation/register distinctions, and contrastive notes. Use `--dry-run` to preview results before committing to a provider.
 
@@ -55,7 +55,8 @@ vocabgen serve --port 8080
 | `--api-key` | | | API key (OpenAI/Anthropic) |
 | `--base-url` | | | Custom API base URL (Ollama, Azure, LM Studio) |
 | `--region` | `-r` | `us-east-1` | AWS region (Bedrock) |
-| `--profile` | | | AWS profile name (Bedrock) |
+| `--profile` | | | Config profile name |
+| `--aws-profile` | | | AWS credential profile name (Bedrock) |
 | `--gcp-project` | | | GCP project ID (Vertex AI) |
 | `--gcp-region` | | `us-central1` | GCP region (Vertex AI) |
 | `--timeout` | | `60` | Per-request timeout in seconds |
@@ -104,12 +105,23 @@ For first-time setup, the Web UI config page is the easiest way to configure you
 
 | Provider | Auth | Example |
 |----------|------|---------|
-| Bedrock (default) | AWS credential chain | `vocabgen lookup "word" -l nl --profile my-profile --region us-east-1 --model-id us.anthropic.claude-sonnet-4-20250514-v1:0` |
+| Bedrock (default) | AWS credential chain | `vocabgen lookup "word" -l nl --aws-profile my-profile --region us-east-1 --model-id us.anthropic.claude-sonnet-4-20250514-v1:0` |
 | OpenAI | API key | `vocabgen lookup "word" -l nl --provider openai --api-key sk-...` |
 | Anthropic | API key | `vocabgen lookup "word" -l nl --provider anthropic --api-key sk-ant-...` |
 | Vertex AI | Google ADC | `vocabgen lookup "word" -l nl --provider vertexai --gcp-project my-proj` |
 | Ollama (local) | None | `vocabgen lookup "word" -l nl --provider openai --base-url http://localhost:11434/v1` |
 | Azure OpenAI | API key + URL | `vocabgen lookup "word" -l nl --provider openai --base-url https://my-resource.openai.azure.com --api-key ...` |
+
+## Local LLM (Ollama)
+
+Set up a free local LLM with one command:
+
+```bash
+./scripts/setup-local-llm.sh
+vocabgen lookup "fiets" -l nl --profile local
+```
+
+The script installs Ollama (if needed), pulls a model, and creates a `local` config profile. See the [User Guide](docs/user-guide.md#local-llm-setup) for details.
 
 ## Environment Variables
 
@@ -118,27 +130,62 @@ For first-time setup, the Web UI config page is the easiest way to configure you
 | `OPENAI_API_KEY` | OpenAI | API key (overridden by `--api-key`) |
 | `ANTHROPIC_API_KEY` | Anthropic | API key (overridden by `--api-key`) |
 | `GCP_PROJECT` | Vertex AI | GCP project ID (overridden by `--gcp-project`) |
-| `AWS_PROFILE` | Bedrock | AWS profile (overridden by `--profile`) |
+| `AWS_PROFILE` | Bedrock | AWS profile (overridden by `--aws-profile`) |
 | `AWS_REGION` | Bedrock | AWS region (overridden by `--region`) |
 
 ## Configuration
 
-Settings are stored in `~/.vocabgen/config.yaml`. CLI flags override config values.
+Settings are stored in `~/.vocabgen/config.yaml`. CLI flags override config values. The config supports named profiles for different LLM setups:
 
 ```yaml
-provider: bedrock
-aws_region: us-east-1
+default_profile: default
 default_source_language: nl
 default_target_language: hu
 db_path: ~/.vocabgen/vocabgen.db
-# model_id: us.anthropic.claude-sonnet-4-20250514-v1:0  # Bedrock cross-region inference profile
-# aws_profile: my-profile
-# base_url: http://localhost:11434/v1
-# gcp_project: my-project
-# gcp_region: us-central1
+profiles:
+  default:
+    provider: bedrock
+    aws_region: us-east-1
+    aws_profile: vocabgen
+  local:
+    provider: openai
+    base_url: http://localhost:11434/v1
+    model_id: mistral
 ```
 
+Switch profiles with `--profile`:
+
+```bash
+vocabgen lookup "werk" -l nl --profile local
+```
+
+Old flat config files (without `profiles:`) still work — they're treated as a single `default` profile. See the [User Guide](docs/user-guide.md#config-profiles) for details.
+
 API keys are never stored in the config file — use environment variables or `--api-key`.
+
+vocabgen supports named config profiles for switching between providers. See [Config Profiles](docs/user-guide.md#config-profiles) for details.
+
+```yaml
+# Multi-profile example
+default_profile: default
+default_source_language: nl
+default_target_language: hu
+db_path: ~/.vocabgen/vocabgen.db
+profiles:
+  default:
+    provider: bedrock
+    aws_region: us-east-1
+  local:
+    provider: openai
+    base_url: http://localhost:11434/v1
+    model_id: mistral
+```
+
+Switch profiles with `--profile`:
+
+```bash
+vocabgen lookup "werk" -l nl --profile local
+```
 
 ## Supported Languages
 

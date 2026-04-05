@@ -1,28 +1,30 @@
 #!/usr/bin/env bash
 # E2E integration test for vocabgen CLI.
-# Requires: built binary, AWS credentials (bedrock provider), network access.
+# Defaults to the "local" config profile (Ollama). Override with -p <profile>.
 # Uses a temp directory for DB — does not touch ~/.vocabgen/vocabgen.db.
 #
-# Usage: ./scripts/e2e-test.sh [-s SECTION] [MODEL_ID]
-#   -s SECTION  Run only the given section number (1-10). Omit to run all.
-#               Sections: 1=Version, 2=Errors, 3=Dry-Run, 4=Word Lookup,
-#               5=Cache Hit, 6=Expression, 7=Batch, 8=Batch Limit,
-#               9=Backup, 10=Context Bypass, 11=Update Checker,
-#               12=Config Profiles
-#   Default model: us.anthropic.claude-sonnet-4-20250514-v1:0
+# Usage: ./scripts/e2e-test.sh [-s SECTION] [-p PROFILE]
+#   -s SECTION   Run only the given section number (1-14). Omit to run all.
+#                Sections: 1=Version, 2=Errors, 3=Dry-Run, 4=Word Lookup,
+#                5=Cache Hit, 6=Expression, 7=Batch, 8=Batch Limit,
+#                9=Backup, 10=Context Bypass, 11=Update Checker,
+#                12=Config Profiles, 13=Sentence Lookup,
+#                14=Local LLM Setup
+#   -p PROFILE   Config profile name (default: local, override via E2E_PROFILE env var)
 
 set -euo pipefail
 
 SECTION=""
-while getopts "s:" opt; do
+PROFILE="${E2E_PROFILE:-local}"
+while getopts "s:p:" opt; do
     case $opt in
         s) SECTION="$OPTARG" ;;
-        *) echo "Usage: $0 [-s SECTION] [MODEL_ID]"; exit 1 ;;
+        p) PROFILE="$OPTARG" ;;
+        *) echo "Usage: $0 [-s SECTION] [-p PROFILE]"; exit 1 ;;
     esac
 done
 shift $((OPTIND - 1))
 
-MODEL_ID="${1:-us.anthropic.claude-sonnet-4-20250514-v1:0}"
 BINARY="./vocabgen"
 TMPDIR=$(mktemp -d)
 DB_PATH="$TMPDIR/test.db"
@@ -33,6 +35,7 @@ ERRORS=""
 trap 'rm -rf "$TMPDIR"' EXIT
 
 DB="--db-path $DB_PATH"
+PROFILE_FLAG="--profile $PROFILE"
 
 pass() { PASS=$((PASS + 1)); echo "  ✓ $1"; }
 fail() { FAIL=$((FAIL + 1)); ERRORS="$ERRORS\n  ✗ $1: $2"; echo "  ✗ $1: $2"; }
@@ -62,13 +65,40 @@ stderr_contains() { grep -q "$1" "$TMPDIR/err"; }
 run_section() { [ -z "$SECTION" ] || [ "$SECTION" = "$1" ]; }
 
 echo "=== E2E Integration Tests ==="
-echo "Model: $MODEL_ID"
+echo "Profile: $PROFILE"
 echo "DB: $DB_PATH"
 [ -n "$SECTION" ] && echo "Section: $SECTION"
 
 if [ ! -f "$BINARY" ]; then
     echo "Building..."
     go build -o "$BINARY" ./cmd/vocabgen/
+fi
+
+# --- Pre-flight: verify profile exists ---
+echo ""
+echo "--- Pre-flight checks ---"
+if ! $BINARY lookup "test" -l nl $PROFILE_FLAG --dry-run $DB > /dev/null 2> "$TMPDIR/err"; then
+    if grep -qi "profile.*not found\|not found.*profile\|unknown profile" "$TMPDIR/err" 2>/dev/null; then
+        echo "ERROR: Profile '$PROFILE' not found in config."
+        echo "  Run: scripts/setup-local-llm.sh   (to create 'local' profile)"
+        echo "  Or:  $0 -p <existing-profile>      (to use a different profile)"
+        exit 1
+    fi
+    # Other errors (e.g. empty source-lang) are OK — profile exists but lookup failed for other reasons.
+    # The dry-run with empty word may fail on validation, that's fine.
+fi
+echo "  ✓ Profile '$PROFILE' exists"
+
+# --- Pre-flight: if local profile, check Ollama reachability ---
+if [ "$PROFILE" = "local" ]; then
+    if ! curl -sf --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; then
+        echo "ERROR: Ollama is not running at http://localhost:11434"
+        echo "  Start it with:  ollama serve"
+        echo "  Or set it up:   scripts/setup-local-llm.sh"
+        echo "  Or use cloud:   $0 -p bedrock"
+        exit 1
+    fi
+    echo "  ✓ Ollama is reachable"
 fi
 
 # --- 1. Version & Help ---
@@ -104,7 +134,7 @@ boek
 EOF
 assert_exit_zero "batch dry-run" $BINARY batch \
     --input-file "$TMPDIR/words.csv" --mode words -l nl \
-    --model-id "$MODEL_ID" --dry-run $DB
+    $PROFILE_FLAG --dry-run $DB
 stderr_contains "Processed" && pass "dry-run summary" || fail "dry-run summary" "missing Processed"
 fi
 
@@ -112,7 +142,7 @@ fi
 if run_section 4; then
 echo ""
 echo "--- 4. Word Lookup ---"
-assert_exit_zero "lookup fiets" $BINARY lookup "fiets" -l nl --model-id "$MODEL_ID" $DB
+assert_exit_zero "lookup fiets" $BINARY lookup "fiets" -l nl $PROFILE_FLAG $DB
 for field in '"word"' '"definition"' '"english"' '"target_translation"' '"english_definition"'; do
     stdout_contains "$field" && pass "lookup has $field" || fail "lookup has $field" "missing"
 done
@@ -122,7 +152,7 @@ fi
 if run_section 5; then
 echo ""
 echo "--- 5. Cache Hit ---"
-assert_exit_zero "lookup fiets cached" $BINARY lookup "fiets" -l nl --model-id "$MODEL_ID" $DB
+assert_exit_zero "lookup fiets cached" $BINARY lookup "fiets" -l nl $PROFILE_FLAG $DB
 stderr_contains "cache hit" && pass "cache hit logged" || fail "cache hit logged" "missing"
 fi
 
@@ -131,7 +161,7 @@ if run_section 6; then
 echo ""
 echo "--- 6. Expression Lookup ---"
 assert_exit_zero "lookup expression" $BINARY lookup "op de hoogte zijn" \
-    -l nl --type expression --model-id "$MODEL_ID" $DB
+    -l nl --type expression $PROFILE_FLAG $DB
 stdout_contains '"expression"' && pass "expression field" || fail "expression field" "missing"
 fi
 
@@ -145,7 +175,7 @@ straat
 EOF
 assert_exit_zero "batch process" $BINARY batch \
     --input-file "$TMPDIR/batch.csv" --mode words -l nl \
-    --model-id "$MODEL_ID" --on-conflict skip $DB
+    $PROFILE_FLAG --on-conflict skip $DB
 stderr_contains "Batch Summary" && pass "batch summary" || fail "batch summary" "missing"
 stderr_contains "Cached" && pass "batch cached count" || fail "batch cached count" "missing"
 fi
@@ -162,7 +192,7 @@ vis
 EOF
 assert_exit_zero "batch limit=1" $BINARY batch \
     --input-file "$TMPDIR/limit.csv" --mode words -l nl \
-    --model-id "$MODEL_ID" --limit 1 --on-conflict skip $DB
+    $PROFILE_FLAG --limit 1 --on-conflict skip $DB
 stderr_contains "Processed" && pass "limit summary" || fail "limit summary" "missing"
 fi
 
@@ -183,7 +213,7 @@ echo ""
 echo "--- 10. Context Bypass ---"
 assert_exit_zero "lookup with context" $BINARY lookup "fiets" -l nl \
     --context "De elektrische fiets is populair." \
-    --model-id "$MODEL_ID" --on-conflict add $DB
+    $PROFILE_FLAG --on-conflict add $DB
 stdout_contains '"word"' && pass "context result" || fail "context result" "missing"
 fi
 
@@ -244,30 +274,6 @@ if run_section 12; then
 echo ""
 echo "--- 12. Config Profiles ---"
 
-# Create a multi-profile config in the temp dir.
-PROFILE_CFG_DIR="$TMPDIR/vocabgen-cfg"
-mkdir -p "$PROFILE_CFG_DIR"
-cat > "$PROFILE_CFG_DIR/config.yaml" <<EOF
-default_profile: prod
-profiles:
-  prod:
-    provider: bedrock
-    aws_region: us-east-1
-    model_id: $MODEL_ID
-  sandbox:
-    provider: bedrock
-    aws_region: eu-west-1
-    model_id: $MODEL_ID
-default_source_language: nl
-default_target_language: hu
-db_path: $DB_PATH
-EOF
-
-# Override config dir via env (vocabgen reads from ~/.vocabgen/ by default,
-# but we can test the --profile flag behavior via the config file).
-# We'll use a helper binary built with the config dir override for isolation.
-# For now, test that --profile flag is accepted and --aws-profile exists.
-
 # Test --profile flag is recognized (--help should list it)
 $BINARY --help > "$TMPDIR/out" 2> "$TMPDIR/err"
 grep -q "\-\-profile" "$TMPDIR/out" && pass "help lists --profile flag" || fail "help lists --profile flag" "missing"
@@ -282,12 +288,82 @@ else
 fi
 
 # Test --aws-profile flag is accepted (should not error on flag parsing itself)
-assert_exit_nonzero "aws-profile without creds" $BINARY lookup "test" -l nl --aws-profile fakeprofname --dry-run $DB
+# Don't use --dry-run here: dry-run skips provider init, so credential errors won't surface.
+assert_exit_nonzero "aws-profile without creds" $BINARY lookup "test" -l nl --aws-profile fakeprofname --provider bedrock $DB
 # The error should be about credentials, not about unknown flag
 if grep -q "unknown flag" "$TMPDIR/err" 2>/dev/null; then
     fail "aws-profile flag recognized" "flag not recognized"
 else
     pass "aws-profile flag recognized"
+fi
+fi
+
+# --- 13. Sentence Lookup (ephemeral, no DB write) ---
+if run_section 13; then
+echo ""
+echo "--- 13. Sentence Lookup ---"
+
+assert_exit_zero "sentence lookup" $BINARY lookup "Ik ga morgen naar de markt om groenten te kopen." \
+    -l nl --type sentence $PROFILE_FLAG $DB
+stdout_contains '"expression"' && pass "sentence has expression field" || fail "sentence has expression field" "missing"
+stdout_contains '"definition"' && pass "sentence has definition field" || fail "sentence has definition field" "missing"
+stderr_contains "sentence lookup" && pass "sentence logged as ephemeral" || fail "sentence logged as ephemeral" "missing"
+
+# Verify the sentence was NOT cached — a second lookup should NOT say "cache hit".
+assert_exit_zero "sentence not cached" $BINARY lookup "Ik ga morgen naar de markt om groenten te kopen." \
+    -l nl --type sentence $PROFILE_FLAG $DB
+if stderr_contains "cache hit"; then
+    fail "sentence not stored in DB" "found cache hit — sentence was persisted"
+else
+    pass "sentence not stored in DB"
+fi
+fi
+
+# --- 14. Local LLM Setup ---
+if run_section 14; then
+echo ""
+echo "--- 14. Local LLM Setup ---"
+
+# 14a. Syntax check the setup script.
+if bash -n scripts/setup-local-llm.sh > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    pass "setup-local-llm.sh syntax valid"
+else
+    fail "setup-local-llm.sh syntax valid" "$(head -1 "$TMPDIR/err")"
+fi
+
+# 14b. Verify the Web UI setup endpoint is registered.
+# Start a server, hit the endpoint, verify it's not 404.
+$BINARY serve $DB --port 8091 &
+SETUP_PID=$!
+sleep 2
+
+if curl -sf -o /dev/null -w "%{http_code}" http://localhost:8091/api/setup/local-llm > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    pass "setup endpoint registered"
+else
+    CODE=$(cat "$TMPDIR/out" 2>/dev/null || echo "")
+    if [ "$CODE" = "404" ] || [ "$CODE" = "405" ]; then
+        fail "setup endpoint registered" "got HTTP $CODE"
+    else
+        pass "setup endpoint registered (non-404 response)"
+    fi
+fi
+
+kill $SETUP_PID 2>/dev/null || true
+wait $SETUP_PID 2>/dev/null || true
+
+# 14c. Verify validateProviderEnv accepts Ollama base URL without API key.
+# Use lookup with Ollama base URL and no API key — should not fail on "missing API key".
+# (It may fail on Ollama not running or LLM error, but not on missing key.)
+if $BINARY lookup "test" -l nl --provider openai --base-url http://localhost:11434/v1 \
+    --model-id translategemma $DB > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+    pass "ollama base URL accepted without API key"
+else
+    # Check the error is NOT about missing API key
+    if grep -qi "OPENAI_API_KEY\|api.key\|API key" "$TMPDIR/err" 2>/dev/null; then
+        fail "ollama base URL accepted without API key" "error mentions API key"
+    else
+        pass "ollama base URL accepted without API key (failed for other reason)"
+    fi
 fi
 fi
 

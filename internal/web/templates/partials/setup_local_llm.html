@@ -1,0 +1,193 @@
+{{define "setup_local_llm"}}
+<div id="setup-local-llm" class="mt-6 border-t border-gray-200 pt-6">
+    <h3 class="text-lg font-medium text-gray-800 mb-2">Setup Local LLM</h3>
+    <p class="text-sm text-gray-600 mb-4">
+        Install Ollama and pull a model for local, offline vocabulary generation. Supports macOS and Linux.
+        Windows users: install Ollama manually from <a href="https://ollama.com/download" target="_blank"
+            class="text-blue-600 underline">ollama.com</a>, pull a model (<code
+            class="bg-gray-100 px-1 rounded text-xs">ollama pull translategemma</code>), then set provider to OpenAI
+        with base
+        URL <code class="bg-gray-100 px-1 rounded text-xs">http://localhost:11434/v1</code> in the form above.
+    </p>
+
+    <button id="setup-llm-btn" type="button" onclick="startLocalLLMSetup()"
+        class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+        Setup Local LLM
+    </button>
+
+    <!-- Progress log (hidden until setup starts) -->
+    <div id="setup-progress" class="mt-4 hidden">
+        <div class="flex items-center gap-2 mb-2">
+            <svg id="setup-spinner" class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span id="setup-status" class="text-sm font-medium text-blue-700">Setting up...</span>
+        </div>
+        <ul id="setup-log"
+            class="bg-gray-50 border border-gray-200 rounded divide-y divide-gray-100 text-sm max-h-64 overflow-y-auto">
+        </ul>
+    </div>
+
+    <!-- Success message (hidden until complete) -->
+    <div id="setup-success" class="mt-4 hidden">
+        <div class="bg-green-50 border border-green-200 text-green-700 rounded p-4 text-sm">
+            <span id="setup-success-msg"></span>
+        </div>
+    </div>
+
+    <!-- Error message (hidden until error) -->
+    <div id="setup-error" class="mt-4 hidden">
+        <div class="bg-red-50 border border-red-200 text-red-700 rounded p-4 text-sm">
+            <span id="setup-error-msg"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function startLocalLLMSetup() {
+        var btn = document.getElementById('setup-llm-btn');
+        var progressDiv = document.getElementById('setup-progress');
+        var spinner = document.getElementById('setup-spinner');
+        var statusText = document.getElementById('setup-status');
+        var logList = document.getElementById('setup-log');
+        var successDiv = document.getElementById('setup-success');
+        var successMsg = document.getElementById('setup-success-msg');
+        var errorDiv = document.getElementById('setup-error');
+        var errorMsg = document.getElementById('setup-error-msg');
+
+        // Reset UI
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        progressDiv.classList.remove('hidden');
+        spinner.classList.remove('hidden');
+        statusText.textContent = 'Setting up...';
+        statusText.className = 'text-sm font-medium text-blue-700';
+        logList.innerHTML = '';
+        successDiv.classList.add('hidden');
+        errorDiv.classList.add('hidden');
+
+        var source = new EventSource('/api/setup/local-llm');
+
+        source.addEventListener('progress', function (e) {
+            try {
+                var data = JSON.parse(e.data);
+                var step = data.step || '';
+                var status = data.status || '';
+
+                // Find existing row for this step or create new one
+                var stepId = 'step-' + step.replace(/[^a-zA-Z0-9]/g, '-');
+                var existing = document.getElementById(stepId);
+                if (existing) {
+                    var badge = existing.querySelector('.step-badge');
+                    if (status === 'done') {
+                        badge.textContent = '✓';
+                        badge.className = 'step-badge text-green-600 font-bold';
+                    }
+                } else {
+                    var li = document.createElement('li');
+                    li.id = stepId;
+                    li.className = 'px-4 py-2 flex items-center justify-between';
+                    var spanText = document.createElement('span');
+                    spanText.className = 'text-gray-700';
+                    spanText.textContent = step;
+                    var badge = document.createElement('span');
+                    badge.className = 'step-badge text-blue-600 text-xs';
+                    if (status === 'done') {
+                        badge.textContent = '✓';
+                        badge.className = 'step-badge text-green-600 font-bold';
+                    } else {
+                        badge.textContent = 'running...';
+                    }
+                    li.appendChild(spanText);
+                    li.appendChild(badge);
+                    logList.appendChild(li);
+                    logList.scrollTop = logList.scrollHeight;
+                }
+
+                statusText.textContent = step;
+            } catch (err) { /* ignore parse errors */ }
+        });
+
+        source.addEventListener('pull_progress', function (e) {
+            try {
+                var data = JSON.parse(e.data);
+                var line = data.line || '';
+                var pullId = 'step-pull-progress';
+                var existing = document.getElementById(pullId);
+                if (existing) {
+                    existing.querySelector('.pull-line').textContent = line;
+                } else {
+                    var li = document.createElement('li');
+                    li.id = pullId;
+                    li.className = 'px-4 py-2 text-xs text-gray-500 font-mono';
+                    var span = document.createElement('span');
+                    span.className = 'pull-line';
+                    span.textContent = line;
+                    li.appendChild(span);
+                    logList.appendChild(li);
+                }
+                logList.scrollTop = logList.scrollHeight;
+            } catch (err) { /* ignore */ }
+        });
+
+        source.addEventListener('complete', function (e) {
+            source.close();
+            spinner.classList.add('hidden');
+            statusText.textContent = 'Complete';
+            statusText.className = 'text-sm font-medium text-green-700';
+            try {
+                var data = JSON.parse(e.data);
+                successMsg.textContent = data.message || 'Setup complete!';
+            } catch (err) {
+                successMsg.textContent = 'Setup complete!';
+            }
+            successDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        });
+
+        source.addEventListener('error', function (e) {
+            // Mark any still-running steps as failed.
+            var runningBadges = logList.querySelectorAll('.step-badge');
+            for (var i = 0; i < runningBadges.length; i++) {
+                if (runningBadges[i].textContent === 'running...') {
+                    runningBadges[i].textContent = '✗';
+                    runningBadges[i].className = 'step-badge text-red-600 font-bold';
+                }
+            }
+            // Remove pull progress line on error.
+            var pullLine = document.getElementById('step-pull-progress');
+            if (pullLine) pullLine.remove();
+
+            // Check if this is a named "error" event with data, or a connection error
+            if (e.data) {
+                source.close();
+                spinner.classList.add('hidden');
+                statusText.textContent = 'Error';
+                statusText.className = 'text-sm font-medium text-red-700';
+                try {
+                    var data = JSON.parse(e.data);
+                    errorMsg.textContent = data.message || 'Setup failed.';
+                } catch (err) {
+                    errorMsg.textContent = 'Setup failed.';
+                }
+                errorDiv.classList.remove('hidden');
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                // Connection error — EventSource default error
+                source.close();
+                spinner.classList.add('hidden');
+                statusText.textContent = 'Connection lost';
+                statusText.className = 'text-sm font-medium text-red-700';
+                errorMsg.textContent = 'Lost connection to server.';
+                errorDiv.classList.remove('hidden');
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+    }
+</script>
+{{end}}

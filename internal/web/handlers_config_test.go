@@ -7,9 +7,21 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/user/vocabgen/internal/config"
 )
+
+// ollamaRunning returns true if the local Ollama server is reachable.
+func ollamaRunning() bool {
+	client := &http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Get("http://localhost:11434/api/tags")
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
 
 func TestValidateProviderEnv(t *testing.T) {
 	tests := []struct {
@@ -20,6 +32,7 @@ func TestValidateProviderEnv(t *testing.T) {
 		envVars    map[string]string
 		wantEmpty  bool // true = no warning expected
 		wantSubstr string
+		skipIf     bool
 	}{
 		{
 			name:      "openai with env var set",
@@ -33,9 +46,16 @@ func TestValidateProviderEnv(t *testing.T) {
 			wantSubstr: "OPENAI_API_KEY",
 		},
 		{
-			name:      "openai with base_url skips key check",
+			name:       "openai with Ollama base_url and Ollama not running",
+			provider:   "openai",
+			baseURL:    "http://localhost:11434/v1",
+			wantSubstr: "Ollama server is not reachable",
+			skipIf:     ollamaRunning(),
+		},
+		{
+			name:      "openai with non-Ollama base_url skips key check",
 			provider:  "openai",
-			baseURL:   "http://localhost:11434/v1",
+			baseURL:   "http://my-server:8080/v1",
 			wantEmpty: true,
 		},
 		{
@@ -89,6 +109,9 @@ func TestValidateProviderEnv(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipIf {
+				t.Skip("skipped: precondition not met (e.g. Ollama is running locally)")
+			}
 			for _, k := range envKeys {
 				t.Setenv(k, "")
 			}
@@ -117,6 +140,7 @@ func TestPutConfig_EnvVarValidation(t *testing.T) {
 		envVars    map[string]string
 		wantStatus int
 		wantSubstr string // expected in response body
+		skipIf     bool
 	}{
 		{
 			name:       "openai missing env var returns error",
@@ -132,8 +156,15 @@ func TestPutConfig_EnvVarValidation(t *testing.T) {
 			wantSubstr: "Configuration saved",
 		},
 		{
-			name:       "openai with base_url skips key check",
-			form:       "provider=openai&model_id=llama3&base_url=http://localhost:11434/v1&default_source_language=nl&default_target_language=hu",
+			name:       "openai with Ollama base_url checks reachability",
+			form:       "provider=openai&model_id=translategemma&base_url=http://localhost:11434/v1&default_source_language=nl&default_target_language=hu",
+			wantStatus: http.StatusOK,
+			wantSubstr: "Ollama server is not reachable",
+			skipIf:     ollamaRunning(),
+		},
+		{
+			name:       "openai with non-Ollama base_url skips key check",
+			form:       "provider=openai&model_id=gpt-4o&base_url=http://my-server:8080/v1&default_source_language=nl&default_target_language=hu",
 			wantStatus: http.StatusOK,
 			wantSubstr: "Configuration saved",
 		},
@@ -175,6 +206,9 @@ func TestPutConfig_EnvVarValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipIf {
+				t.Skip("skipped: precondition not met (e.g. Ollama is running locally)")
+			}
 			for _, k := range envKeys {
 				t.Setenv(k, "")
 			}
@@ -277,7 +311,7 @@ func TestSwitchProfile_ChangesActiveConfig(t *testing.T) {
 		DefaultProfile: "prod",
 		Profiles: map[string]config.ProfileConfig{
 			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1", ModelID: "claude-v1"},
-			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "mistral"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "translategemma"},
 		},
 		DefaultSourceLanguage: "nl",
 		DefaultTargetLanguage: "hu",
@@ -310,8 +344,8 @@ func TestSwitchProfile_ChangesActiveConfig(t *testing.T) {
 	if srv.cfg.BaseURL != "http://localhost:11434/v1" {
 		t.Fatalf("expected base_url from local profile, got %q", srv.cfg.BaseURL)
 	}
-	if srv.cfg.ModelID != "mistral" {
-		t.Fatalf("expected model_id 'mistral', got %q", srv.cfg.ModelID)
+	if srv.cfg.ModelID != "translategemma" {
+		t.Fatalf("expected model_id 'translategemma', got %q", srv.cfg.ModelID)
 	}
 }
 

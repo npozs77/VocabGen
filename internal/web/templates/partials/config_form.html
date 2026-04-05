@@ -3,10 +3,10 @@
   <div>
     <label for="profile_selector" class="block text-sm font-medium text-gray-700 mb-1">Profile</label>
     <select id="profile_selector" name="profile_selector"
-            onchange="if(this.value==='__new__'){document.getElementById('new-profile-form').style.display='block';this.dataset.prev=this.dataset.prev||'{{.ActiveProfile}}'}else{document.getElementById('new-profile-form').style.display='none';htmx.ajax('PUT','/api/profile/switch',{target:'#save-status',swap:'innerHTML',values:{profile:this.value}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},300)})}"
-            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      onchange="if(this.value==='__new__'){document.getElementById('new-profile-form').style.display='block';this.dataset.prev=this.dataset.prev||'{{.ActiveProfile}}'}else{document.getElementById('new-profile-form').style.display='none';htmx.ajax('PUT','/api/profile/switch',{target:'#save-status',swap:'innerHTML',values:{profile:this.value}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},300)})}"
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
       {{range .Profiles}}
-      <option value="{{.}}"{{if eq . $.ActiveProfile}} selected{{end}}>{{.}}</option>
+      <option value="{{.}}" {{if eq . $.ActiveProfile}} selected{{end}}>{{.}}</option>
       {{end}}
       <option value="__new__">Add new profile…</option>
     </select>
@@ -15,18 +15,18 @@
   <div id="new-profile-form" style="display:none" class="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
     <label for="new_profile_name" class="block text-sm font-medium text-gray-700">New profile name</label>
     <input type="text" id="new_profile_name" name="new_profile_name" placeholder="e.g. local, sandbox"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
     <p id="new-profile-error" class="text-red-600 text-sm" style="display:none"></p>
     <div id="new-profile-status"></div>
     <div class="flex gap-2">
       <button type="button"
-              onclick="var n=document.getElementById('new_profile_name').value.trim();var ep=document.getElementById('new-profile-error');if(!n){ep.textContent='Profile name cannot be empty.';ep.style.display='block';return}ep.style.display='none';htmx.ajax('POST','/api/profiles',{target:'#new-profile-status',swap:'innerHTML',values:{name:n,source_profile:'{{.ActiveProfile}}'}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},400)})"
-              class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        onclick="var n=document.getElementById('new_profile_name').value.trim();var ep=document.getElementById('new-profile-error');if(!n){ep.textContent='Profile name cannot be empty.';ep.style.display='block';return}ep.style.display='none';htmx.ajax('POST','/api/profiles',{target:'#new-profile-status',swap:'innerHTML',values:{name:n,source_profile:'{{.ActiveProfile}}'}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},400)})"
+        class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
         Create
       </button>
       <button type="button"
-              onclick="document.getElementById('new-profile-form').style.display='none';document.getElementById('new_profile_name').value='';document.getElementById('new-profile-error').style.display='none';var sel=document.getElementById('profile_selector');sel.value='{{.ActiveProfile}}'"
-              class="border border-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        onclick="document.getElementById('new-profile-form').style.display='none';document.getElementById('new_profile_name').value='';document.getElementById('new-profile-error').style.display='none';var sel=document.getElementById('profile_selector');sel.value='{{.ActiveProfile}}'"
+        class="border border-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
         Cancel
       </button>
     </div>
@@ -34,51 +34,55 @@
 
   <div>
     <label for="provider" class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
-    <select id="provider" name="provider"
-            hx-get="/api/config/html" hx-target="#config-form" hx-swap="innerHTML"
-            hx-include="#config-save-form"
-            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <option value="bedrock"{{if eq .Config.Provider "bedrock"}} selected{{end}}>AWS Bedrock</option>
-      <option value="openai"{{if eq .Config.Provider "openai"}} selected{{end}}>OpenAI</option>
-      <option value="anthropic"{{if eq .Config.Provider "anthropic"}} selected{{end}}>Anthropic</option>
-      <option value="vertexai"{{if eq .Config.Provider "vertexai"}} selected{{end}}>Vertex AI</option>
+    <select id="provider" name="provider" hx-get="/api/config/html" hx-target="#config-form" hx-swap="innerHTML"
+      hx-include="#config-save-form"
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="bedrock" {{if eq .Config.Provider "bedrock" }} selected{{end}}>AWS Bedrock</option>
+      <option value="openai" {{if eq .Config.Provider "openai" }} selected{{end}}>OpenAI</option>
+      <option value="anthropic" {{if eq .Config.Provider "anthropic" }} selected{{end}}>Anthropic</option>
+      <option value="vertexai" {{if eq .Config.Provider "vertexai" }} selected{{end}}>Vertex AI</option>
     </select>
   </div>
 
   {{if eq .Config.Provider "bedrock"}}
   <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-    Requires AWS credentials via <code class="font-mono bg-blue-100 px-1 rounded">~/.aws/credentials</code>, environment variables, or IAM role.
+    Requires AWS credentials via <code class="font-mono bg-blue-100 px-1 rounded">~/.aws/credentials</code>, environment
+    variables, or IAM role.
   </div>
   <div>
     <label for="aws_profile" class="block text-sm font-medium text-gray-700 mb-1">AWS Profile</label>
     <input type="text" id="aws_profile" name="aws_profile" value="{{.Config.AWSProfile}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
   </div>
   <div>
     <label for="aws_region" class="block text-sm font-medium text-gray-700 mb-1">AWS Region</label>
     <input type="text" id="aws_region" name="aws_region" value="{{.Config.AWSRegion}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
   </div>
   {{end}}
 
   {{if eq .Config.Provider "openai"}}
   <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-    Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable before starting the server.
+    Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable before starting the
+    server.
     Not required when using a local server (Ollama, LM Studio) via Base URL.
-    <br>Examples — Ollama: <code class="font-mono bg-blue-100 px-1 rounded">http://localhost:11434/v1</code> · Model: <code class="font-mono bg-blue-100 px-1 rounded">llama3</code>
-    · OpenAI: <code class="font-mono bg-blue-100 px-1 rounded">https://api.openai.com/v1</code> · Model: <code class="font-mono bg-blue-100 px-1 rounded">gpt-4o</code>
+    <br>Examples — Ollama: <code class="font-mono bg-blue-100 px-1 rounded">http://localhost:11434/v1</code> · Model:
+    <code class="font-mono bg-blue-100 px-1 rounded">translategemma</code>
+    · OpenAI: <code class="font-mono bg-blue-100 px-1 rounded">https://api.openai.com/v1</code> · Model: <code
+      class="font-mono bg-blue-100 px-1 rounded">gpt-4o</code>
   </div>
   <div>
     <label for="base_url" class="block text-sm font-medium text-gray-700 mb-1">Base URL (optional)</label>
     <input type="text" id="base_url" name="base_url" value="{{.Config.BaseURL}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="e.g. http://localhost:11434/v1 for Ollama">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      placeholder="e.g. http://localhost:11434/v1 for Ollama">
   </div>
   {{end}}
 
   {{if eq .Config.Provider "anthropic"}}
   <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-    Set <code class="font-mono bg-blue-100 px-1 rounded">ANTHROPIC_API_KEY</code> environment variable before starting the server.
+    Set <code class="font-mono bg-blue-100 px-1 rounded">ANTHROPIC_API_KEY</code> environment variable before starting
+    the server.
   </div>
   {{end}}
 
@@ -90,38 +94,43 @@
   <div>
     <label for="gcp_project" class="block text-sm font-medium text-gray-700 mb-1">GCP Project</label>
     <input type="text" id="gcp_project" name="gcp_project" value="{{.Config.GCPProject}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
   </div>
   <div>
     <label for="gcp_region" class="block text-sm font-medium text-gray-700 mb-1">GCP Region</label>
     <input type="text" id="gcp_region" name="gcp_region" value="{{.Config.GCPRegion}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
   </div>
   {{end}}
 
   <div>
     <label for="model_id" class="block text-sm font-medium text-gray-700 mb-1">Model ID</label>
     <input type="text" id="model_id" name="model_id" value="{{.Config.ModelID}}"
-           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="{{if eq .Config.Provider "bedrock"}}e.g. us.anthropic.claude-sonnet-4-20250514-v1:0{{else if eq .Config.Provider "openai"}}e.g. gpt-4o, or llama3 for Ollama{{else if eq .Config.Provider "anthropic"}}e.g. claude-sonnet-4-20250514{{else if eq .Config.Provider "vertexai"}}e.g. gemini-2.0-flash{{else}}Enter model ID{{end}}">
+      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      placeholder="{{if eq .Config.Provider " bedrock"}}e.g. us.anthropic.claude-sonnet-4-20250514-v1:0{{else if eq
+      .Config.Provider "openai" }}e.g. gpt-4o, or translategemma for Ollama{{else if eq .Config.Provider "anthropic"
+      }}e.g. claude-sonnet-4-20250514{{else if eq .Config.Provider "vertexai" }}e.g. gemini-2.0-flash{{else}}Enter model
+      ID{{end}}">
   </div>
 
   <div class="grid grid-cols-2 gap-4">
     <div>
-      <label for="default_source_language" class="block text-sm font-medium text-gray-700 mb-1">Default Source Language</label>
+      <label for="default_source_language" class="block text-sm font-medium text-gray-700 mb-1">Default Source
+        Language</label>
       <select id="default_source_language" name="default_source_language"
-              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
         {{range .Languages}}
-        <option value="{{.Code}}"{{if eq $.Config.DefaultSourceLanguage .Code}} selected{{end}}>{{.Name}}</option>
+        <option value="{{.Code}}" {{if eq $.Config.DefaultSourceLanguage .Code}} selected{{end}}>{{.Name}}</option>
         {{end}}
       </select>
     </div>
     <div>
-      <label for="default_target_language" class="block text-sm font-medium text-gray-700 mb-1">Default Target Language</label>
+      <label for="default_target_language" class="block text-sm font-medium text-gray-700 mb-1">Default Target
+        Language</label>
       <select id="default_target_language" name="default_target_language"
-              class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
         {{range .Languages}}
-        <option value="{{.Code}}"{{if eq $.Config.DefaultTargetLanguage .Code}} selected{{end}}>{{.Name}}</option>
+        <option value="{{.Code}}" {{if eq $.Config.DefaultTargetLanguage .Code}} selected{{end}}>{{.Name}}</option>
         {{end}}
       </select>
     </div>
@@ -130,28 +139,24 @@
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-1">Database Path</label>
     <input type="text" value="{{.Config.DBPath}}" readonly
-           class="w-full border border-gray-200 rounded px-3 py-2 bg-gray-100 text-gray-500">
+      class="w-full border border-gray-200 rounded px-3 py-2 bg-gray-100 text-gray-500">
   </div>
 
   <div id="save-status"></div>
 
   <div class="flex gap-3">
-    <button type="button"
-            hx-put="/api/config"
-            hx-include="#config-save-form"
-            hx-target="#save-status"
-            hx-swap="innerHTML"
-            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <button type="button" hx-put="/api/config" hx-include="#config-save-form" hx-target="#save-status"
+      hx-swap="innerHTML"
+      class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
       Save
     </button>
-    <button type="button"
-            hx-post="/api/test-connection"
-            hx-include="#config-save-form"
-            hx-target="#connection-status"
-            hx-swap="innerHTML"
-            class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <button type="button" hx-post="/api/test-connection" hx-include="#config-save-form" hx-target="#connection-status"
+      hx-swap="innerHTML"
+      class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
       Test Connection
     </button>
   </div>
 </form>
+
+{{template "setup_local_llm" .}}
 {{end}}

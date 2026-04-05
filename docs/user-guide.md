@@ -11,8 +11,8 @@ The easiest free option is Ollama:
 
 ```bash
 # Install Ollama, then:
-ollama pull llama3
-vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id llama3
+ollama pull translategemma
+vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id translategemma
 ```
 
 Note on model quality: vocabgen's prompts are designed for large, capable models (Claude Sonnet/Opus, GPT-4o). Local models like Llama 3 will work but produce lower quality results — particularly for less common language pairs, connotation/register nuances, and contrastive notes. If translation quality matters to you, a paid API is worth it.
@@ -89,7 +89,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 vocabgen lookup "Haus" -l German --provider anthropic --model-id claude-sonnet-4-20250514
 
 # Ollama (local, free, no API key needed)
-vocabgen lookup "casa" -l Italian --provider openai --base-url http://localhost:11434/v1 --model-id llama3
+vocabgen lookup "casa" -l Italian --provider openai --base-url http://localhost:11434/v1 --model-id translategemma
 ```
 
 CLI flags always take precedence over `config.yaml` values.
@@ -108,6 +108,67 @@ Each provider authenticates differently:
 
 API keys are never stored in `config.yaml`. Use environment variables or CLI flags.
 
+### Config Profiles
+
+vocabgen supports multiple named config profiles, so you can save different LLM setups and switch between them without re-editing `config.yaml` each time.
+
+A multi-profile `config.yaml` looks like this:
+
+```yaml
+default_profile: default
+default_source_language: nl
+default_target_language: hu
+db_path: ~/.vocabgen/vocabgen.db
+profiles:
+  default:
+    provider: bedrock
+    aws_region: us-east-1
+    aws_profile: vocabgen
+  local:
+    provider: openai
+    base_url: http://localhost:11434/v1
+    model_id: mistral
+  anthropic:
+    provider: anthropic
+```
+
+Each profile stores provider-specific fields (`provider`, `aws_profile`, `aws_region`, `model_id`, `base_url`, `gcp_project`, `gcp_region`). Global settings like `default_source_language`, `default_target_language`, and `db_path` live outside the profiles block.
+
+Switch profiles on the CLI with `--profile`:
+
+```bash
+vocabgen lookup "werk" -l nl --profile local
+vocabgen batch --input-file ch1.csv --mode words -l nl --profile anthropic
+```
+
+The `default_profile` setting in `config.yaml` determines which profile is used when `--profile` is not specified. If you omit `--profile`, vocabgen uses the `default_profile` value.
+
+In the Web UI (`/config`), a profile dropdown at the top of the Config page lets you switch between profiles. Select "Add new profile…" from the dropdown to create a new profile — it copies the current profile's values as a starting point.
+
+Old config files without a `profiles:` key still work. vocabgen treats a flat config as a single implicit `default` profile, so existing setups are fully backward compatible.
+
+> **Note:** The `--profile` flag now selects a config profile. The old `--profile` flag (which selected an AWS credential profile) has been renamed to `--aws-profile`.
+
+### Local LLM Setup
+
+The `scripts/setup-local-llm.sh` script automates local LLM setup via Ollama. It detects your OS (macOS or Linux), installs Ollama if needed, pulls a recommended model, verifies it responds, and writes a `local` profile to `~/.vocabgen/config.yaml`.
+
+```bash
+./scripts/setup-local-llm.sh
+```
+
+After setup completes, use the local profile:
+
+```bash
+vocabgen lookup "fiets" -l nl --profile local
+```
+
+Requirements: macOS or Linux, ~4 GB disk space for the model. No API key or cloud account needed.
+
+In the Web UI, the Config page includes a "Setup Local LLM" button that runs the same setup logic. Progress streams to the browser via SSE (detecting OS, checking Ollama, installing, pulling model, verifying, writing config).
+
+If you already have Ollama installed, the script skips installation and proceeds to model setup. See [Prerequisites](#prerequisites) for more on local models.
+
 ## First Run
 
 Make sure you have configured a provider (see [Configuration](#configuration) above). The default provider is AWS Bedrock — if you don't have AWS credentials set up, switch to a different provider first.
@@ -120,7 +181,7 @@ vocabgen lookup "uitkomen" -l nl
 vocabgen lookup "uitkomen" -l nl --provider openai --model-id gpt-4o
 
 # Or with a free local model via Ollama
-vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id llama3
+vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id translategemma
 ```
 
 On first run, vocabgen creates `~/.vocabgen/` with a default config and SQLite database. The command sends "uitkomen" to the LLM provider, validates the JSON response, stores it in the database, and prints the structured vocabulary entry as JSON.
@@ -292,8 +353,8 @@ Via the web UI database page: export filtered entries as an `.xlsx` file. The do
 # For cross-region inference profiles, prefix with region (e.g., us.)
 vocabgen lookup "werk" -l nl --model-id us.anthropic.claude-sonnet-4-20250514-v1:0
 
-# Specify profile and region
-vocabgen lookup "werk" -l nl --profile my-profile --region us-east-1 --model-id us.anthropic.claude-3-5-haiku-20241022-v1:0
+# Specify AWS profile and region
+vocabgen lookup "werk" -l nl --aws-profile my-profile --region us-east-1 --model-id us.anthropic.claude-3-5-haiku-20241022-v1:0
 ```
 
 > **Note:** Bedrock model IDs differ from direct Anthropic API IDs. Use the Bedrock format (e.g., `us.anthropic.claude-sonnet-4-20250514-v1:0`) not the Anthropic format (`claude-sonnet-4-20250514`). For cross-region inference profiles, include the region prefix (`us.`).
@@ -389,7 +450,7 @@ vocabgen lookup "werk" -l nl --provider anthropic --model-id claude-sonnet-4-202
 ### Ollama (local)
 
 ```bash
-vocabgen lookup "werk" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id llama3
+vocabgen lookup "werk" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id translategemma
 ```
 
 No API key needed for local servers.
@@ -449,9 +510,21 @@ All user data is stored in `~/.vocabgen/`, independent of where the vocabgen bin
 
 Replacing the binary (e.g., downloading a new release) does not affect your configuration or vocabulary data. You can safely update vocabgen by overwriting the binary in place — your settings and database remain untouched.
 
-## Conflict Resolution
+## E2E Testing
 
-When you look up a word that already exists in the database with a context sentence, vocabgen bypasses the cache and gets a fresh LLM result. You then choose how to handle the conflict:
+Run end-to-end tests with `scripts/e2e-test.sh`. By default, the script uses the `local` profile (Ollama), so tests are free and don't consume cloud API credits.
+
+```bash
+./scripts/e2e-test.sh              # defaults to --profile local
+./scripts/e2e-test.sh -p anthropic # use a cloud provider
+E2E_PROFILE=local make e2e         # via Makefile
+```
+
+Override the profile with the `-p` flag or the `E2E_PROFILE` environment variable. The flag takes precedence over the env var.
+
+Prerequisite: if using the `local` profile, run `./scripts/setup-local-llm.sh` first to install Ollama and pull the model. The script checks Ollama reachability before running tests and prints an actionable error if it's not available.
+
+The `make e2e` target passes `E2E_PROFILE` through to the script automatically.
 
 ## Adding Languages
 
@@ -474,6 +547,8 @@ var SupportedLanguages = map[string]string{
 No other code changes needed — templates are language-agnostic.
 
 ## Conflict Resolution
+
+When you look up a word that already exists in the database with a context sentence, vocabgen bypasses the cache and gets a fresh LLM result. You then choose how to handle the conflict:
 
 - **replace**: Update the existing entry with the new result
 - **add**: Keep both entries (multi-version)

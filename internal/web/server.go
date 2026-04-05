@@ -139,6 +139,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/import", s.handleImport)
 	s.mux.HandleFunc("GET /api/export", s.handleExport)
 
+	// Setup
+	s.mux.HandleFunc("GET /api/setup/local-llm", s.handleSetupLocalLLM)
+
 	// Health & Languages
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/languages", s.handleLanguages)
