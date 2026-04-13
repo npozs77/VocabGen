@@ -28,6 +28,16 @@ fi
 # Strip leading 'v' for changelog lookup (CHANGELOG uses [1.0.3], not [v1.0.3])
 CHANGELOG_VER="${VERSION#v}"
 
+# Ensure version is newer than the latest tag
+LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+if [ -n "$LATEST_TAG" ]; then
+    HIGHER=$(printf '%s\n%s\n' "$LATEST_TAG" "$VERSION" | sort -V | tail -1)
+    if [ "$HIGHER" = "$LATEST_TAG" ]; then
+        echo "ERROR: $VERSION is not newer than latest tag $LATEST_TAG."
+        exit 1
+    fi
+fi
+
 if ! grep -q "## \[${CHANGELOG_VER}\]" CHANGELOG.md; then
     echo "ERROR: CHANGELOG.md has no entry for [${CHANGELOG_VER}]."
     echo "Each PR should update CHANGELOG.md under the target version heading."

@@ -3,7 +3,7 @@
   <div>
     <label for="profile_selector" class="block text-sm font-medium text-gray-700 mb-1">Profile</label>
     <select id="profile_selector" name="profile_selector"
-      onchange="if(this.value==='__new__'){document.getElementById('new-profile-form').style.display='block';this.dataset.prev=this.dataset.prev||'{{.ActiveProfile}}'}else{document.getElementById('new-profile-form').style.display='none';htmx.ajax('PUT','/api/profile/switch',{target:'#save-status',swap:'innerHTML',values:{profile:this.value}}).then(function(){setTimeout(function(){htmx.ajax('GET','/api/config/html',{target:'#config-form',swap:'innerHTML'})},300)})}"
+      onchange="if(this.value==='__new__'){document.getElementById('new-profile-form').style.display='block';this.dataset.prev=this.dataset.prev||'{{.ActiveProfile}}'}else{document.getElementById('new-profile-form').style.display='none';var profileVal=this.value;htmx.ajax('PUT','/api/profile/switch',{target:'#save-status',swap:'innerHTML',values:{profile:profileVal}}).then(function(){setTimeout(function(){var d=document.createElement('div');htmx.ajax('GET','/api/config/html',{source:d,target:'#config-form',swap:'innerHTML'})},300)})}"
       class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
       {{range .Profiles}}
       <option value="{{.}}" {{if eq . $.ActiveProfile}} selected{{end}}>{{.}}</option>

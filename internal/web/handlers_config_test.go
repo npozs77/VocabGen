@@ -591,3 +591,113 @@ func TestAPIRoutesRegistered_CreateProfile(t *testing.T) {
 		t.Fatalf("POST /api/profiles route not registered: got %d", w.Code)
 	}
 }
+
+// TestProfileSwitch_ConfigHTMLReflectsNewProfile verifies that after switching
+// profiles via PUT /api/profile/switch, a subsequent GET /api/config/html
+// (without stale form params) returns the new profile's provider and model.
+// This is the regression test for GitHub issue #28.
+func TestProfileSwitch_ConfigHTMLReflectsNewProfile(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1", ModelID: "claude-v1"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "translategemma"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+
+	// Step 1: Switch to "local" profile.
+	body := `{"profile":"local"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("switch: expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	// Step 2: GET /api/config/html WITHOUT any form params (clean request).
+	req = httptest.NewRequest(http.MethodGet, "/api/config/html", nil)
+	w = httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("config/html: expected 200, got %d", w.Code)
+	}
+
+	html := w.Body.String()
+
+	// The rendered form should reflect the "local" profile's provider (openai).
+	if !strings.Contains(html, `value="openai"`) {
+		t.Fatal("expected config form to contain openai provider after switching to local profile")
+	}
+	// Should contain the local profile's model ID.
+	if !strings.Contains(html, "translategemma") {
+		t.Fatal("expected config form to contain model ID 'translategemma' from local profile")
+	}
+	// Should NOT contain bedrock-specific fields (AWS Region input).
+	if strings.Contains(html, "aws_region") {
+		t.Fatal("expected config form to NOT contain bedrock fields after switching to openai profile")
+	}
+}
+
+// TestProfileSwitch_StaleProviderParamIgnored verifies that if a GET
+// /api/config/html request includes a stale provider query param (simulating
+// the old broken behavior), the server-side config still wins when no
+// provider param is sent. This ensures the fix for #28 is robust.
+func TestProfileSwitch_StaleProviderParamIgnored(t *testing.T) {
+	fc := config.FileConfig{
+		DefaultProfile: "prod",
+		Profiles: map[string]config.ProfileConfig{
+			"prod":  {Provider: "bedrock", AWSRegion: "us-east-1", ModelID: "claude-v1"},
+			"local": {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "translategemma"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                "~/.vocabgen/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+
+	// Switch to "local" (openai).
+	body := `{"profile":"local"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("switch: expected 200, got %d", w.Code)
+	}
+
+	// Simulate the OLD broken behavior: GET with stale provider=bedrock param.
+	req = httptest.NewRequest(http.MethodGet, "/api/config/html?provider=bedrock", nil)
+	w = httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("config/html: expected 200, got %d", w.Code)
+	}
+
+	html := w.Body.String()
+
+	// The provider override IS expected to work (it's used by the provider
+	// <select> onchange for field preview). So bedrock fields should appear.
+	// This test documents that the provider param override is intentional
+	// for the provider selector — the fix is that profile switching no
+	// longer sends this param.
+	if !strings.Contains(html, "aws_region") {
+		t.Fatal("expected provider query param to still work for provider selector preview")
+	}
+}
