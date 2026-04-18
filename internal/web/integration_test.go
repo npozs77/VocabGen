@@ -931,3 +931,67 @@ func TestIntegration_BulkDeleteExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_BatchStream_WordList(t *testing.T) {
+	srv := newTestServer()
+
+	// Build multipart form with word_list field (no file)
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	_ = writer.WriteField("word_list", "eraan toe zijn\nerachter komen\neraan gaan")
+	_ = writer.WriteField("source_language", "nl")
+	_ = writer.WriteField("target_language", "hu")
+	_ = writer.WriteField("mode", "expressions")
+	_ = writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/batch/stream", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	// The SSE stream should start with a connected event showing 3 tokens
+	if !strings.Contains(body, `"total":3`) {
+		t.Fatalf("expected connected event with total:3, got: %s", body)
+	}
+}
+
+func TestIntegration_BatchStream_NoInput(t *testing.T) {
+	srv := newTestServer()
+
+	// Build multipart form with neither file nor word_list
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	_ = writer.WriteField("source_language", "nl")
+	_ = writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/batch/stream", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "CSV file or word list is required") {
+		t.Fatalf("expected error about missing input, got: %s", body)
+	}
+}
+
+func TestIntegration_BatchStream_EmptyWordList(t *testing.T) {
+	srv := newTestServer()
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	_ = writer.WriteField("word_list", "  \n  \n  ")
+	_ = writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/batch/stream", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	// Whitespace-only word_list is treated as empty, so falls through to file check
+	if !strings.Contains(body, "CSV file or word list is required") {
+		t.Fatalf("expected 'CSV file or word list is required' error, got: %s", body)
+	}
+}
