@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-04-18
+
+### Added
+
+- Bulk delete for database entries — select individual entries or use select-all, then delete in one action (#33, #34)
+- Batch processing cancellation — cancel a running batch from the Web UI with partial results preserved (#32)
+
+### Fixed
+
+- Config profile switching now correctly refreshes the form and saves to the selected profile (#28)
+
 ## [1.2.0] - 2026-04-05
 
 ### Added
