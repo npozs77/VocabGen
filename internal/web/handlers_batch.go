@@ -303,6 +303,22 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if processing was cancelled (client disconnected or abort)
+	if r.Context().Err() != nil {
+		data, _ := json.Marshal(map[string]any{
+			"processed": result.Processed,
+			"cached":    result.Cached,
+			"failed":    result.Failed,
+			"skipped":   result.Skipped,
+			"replaced":  result.Replaced,
+			"added":     result.Added,
+			"errors":    result.Errors,
+		})
+		_, _ = fmt.Fprintf(w, "event: cancelled\ndata: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
 	// Send final complete event with summary
 	data, _ := json.Marshal(map[string]any{
 		"processed": result.Processed,

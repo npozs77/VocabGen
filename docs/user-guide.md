@@ -273,9 +273,9 @@ Open `http://localhost:8080` in your browser.
 ### Pages
 
 - **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context.
-- **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Summary shows processed/cached/failed/replaced/added counts.
+- **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
 - **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
-- **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Import CSV, export to Excel. Filter by language, search text, or tags.
+- **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Select individual entries or use select-all to bulk delete. Import CSV, export to Excel. Filter by language, search text, or tags.
 
 ### Help Menu
 

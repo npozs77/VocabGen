@@ -279,6 +279,40 @@ func (s *SQLiteStore) DeleteExpression(ctx context.Context, id int64) error {
 	return err
 }
 
+// DeleteWords removes multiple word entries by their IDs using a single query
+// with parameterized placeholders.
+func (s *SQLiteStore) DeleteWords(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(`DELETE FROM words WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := s.db.ExecContext(ctx, query, args...)
+	return err
+}
+
+// DeleteExpressions removes multiple expression entries by their IDs using a
+// single query with parameterized placeholders.
+func (s *SQLiteStore) DeleteExpressions(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(`DELETE FROM expressions WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := s.db.ExecContext(ctx, query, args...)
+	return err
+}
+
 // --- List with pagination and filtering ---
 
 // ListWords returns paginated word entries with optional filters.

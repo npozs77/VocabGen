@@ -361,7 +361,7 @@ func TestListProfiles_TableDriven(t *testing.T) {
 
 	t.Run("flat config", func(t *testing.T) {
 		configDir = t.TempDir()
-		if err := SaveConfig(DefaultConfig()); err != nil {
+		if err := SaveConfig(DefaultConfig(), ""); err != nil {
 			t.Fatalf("SaveConfig: %v", err)
 		}
 		profiles, def, err := ListProfiles()
@@ -445,7 +445,7 @@ func TestSaveConfigPreservesMultiProfile(t *testing.T) {
 		DefaultTargetLanguage: "en",
 		DBPath:                "~/.vocabgen/vocabgen.db",
 	}
-	if err := SaveConfig(updated); err != nil {
+	if err := SaveConfig(updated, "prod"); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 

@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"os"
 	"strings"
@@ -64,8 +65,24 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	s.activeProfile = req.Profile
 	s.logger.Info("switched config profile", "profile", req.Profile)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Switched to profile "` + req.Profile + `".</p>`))
+	// Re-render the full config form with the new profile's values.
+	// This replaces the two-step approach (PUT then GET) that was prone to
+	// stale form values leaking into the re-render request (#28).
+	profiles, _, _ := config.ListProfiles()
+	data := struct {
+		Config        *config.Config
+		Languages     []service.LanguageInfo
+		Profiles      []string
+		ActiveProfile string
+		StatusMessage template.HTML
+	}{
+		Config:        &cfg,
+		Languages:     service.GetSupportedLanguages(),
+		Profiles:      profiles,
+		ActiveProfile: s.activeProfile,
+		StatusMessage: template.HTML(`<p class="text-green-600 text-sm mt-1">Switched to profile "` + req.Profile + `".</p>`),
+	}
+	_ = renderPartial(w, "config_form", data)
 }
 
 // handleCreateProfile handles POST /api/profiles — create a new profile by copying an existing one.
@@ -158,7 +175,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := config.SaveConfig(updated); err != nil {
+	if err := config.SaveConfig(updated, s.activeProfile); err != nil {
 		s.logger.Error("save config failed", "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
 		return
@@ -167,8 +184,10 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	// Update in-memory config
 	*s.cfg = updated
 
+	s.logger.Info("config saved", "profile", s.activeProfile, "provider", updated.Provider)
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Configuration saved.</p>`))
+	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Configuration saved to profile "` + s.activeProfile + `".</p>`))
 }
 
 // handleConfigHTML handles GET /api/config/html — render config form partial.
@@ -195,6 +214,7 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 		Languages     []service.LanguageInfo
 		Profiles      []string
 		ActiveProfile string
+		StatusMessage template.HTML
 	}{
 		Config:        &cfg,
 		Languages:     service.GetSupportedLanguages(),

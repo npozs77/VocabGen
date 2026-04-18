@@ -411,6 +411,63 @@ func (s *Server) handleDeleteExpression(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
+// bulkDeleteRequest is the JSON body for bulk delete endpoints.
+type bulkDeleteRequest struct {
+	IDs []int64 `json:"ids"`
+}
+
+// handleBulkDeleteWords handles DELETE /api/words/bulk.
+func (s *Server) handleBulkDeleteWords(w http.ResponseWriter, r *http.Request) {
+	var req bulkDeleteRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if len(req.IDs) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "ids must not be empty")
+		return
+	}
+
+	if err := s.store.DeleteWords(r.Context(), req.IDs); err != nil {
+		s.logger.Error("bulk delete words failed", "count", len(req.IDs), "error", err)
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.logger.Info("bulk deleted words", "count", len(req.IDs))
+	if r.Header.Get("HX-Request") == "true" {
+		s.handleListWords(w, r)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted", "count": strconv.Itoa(len(req.IDs))})
+}
+
+// handleBulkDeleteExpressions handles DELETE /api/expressions/bulk.
+func (s *Server) handleBulkDeleteExpressions(w http.ResponseWriter, r *http.Request) {
+	var req bulkDeleteRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if len(req.IDs) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "ids must not be empty")
+		return
+	}
+
+	if err := s.store.DeleteExpressions(r.Context(), req.IDs); err != nil {
+		s.logger.Error("bulk delete expressions failed", "count", len(req.IDs), "error", err)
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.logger.Info("bulk deleted expressions", "count", len(req.IDs))
+	if r.Header.Get("HX-Request") == "true" {
+		s.handleListExpressions(w, r)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted", "count": strconv.Itoa(len(req.IDs))})
+}
+
 // handleImport handles POST /api/import — CSV import.
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)

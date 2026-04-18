@@ -571,6 +571,11 @@ func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*Bat
 	total := len(params.Tokens)
 
 	for i, tc := range params.Tokens {
+		// Check for context cancellation (e.g. client disconnect)
+		if ctx.Err() != nil {
+			break
+		}
+
 		// Normalize
 		var normalized string
 		if params.Mode == "words" {
@@ -634,6 +639,10 @@ func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*Bat
 }
 
 func processBatchWord(ctx context.Context, store db.Store, params BatchParams, sourceLang, targetLang, normalized, ctxSentence string, result *BatchResult, newCount *int) {
+	if ctx.Err() != nil {
+		return
+	}
+
 	existing, err := store.FindWords(ctx, normalized, params.SourceLang)
 	if err != nil {
 		slog.Error("batch: database lookup failed", slog.String("word", normalized), slog.String("error", err.Error()))
@@ -708,6 +717,10 @@ func processBatchWord(ctx context.Context, store db.Store, params BatchParams, s
 }
 
 func processBatchExpression(ctx context.Context, store db.Store, params BatchParams, sourceLang, targetLang, normalized, ctxSentence string, result *BatchResult, newCount *int) {
+	if ctx.Err() != nil {
+		return
+	}
+
 	existing, err := store.FindExpressions(ctx, normalized, params.SourceLang)
 	if err != nil {
 		slog.Error("batch: database lookup failed", slog.String("expression", normalized), slog.String("error", err.Error()))

@@ -1,10 +1,22 @@
 {{define "entry_table"}}
-<div class="text-sm text-gray-500 mb-2">{{.Total}} entries found (page {{.Page}} of {{.TotalPages}})</div>
+<div class="flex items-center justify-between mb-2">
+  <div class="text-sm text-gray-500">{{.Total}} entries found (page {{.Page}} of {{.TotalPages}})</div>
+  <div id="bulk-actions" class="hidden flex items-center gap-2">
+    <span id="selected-count" class="text-sm text-gray-600"></span>
+    <button type="button" id="bulk-delete-btn"
+      class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+      onclick="bulkDeleteSelected()">
+      Delete Selected
+    </button>
+  </div>
+</div>
 
 {{if .IsWords}}
 <table class="w-full text-sm border border-gray-200 rounded">
   <thead class="bg-gray-50">
     <tr>
+      <th class="px-2 py-2 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" class="rounded">
+      </th>
       <th class="px-3 py-2 text-left text-gray-600 font-medium">Word</th>
       <th class="px-3 py-2 text-left text-gray-600 font-medium">POS</th>
       <th class="px-3 py-2 text-left text-gray-600 font-medium">Article</th>
@@ -16,9 +28,12 @@
   </thead>
   <tbody class="divide-y divide-gray-100">
     {{range .Words}}
-    <tr class="hover:bg-gray-50 cursor-pointer"
-        hx-get="/api/words/{{.ID}}/edit" hx-target="this" hx-swap="afterend">
-      <td class="px-3 py-2 font-medium text-gray-800">{{.Word}}</td>
+    <tr class="hover:bg-gray-50">
+      <td class="px-2 py-2" onclick="event.stopPropagation()">
+        <input type="checkbox" class="entry-cb rounded" value="{{.ID}}" onchange="updateBulkActions()">
+      </td>
+      <td class="px-3 py-2 font-medium text-gray-800 cursor-pointer" hx-get="/api/words/{{.ID}}/edit"
+        hx-target="closest tr" hx-swap="afterend">{{.Word}}</td>
       <td class="px-3 py-2"><span class="text-xs bg-gray-100 text-gray-600 px-1 rounded">{{.PartOfSpeech}}</span></td>
       <td class="px-3 py-2 text-gray-600">{{.Article}}</td>
       <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.Definition}}</td>
@@ -28,7 +43,9 @@
     </tr>
     {{end}}
     {{if not .Words}}
-    <tr><td colspan="7" class="px-3 py-4 text-center text-gray-500">No entries found</td></tr>
+    <tr>
+      <td colspan="8" class="px-3 py-4 text-center text-gray-500">No entries found</td>
+    </tr>
     {{end}}
   </tbody>
 </table>
@@ -36,6 +53,8 @@
 <table class="w-full text-sm border border-gray-200 rounded">
   <thead class="bg-gray-50">
     <tr>
+      <th class="px-2 py-2 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" class="rounded">
+      </th>
       <th class="px-3 py-2 text-left text-gray-600 font-medium">Expression</th>
       <th class="px-3 py-2 text-left text-gray-600 font-medium">Definition</th>
       <th class="px-3 py-2 text-left text-gray-600 font-medium">English</th>
@@ -45,9 +64,12 @@
   </thead>
   <tbody class="divide-y divide-gray-100">
     {{range .Expressions}}
-    <tr class="hover:bg-gray-50 cursor-pointer"
-        hx-get="/api/expressions/{{.ID}}/edit" hx-target="this" hx-swap="afterend">
-      <td class="px-3 py-2 font-medium text-gray-800">{{.Expression}}</td>
+    <tr class="hover:bg-gray-50">
+      <td class="px-2 py-2" onclick="event.stopPropagation()">
+        <input type="checkbox" class="entry-cb rounded" value="{{.ID}}" onchange="updateBulkActions()">
+      </td>
+      <td class="px-3 py-2 font-medium text-gray-800 cursor-pointer" hx-get="/api/expressions/{{.ID}}/edit"
+        hx-target="closest tr" hx-swap="afterend">{{.Expression}}</td>
       <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.Definition}}</td>
       <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.English}}</td>
       <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{.TargetTranslation}}</td>
@@ -55,7 +77,9 @@
     </tr>
     {{end}}
     {{if not .Expressions}}
-    <tr><td colspan="5" class="px-3 py-4 text-center text-gray-500">No entries found</td></tr>
+    <tr>
+      <td colspan="6" class="px-3 py-4 text-center text-gray-500">No entries found</td>
+    </tr>
     {{end}}
   </tbody>
 </table>
@@ -64,15 +88,17 @@
 {{if gt .TotalPages 1}}
 <div class="flex gap-2 mt-4 justify-center">
   {{if gt .Page 1}}
-  <button hx-get="{{.BaseURL}}?page={{.PrevPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}&tags={{.Tags}}"
-          hx-target="#entry-table" hx-swap="innerHTML"
-          class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">← Prev</button>
+  <button
+    hx-get="{{.BaseURL}}?page={{.PrevPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}&tags={{.Tags}}"
+    hx-target="#entry-table" hx-swap="innerHTML"
+    class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">← Prev</button>
   {{end}}
   <span class="px-3 py-1 text-sm text-gray-600">Page {{.Page}} of {{.TotalPages}}</span>
   {{if lt .Page .TotalPages}}
-  <button hx-get="{{.BaseURL}}?page={{.NextPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}&tags={{.Tags}}"
-          hx-target="#entry-table" hx-swap="innerHTML"
-          class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">Next →</button>
+  <button
+    hx-get="{{.BaseURL}}?page={{.NextPage}}&page_size={{.PageSize}}&source_lang={{.SourceLang}}&target_lang={{.TargetLang}}&search={{.Search}}&tags={{.Tags}}"
+    hx-target="#entry-table" hx-swap="innerHTML"
+    class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50">Next →</button>
   {{end}}
 </div>
 {{end}}

@@ -333,8 +333,9 @@ func TestSwitchProfile_ChangesActiveConfig(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "Switched to profile") {
-		t.Fatalf("expected success message, got: %s", w.Body.String())
+	// The response is now the full re-rendered config form HTML.
+	if !strings.Contains(w.Body.String(), "config-save-form") {
+		t.Fatalf("expected config form HTML in response, got: %s", w.Body.String())
 	}
 
 	// Verify in-memory config was updated.
@@ -442,7 +443,7 @@ func TestConfigFormAlwaysShowsProfileSelector(t *testing.T) {
 	})
 
 	cfg := config.DefaultConfig()
-	if err := config.SaveConfig(cfg); err != nil {
+	if err := config.SaveConfig(cfg, ""); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 
@@ -613,7 +614,7 @@ func TestProfileSwitch_ConfigHTMLReflectsNewProfile(t *testing.T) {
 
 	srv := newTestServer()
 
-	// Step 1: Switch to "local" profile.
+	// Switch to "local" profile — response now contains the re-rendered form.
 	body := `{"profile":"local"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -622,15 +623,6 @@ func TestProfileSwitch_ConfigHTMLReflectsNewProfile(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("switch: expected 200, got %d; body: %s", w.Code, w.Body.String())
-	}
-
-	// Step 2: GET /api/config/html WITHOUT any form params (clean request).
-	req = httptest.NewRequest(http.MethodGet, "/api/config/html", nil)
-	w = httptest.NewRecorder()
-	srv.mux.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("config/html: expected 200, got %d", w.Code)
 	}
 
 	html := w.Body.String()

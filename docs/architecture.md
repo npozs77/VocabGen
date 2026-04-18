@@ -192,7 +192,7 @@ Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All t
 
 **HTMX pattern**: Forms use `hx-post` to send requests; server returns HTML fragments that HTMX swaps into the page. No JSON parsing on the client side for UI interactions.
 
-**Batch progress**: Server-Sent Events (SSE) stream real-time progress via `http.Flusher`. Client uses HTMX SSE extension.
+**Batch progress**: Server-Sent Events (SSE) stream real-time progress via `http.Flusher`. Client uses HTMX SSE extension. Supports cancellation — client aborts the fetch via `AbortController`, server detects context cancellation and emits a `cancelled` event with partial results.
 
 **Conflict resolution UI**: When a lookup with context finds existing entries, the server returns a `lookup_conflict.html` partial showing existing entries side-by-side with the new result, plus resolve buttons (replace/add/skip).
 
@@ -396,6 +396,7 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | Search database | GET /api/words?search=... | `entry_table.html` |
 | Edit entry | PUT /api/words/{id} | Updated row HTML |
 | Delete entry | DELETE /api/words/{id} | Empty (row removed) |
+| Bulk delete | DELETE /api/words/bulk | Updated table HTML |
 | Import CSV | POST /api/import | Import summary |
 | Export Excel | GET /api/export | .xlsx file download |
 
@@ -420,6 +421,8 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | PUT | /api/expressions/{id} | Update expression entry |
 | DELETE | /api/words/{id} | Delete word entry |
 | DELETE | /api/expressions/{id} | Delete expression entry |
+| DELETE | /api/words/bulk | Bulk delete word entries |
+| DELETE | /api/expressions/bulk | Bulk delete expression entries |
 | POST | /api/import | CSV import (multipart) |
 | GET | /api/export | Excel export |
 | GET | /api/health | Health check |
@@ -437,7 +440,7 @@ Dual approach: property-based tests (rapid) for universal invariants + table-dri
 
 19 correctness properties validated via `pgregory.net/rapid` (100+ iterations each). Integration tests with mocked LLM providers and real SQLite. Web API tests via `httptest`.
 
-See the design document for the full list of correctness properties (P1–P25).
+See the design document for the full list of correctness properties (P1–P32).
 
 ## Key Design Decisions
 

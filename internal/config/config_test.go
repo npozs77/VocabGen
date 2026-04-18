@@ -33,7 +33,7 @@ func TestPropertyConfigRoundTrip(t *testing.T) {
 			DBPath:                rapid.StringMatching(`[a-zA-Z0-9_./-]+`).Draw(t, "DBPath"),
 		}
 
-		if err := SaveConfig(cfg); err != nil {
+		if err := SaveConfig(cfg, ""); err != nil {
 			t.Fatalf("SaveConfig failed: %v", err)
 		}
 
@@ -85,7 +85,7 @@ func TestSaveConfigNoAPIKey(t *testing.T) {
 		DBPath:                "/tmp/test.db",
 	}
 
-	if err := SaveConfig(cfg); err != nil {
+	if err := SaveConfig(cfg, ""); err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
 
@@ -109,7 +109,7 @@ func TestSaveConfigCreatesDirectory(t *testing.T) {
 	t.Cleanup(func() { configDir = origDir })
 
 	cfg := DefaultConfig()
-	if err := SaveConfig(cfg); err != nil {
+	if err := SaveConfig(cfg, ""); err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
 

@@ -6,10 +6,9 @@
   <div class="flex flex-wrap gap-4 items-end">
     <div>
       <label for="db-source-lang" class="block text-sm font-medium text-gray-700 mb-1">Source Language</label>
-      <select id="db-source-lang" name="source_lang"
-              hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-              hx-include="#db-filters"
-              class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="db-source-lang" name="source_lang" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
+        hx-include="#db-filters"
+        class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">All</option>
         {{range .Languages}}
         <option value="{{.Code}}">{{.Name}}</option>
@@ -18,10 +17,9 @@
     </div>
     <div>
       <label for="db-target-lang" class="block text-sm font-medium text-gray-700 mb-1">Target Language</label>
-      <select id="db-target-lang" name="target_lang"
-              hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-              hx-include="#db-filters"
-              class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="db-target-lang" name="target_lang" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
+        hx-include="#db-filters"
+        class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">All</option>
         {{range .Languages}}
         <option value="{{.Code}}">{{.Name}}</option>
@@ -30,31 +28,25 @@
     </div>
     <fieldset id="db-type-filter">
       <legend class="block text-sm font-medium text-gray-700 mb-1">Type</legend>
-      <select name="type"
-              hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-              hx-include="#db-filters"
-              class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select name="type" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML" hx-include="#db-filters"
+        class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="words" selected>Words</option>
         <option value="expressions">Expressions</option>
       </select>
     </fieldset>
     <div>
       <label for="db-tags" class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-      <input type="text" id="db-tags" name="tags"
-             hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-             hx-trigger="keyup changed delay:300ms"
-             hx-include="#db-filters"
-             class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
-             placeholder="e.g. HS2.2">
+      <input type="text" id="db-tags" name="tags" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
+        hx-trigger="keyup changed delay:300ms" hx-include="#db-filters"
+        class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+        placeholder="e.g. HS2.2">
     </div>
     <div class="flex-1 min-w-[200px]">
       <label for="db-search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
-      <input type="text" id="db-search" name="search"
-             hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-             hx-trigger="keyup changed delay:300ms"
-             hx-include="#db-filters"
-             class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-             placeholder="Search entries...">
+      <input type="text" id="db-search" name="search" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
+        hx-trigger="keyup changed delay:300ms" hx-include="#db-filters"
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Search entries...">
     </div>
   </div>
 
@@ -64,23 +56,22 @@
 
   <div class="flex gap-3">
     <a id="export-btn" href="#" target="_blank"
-       onclick="this.href='/api/export?source_lang='+encodeURIComponent(document.getElementById('db-source-lang').value)+'&target_lang='+encodeURIComponent(document.getElementById('db-target-lang').value)+'&search='+encodeURIComponent(document.getElementById('db-search').value)+'&tags='+encodeURIComponent((document.getElementById('db-tags')||{}).value||'')"
-       class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
+      onclick="this.href='/api/export?source_lang='+encodeURIComponent(document.getElementById('db-source-lang').value)+'&target_lang='+encodeURIComponent(document.getElementById('db-target-lang').value)+'&search='+encodeURIComponent(document.getElementById('db-search').value)+'&tags='+encodeURIComponent((document.getElementById('db-tags')||{}).value||'')"
+      class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
       Export XLSX
     </a>
     <button type="button" onclick="document.getElementById('import-dialog').classList.toggle('hidden')"
-            class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
+      class="border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
       Import CSV/XLSX
     </button>
   </div>
 
   <div id="import-dialog" class="hidden bg-white border border-gray-200 rounded p-4 max-w-md">
-    <form hx-post="/api/import" hx-target="#import-result" hx-swap="innerHTML"
-          hx-encoding="multipart/form-data" class="space-y-3">
+    <form hx-post="/api/import" hx-target="#import-result" hx-swap="innerHTML" hx-encoding="multipart/form-data"
+      class="space-y-3">
       <div>
         <label for="import-file" class="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
-        <input type="file" id="import-file" name="file" accept=".csv,.xlsx" required
-               class="w-full text-sm">
+        <input type="file" id="import-file" name="file" accept=".csv,.xlsx" required class="w-full text-sm">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -112,9 +103,64 @@
     <div id="import-result" class="mt-2"></div>
   </div>
 
-  <div id="entry-table"
-       hx-get="/api/words" hx-trigger="load" hx-swap="innerHTML">
+  <div id="entry-table" hx-get="/api/words" hx-trigger="load" hx-swap="innerHTML">
     <p class="text-gray-500">Loading entries…</p>
   </div>
 </div>
+
+<script>
+  function toggleSelectAll(el) {
+    var cbs = document.querySelectorAll('.entry-cb');
+    for (var i = 0; i < cbs.length; i++) {
+      cbs[i].checked = el.checked;
+    }
+    updateBulkActions();
+  }
+
+  function updateBulkActions() {
+    var checked = document.querySelectorAll('.entry-cb:checked');
+    var actions = document.getElementById('bulk-actions');
+    var count = document.getElementById('selected-count');
+    if (checked.length > 0) {
+      actions.classList.remove('hidden');
+      count.textContent = checked.length + ' selected';
+    } else {
+      actions.classList.add('hidden');
+    }
+    var selectAll = document.getElementById('select-all');
+    var allCbs = document.querySelectorAll('.entry-cb');
+    if (selectAll && allCbs.length > 0) {
+      selectAll.checked = checked.length === allCbs.length;
+    }
+  }
+
+  function bulkDeleteSelected() {
+    var checked = document.querySelectorAll('.entry-cb:checked');
+    if (checked.length === 0) return;
+    if (!confirm('Delete ' + checked.length + ' selected entries? This cannot be undone.')) return;
+
+    var ids = [];
+    for (var i = 0; i < checked.length; i++) {
+      ids.push(parseInt(checked[i].value, 10));
+    }
+
+    var typeSelect = document.querySelector('#db-type-filter select');
+    var isExpressions = typeSelect && typeSelect.value === 'expressions';
+    var url = isExpressions ? '/api/expressions/bulk' : '/api/words/bulk';
+
+    fetch(url, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'HX-Request': 'true' },
+      body: JSON.stringify({ ids: ids })
+    }).then(function (resp) {
+      if (!resp.ok) throw new Error('Delete failed: ' + resp.status);
+      return resp.text();
+    }).then(function (html) {
+      document.getElementById('entry-table').innerHTML = html;
+      htmx.process(document.getElementById('entry-table'));
+    }).catch(function (err) {
+      alert(err.message);
+    });
+  }
+</script>
 {{end}}
