@@ -93,7 +93,13 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-git tag -a "$VERSION" -m "Release $VERSION"
+RELEASE_NOTES=$(awk "/^## \[${CHANGELOG_VER}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+if [ -z "$RELEASE_NOTES" ]; then
+    echo "WARNING: Could not extract release notes from CHANGELOG.md. Using default message."
+    RELEASE_NOTES="Release $VERSION"
+fi
+
+git tag -a "$VERSION" -m "Release $VERSION" -m "$RELEASE_NOTES"
 git push origin "$VERSION"
 
 echo ""
