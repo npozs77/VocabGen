@@ -1057,3 +1057,78 @@ func TestLookup_RejectsInvalidToken(t *testing.T) {
 		t.Errorf("expected 'invalid input' error, got: %v", err)
 	}
 }
+
+func TestProcessBatch_CancelledContext(t *testing.T) {
+	store := newTestStore(t)
+	provider := &mockProvider{}
+
+	tokens := []parsing.TokenWithContext{
+		{Token: "woord"},
+		{Token: "huis"},
+		{Token: "boek"},
+		{Token: "tafel"},
+		{Token: "stoel"},
+	}
+
+	// Pre-cancel the context before calling ProcessBatch
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result, err := ProcessBatch(ctx, store, BatchParams{
+		SourceLang: "nl",
+		Mode:       "words",
+		Tokens:     tokens,
+		Provider:   provider,
+		ModelID:    "test",
+		TargetLang: "hu",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// With a pre-cancelled context, the loop should break immediately
+	total := result.Processed + result.Cached + result.Failed + result.Skipped + result.Replaced + result.Added
+	if total >= len(tokens) {
+		t.Errorf("expected fewer than %d items processed with cancelled context, got %d", len(tokens), total)
+	}
+
+	// Provider should not have been invoked (context was already cancelled)
+	if provider.invocations.Load() != 0 {
+		t.Errorf("expected 0 provider invocations with pre-cancelled context, got %d", provider.invocations.Load())
+	}
+}
+
+func TestProcessBatch_CancelledContextExpressions(t *testing.T) {
+	store := newTestStore(t)
+	provider := &mockExprProvider{}
+
+	tokens := []parsing.TokenWithContext{
+		{Token: "aan het licht komen"},
+		{Token: "er de brui aan geven"},
+		{Token: "vandaag de dag"},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result, err := ProcessBatch(ctx, store, BatchParams{
+		SourceLang: "nl",
+		Mode:       "expressions",
+		Tokens:     tokens,
+		Provider:   provider,
+		ModelID:    "test",
+		TargetLang: "hu",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	total := result.Processed + result.Cached + result.Failed + result.Skipped + result.Replaced + result.Added
+	if total >= len(tokens) {
+		t.Errorf("expected fewer than %d items processed with cancelled context, got %d", len(tokens), total)
+	}
+
+	if provider.invocations.Load() != 0 {
+		t.Errorf("expected 0 provider invocations with pre-cancelled context, got %d", provider.invocations.Load())
+	}
+}
