@@ -1,5 +1,3 @@
-// Package output provides field mapping, translation flattening, and Excel export
-// for vocabulary entries.
 package output
 
 import (
@@ -79,6 +77,7 @@ func ExportBothToExcel(words []Entry, expressions []Entry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// writeSheet writes column headers and entry rows to the named sheet in the Excel file.
 func writeSheet(f *excelize.File, sheet string, cols []string, entries []Entry, mode string) {
 	for i, h := range cols {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)

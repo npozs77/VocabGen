@@ -1,4 +1,3 @@
-// Package parsing provides CSV reading and token normalization for vocabulary input files.
 package parsing
 
 import (

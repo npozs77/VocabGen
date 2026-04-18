@@ -16,6 +16,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// parseListParams extracts pagination and filter parameters from the request URL query string.
 func parseListParams(r *http.Request) (db.ListFilter, error) {
 	filter := db.ListFilter{
 		SourceLang: r.URL.Query().Get("source_lang"),
@@ -233,6 +234,8 @@ func (s *Server) handleUpdateWord(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
+
+// handleEditWord handles GET /api/words/{id}/edit — renders the inline edit form partial.
 func (s *Server) handleEditWord(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -252,6 +255,7 @@ func (s *Server) handleEditWord(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleEditExpression handles GET /api/expressions/{id}/edit — renders the inline edit form partial.
 func (s *Server) handleEditExpression(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {

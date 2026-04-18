@@ -1,6 +1,3 @@
-// Package update provides shared update-checking logic for both the web UI and CLI.
-// It queries the GitHub Releases API, compares semver versions, and builds
-// download URLs and delta changelogs.
 package update
 
 import (
@@ -19,6 +16,7 @@ import (
 	"github.com/yuin/goldmark/extension"
 )
 
+// GitHub API and download URL constants for the VocabGen release repository.
 const (
 	// GithubReleasesURL is the GitHub Releases API endpoint for VocabGen.
 	GithubReleasesURL = "https://api.github.com/repos/npozs77/VocabGen/releases"

@@ -319,6 +319,7 @@ func Lookup(ctx context.Context, store db.Store, params LookupParams) (*LookupRe
 	return lookupExpression(ctx, store, params, m, normalized, sourceLang, targetLang)
 }
 
+// lookupWord handles the cache-check and LLM invocation flow for a single word lookup.
 func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, normalized, sourceLang, targetLang string) (*LookupResult, error) {
 	existing, err := store.FindWords(ctx, normalized, params.SourceLang)
 	if err != nil {
@@ -407,6 +408,7 @@ func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, nor
 	return result, nil
 }
 
+// lookupExpression handles the cache-check and LLM invocation flow for a single expression lookup.
 func lookupExpression(ctx context.Context, store db.Store, params LookupParams, m, normalized, sourceLang, targetLang string) (*LookupResult, error) {
 	existing, err := store.FindExpressions(ctx, normalized, params.SourceLang)
 	if err != nil {
@@ -638,6 +640,8 @@ func ProcessBatch(ctx context.Context, store db.Store, params BatchParams) (*Bat
 	return result, nil
 }
 
+// processBatchWord processes a single word within a batch: checks the cache,
+// invokes the LLM on miss, and applies the configured conflict strategy.
 func processBatchWord(ctx context.Context, store db.Store, params BatchParams, sourceLang, targetLang, normalized, ctxSentence string, result *BatchResult, newCount *int) {
 	if ctx.Err() != nil {
 		return
@@ -716,6 +720,8 @@ func processBatchWord(ctx context.Context, store db.Store, params BatchParams, s
 	*newCount++
 }
 
+// processBatchExpression processes a single expression within a batch: checks the cache,
+// invokes the LLM on miss, and applies the configured conflict strategy.
 func processBatchExpression(ctx context.Context, store db.Store, params BatchParams, sourceLang, targetLang, normalized, ctxSentence string, result *BatchResult, newCount *int) {
 	if ctx.Err() != nil {
 		return

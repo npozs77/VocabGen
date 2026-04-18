@@ -1,4 +1,3 @@
-// Package llm defines the Provider interface and registry for LLM API backends.
 package llm
 
 import (

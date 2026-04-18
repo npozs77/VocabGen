@@ -1,5 +1,3 @@
-// Package service implements the business logic for vocabulary lookups and
-// batch processing, shared by both the CLI and web UI layers.
 package service
 
 import "fmt"
@@ -8,6 +6,7 @@ import "fmt"
 // conflicts with an existing database entry.
 type ConflictStrategy string
 
+// Supported conflict resolution strategies.
 const (
 	// ConflictReplace updates the existing entry in-place.
 	ConflictReplace ConflictStrategy = "replace"

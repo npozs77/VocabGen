@@ -13,6 +13,7 @@ import (
 	"github.com/user/vocabgen/internal/service"
 )
 
+// maxUploadSize is the maximum allowed size for file uploads (10 MB).
 const maxUploadSize = 10 << 20 // 10 MB
 
 // parseTextList splits a plain-text word list (one token per line) into
