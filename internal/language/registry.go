@@ -1,6 +1,3 @@
-// Package language provides prompt templates, JSON validation, and a language
-// registry for the vocabulary generator. All templates are language-agnostic,
-// parameterized by {source_language}.
 package language
 
 // SupportedLanguages maps language codes to full names.

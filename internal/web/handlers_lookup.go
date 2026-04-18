@@ -30,6 +30,8 @@ type resolveRequest struct {
 	Tags           string        `json:"tags"`
 }
 
+// parseLookupParams decodes lookup parameters from JSON or form-encoded request bodies
+// and resolves defaults from the server config.
 func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, error) {
 	var req lookupRequest
 

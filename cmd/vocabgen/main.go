@@ -1,4 +1,3 @@
-// Package main is the entry point for the vocabgen CLI.
 package main
 
 import (
@@ -33,6 +32,7 @@ var (
 // appConfig holds the loaded config after PersistentPreRun.
 var appConfig config.Config
 
+// main executes the root Cobra command and exits with code 1 on error.
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -119,6 +119,8 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// init configures the root command's version template, persistent flags, and
+// registers all subcommands.
 func init() {
 	// Custom version template to include build date
 	rootCmd.SetVersionTemplate(fmt.Sprintf("vocabgen %s (%s, built %s)\n", version, runtime.Version(), buildDate))

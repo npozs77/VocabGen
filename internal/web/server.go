@@ -1,4 +1,3 @@
-// Package web implements the embedded HTTP server and web UI handlers.
 package web
 
 import (

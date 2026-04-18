@@ -1,4 +1,3 @@
-// Package config manages application settings persisted to ~/.vocabgen/config.yaml.
 package config
 
 import (

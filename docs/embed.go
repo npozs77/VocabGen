@@ -29,8 +29,10 @@ var Available = []DocInfo{
 	{Slug: "changelog", Title: "Changelog", File: "changelog.md"},
 }
 
+// slugToFile maps URL slugs to their DocInfo for O(1) lookup in Render.
 var slugToFile map[string]DocInfo
 
+// init builds the slugToFile lookup map from the Available slice.
 func init() {
 	slugToFile = make(map[string]DocInfo, len(Available))
 	for _, d := range Available {

@@ -1,5 +1,3 @@
-// Package db provides SQLite-based storage for vocabulary entries, including
-// schema migrations, CRUD operations, pagination, import/export, and backup/restore.
 package db
 
 import (
