@@ -519,3 +519,153 @@ func TestGetExpression_ByID(t *testing.T) {
 		t.Errorf("got %q, want %q", got.Expression, "op de hoogte")
 	}
 }
+
+func TestDeleteWords_BulkDelete(t *testing.T) {
+	tests := []struct {
+		name      string
+		insertN   int
+		deleteIDs func(ids []int64) []int64
+		wantAfter int
+		wantErr   bool
+	}{
+		{
+			name:    "delete all",
+			insertN: 3,
+			deleteIDs: func(ids []int64) []int64 {
+				return ids
+			},
+			wantAfter: 0,
+		},
+		{
+			name:    "delete subset",
+			insertN: 3,
+			deleteIDs: func(ids []int64) []int64 {
+				return ids[:2]
+			},
+			wantAfter: 1,
+		},
+		{
+			name:    "empty slice is no-op",
+			insertN: 2,
+			deleteIDs: func(_ []int64) []int64 {
+				return []int64{}
+			},
+			wantAfter: 2,
+		},
+		{
+			name:    "non-existent IDs are ignored",
+			insertN: 2,
+			deleteIDs: func(_ []int64) []int64 {
+				return []int64{99998, 99999}
+			},
+			wantAfter: 2,
+		},
+		{
+			name:    "mixed valid and non-existent",
+			insertN: 3,
+			deleteIDs: func(ids []int64) []int64 {
+				return []int64{ids[0], 99999}
+			},
+			wantAfter: 2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			ctx := context.Background()
+
+			var ids []int64
+			for i := 0; i < tc.insertN; i++ {
+				row := makeWordRow("bulk"+string(rune('A'+i)), "nl")
+				if err := store.InsertWord(ctx, row); err != nil {
+					t.Fatalf("insert %d: %v", i, err)
+				}
+				ids = append(ids, row.ID)
+			}
+
+			err := store.DeleteWords(ctx, tc.deleteIDs(ids))
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("DeleteWords error = %v, wantErr %v", err, tc.wantErr)
+			}
+
+			all, _, err := store.ListWords(ctx, ListFilter{SourceLang: "nl", Page: 1, PageSize: 100})
+			if err != nil {
+				t.Fatalf("ListWords: %v", err)
+			}
+			if len(all) != tc.wantAfter {
+				t.Errorf("got %d entries, want %d", len(all), tc.wantAfter)
+			}
+		})
+	}
+}
+
+func TestDeleteExpressions_BulkDelete(t *testing.T) {
+	tests := []struct {
+		name      string
+		insertN   int
+		deleteIDs func(ids []int64) []int64
+		wantAfter int
+	}{
+		{
+			name:    "delete all",
+			insertN: 3,
+			deleteIDs: func(ids []int64) []int64 {
+				return ids
+			},
+			wantAfter: 0,
+		},
+		{
+			name:    "delete subset",
+			insertN: 3,
+			deleteIDs: func(ids []int64) []int64 {
+				return ids[:1]
+			},
+			wantAfter: 2,
+		},
+		{
+			name:    "empty slice is no-op",
+			insertN: 2,
+			deleteIDs: func(_ []int64) []int64 {
+				return []int64{}
+			},
+			wantAfter: 2,
+		},
+		{
+			name:    "non-existent IDs are ignored",
+			insertN: 1,
+			deleteIDs: func(_ []int64) []int64 {
+				return []int64{99999}
+			},
+			wantAfter: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			ctx := context.Background()
+
+			var ids []int64
+			for i := 0; i < tc.insertN; i++ {
+				row := makeExpressionRow("bulk expr "+string(rune('A'+i)), "nl")
+				if err := store.InsertExpression(ctx, row); err != nil {
+					t.Fatalf("insert %d: %v", i, err)
+				}
+				ids = append(ids, row.ID)
+			}
+
+			if err := store.DeleteExpressions(ctx, tc.deleteIDs(ids)); err != nil {
+				t.Fatalf("DeleteExpressions: %v", err)
+			}
+
+			all, _, err := store.ListExpressions(ctx, ListFilter{SourceLang: "nl", Page: 1, PageSize: 100})
+			if err != nil {
+				t.Fatalf("ListExpressions: %v", err)
+			}
+			if len(all) != tc.wantAfter {
+				t.Errorf("got %d entries, want %d", len(all), tc.wantAfter)
+			}
+		})
+	}
+}

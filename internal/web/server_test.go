@@ -66,6 +66,10 @@ func (s *stubStore) UpdateExpression(ctx context.Context, id int64, row *db.Expr
 }
 func (s *stubStore) DeleteWord(ctx context.Context, id int64) error       { return nil }
 func (s *stubStore) DeleteExpression(ctx context.Context, id int64) error { return nil }
+func (s *stubStore) DeleteWords(ctx context.Context, ids []int64) error   { return nil }
+func (s *stubStore) DeleteExpressions(ctx context.Context, ids []int64) error {
+	return nil
+}
 func (s *stubStore) ImportWords(ctx context.Context, rows []db.WordRow) (int, int, int, error) {
 	return 0, 0, 0, nil
 }
@@ -216,6 +220,8 @@ func TestAPIRoutesRegistered(t *testing.T) {
 		{"put-expression", http.MethodPut, "/api/expressions/1", http.StatusOK},
 		{"delete-word", http.MethodDelete, "/api/words/1", http.StatusOK},
 		{"delete-expression", http.MethodDelete, "/api/expressions/1", http.StatusOK},
+		{"bulk-delete-words", http.MethodDelete, "/api/words/bulk", http.StatusBadRequest},
+		{"bulk-delete-expressions", http.MethodDelete, "/api/expressions/bulk", http.StatusBadRequest},
 		// Export with empty store → 200 (empty xlsx)
 		{"export", http.MethodGet, "/api/export", http.StatusOK},
 		// Config update with empty body

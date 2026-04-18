@@ -877,3 +877,57 @@ func TestPropertyP32_ReportAnIssueOpensInNewTabSecurely(t *testing.T) {
 		}
 	})
 }
+
+func TestIntegration_BulkDeleteWords(t *testing.T) {
+	srv := newTestServer()
+
+	tests := []struct {
+		name       string
+		body       string
+		wantStatus int
+	}{
+		{"valid IDs", `{"ids":[1,2,3]}`, http.StatusOK},
+		{"empty IDs", `{"ids":[]}`, http.StatusBadRequest},
+		{"invalid JSON", `not json`, http.StatusBadRequest},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodDelete, "/api/words/bulk", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if w.Code != tc.wantStatus {
+				t.Fatalf("expected %d, got %d; body: %s", tc.wantStatus, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestIntegration_BulkDeleteExpressions(t *testing.T) {
+	srv := newTestServer()
+
+	tests := []struct {
+		name       string
+		body       string
+		wantStatus int
+	}{
+		{"valid IDs", `{"ids":[1,2,3]}`, http.StatusOK},
+		{"empty IDs", `{"ids":[]}`, http.StatusBadRequest},
+		{"invalid JSON", `{bad}`, http.StatusBadRequest},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodDelete, "/api/expressions/bulk", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if w.Code != tc.wantStatus {
+				t.Fatalf("expected %d, got %d; body: %s", tc.wantStatus, w.Code, w.Body.String())
+			}
+		})
+	}
+}

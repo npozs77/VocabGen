@@ -136,6 +136,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/expressions/{id}", s.handleUpdateExpression)
 	s.mux.HandleFunc("DELETE /api/words/{id}", s.handleDeleteWord)
 	s.mux.HandleFunc("DELETE /api/expressions/{id}", s.handleDeleteExpression)
+	s.mux.HandleFunc("DELETE /api/words/bulk", s.handleBulkDeleteWords)
+	s.mux.HandleFunc("DELETE /api/expressions/bulk", s.handleBulkDeleteExpressions)
 	s.mux.HandleFunc("POST /api/import", s.handleImport)
 	s.mux.HandleFunc("GET /api/export", s.handleExport)
 

@@ -48,8 +48,14 @@ type Store interface {
 	// DeleteWord removes a word entry by ID.
 	DeleteWord(ctx context.Context, id int64) error
 
+	// DeleteWords removes multiple word entries by their IDs.
+	DeleteWords(ctx context.Context, ids []int64) error
+
 	// DeleteExpression removes an expression entry by ID.
 	DeleteExpression(ctx context.Context, id int64) error
+
+	// DeleteExpressions removes multiple expression entries by their IDs.
+	DeleteExpressions(ctx context.Context, ids []int64) error
 
 	// ImportWords bulk-inserts word rows, skipping duplicates.
 	ImportWords(ctx context.Context, rows []WordRow) (imported, skipped, failed int, err error)
