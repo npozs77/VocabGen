@@ -1,0 +1,47 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  enable:
+    - errorlint
+    - gocritic
+    - revive
+    - bodyclose
+    - noctx
+    - godoclint
+
+  settings:
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+
+  exclusions:
+    rules:
+      # noctx: test helpers use httptest.NewRequest without context.
+      - path: _test\.go
+        linters:
+          - noctx
+
+      # noctx: schema migration runs at startup without request context.
+      - path: internal/db/schema\.go
+        linters:
+          - noctx
+
+      # noctx: PRAGMA and Ping run during DB init, no request context available.
+      - path: internal/db/sqlite\.go
+        text: "Exec must not be called|Ping must not be called"
+        linters:
+          - noctx
+
+      # noctx: Ollama detection is a best-effort local check, not a request-scoped call.
+      - path: internal/web/handlers_config\.go
+        text: "must not be called"
+        linters:
+          - noctx
+      - path: internal/web/handlers_setup\.go
+        text: "must not be called"
+        linters:
+          - noctx

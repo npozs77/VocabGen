@@ -157,7 +157,7 @@ func TestProviderErrorUnwrap(t *testing.T) {
 			if !tc.wantNil && got == nil {
 				t.Fatal("Unwrap() = nil, want non-nil error")
 			}
-			if !tc.wantNil && got != underlying {
+			if !tc.wantNil && !errors.Is(got, underlying) {
 				t.Errorf("Unwrap() = %v, want %v", got, underlying)
 			}
 		})

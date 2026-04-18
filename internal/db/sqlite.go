@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -340,7 +341,9 @@ func (s *SQLiteStore) ListWords(ctx context.Context, filter ListFilter) ([]WordR
 		collocations, contrastive_notes, secondary_meanings, tags,
 		source_language, target_language, created_at, updated_at
 		FROM words` + where + ` ORDER BY id DESC LIMIT ? OFFSET ?`
-	dataArgs := append(args, pageSize, offset)
+	dataArgs := make([]any, len(args), len(args)+2)
+	copy(dataArgs, args)
+	dataArgs = append(dataArgs, pageSize, offset)
 
 	rows, err := s.db.QueryContext(ctx, dataQuery, dataArgs...)
 	if err != nil {
@@ -388,7 +391,9 @@ func (s *SQLiteStore) ListExpressions(ctx context.Context, filter ListFilter) ([
 		target_translation, notes, connotation, register, contrastive_notes, tags,
 		source_language, target_language, created_at, updated_at
 		FROM expressions` + where + ` ORDER BY id DESC LIMIT ? OFFSET ?`
-	dataArgs := append(args, pageSize, offset)
+	dataArgs := make([]any, len(args), len(args)+2)
+	copy(dataArgs, args)
+	dataArgs = append(dataArgs, pageSize, offset)
 
 	rows, err := s.db.QueryContext(ctx, dataQuery, dataArgs...)
 	if err != nil {
@@ -620,7 +625,7 @@ func scanWordRow(row scanner) (*WordRow, error) {
 		&w.Collocations, &w.ContrastiveNotes, &w.SecondaryMeanings, &w.Tags,
 		&w.SourceLanguage, &w.TargetLanguage, &w.CreatedAt, &w.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -637,7 +642,7 @@ func scanExpressionRow(row scanner) (*ExpressionRow, error) {
 		&e.TargetTranslation, &e.Notes, &e.Connotation, &e.Register, &e.ContrastiveNotes, &e.Tags,
 		&e.SourceLanguage, &e.TargetLanguage, &e.CreatedAt, &e.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

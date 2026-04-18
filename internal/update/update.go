@@ -24,8 +24,8 @@ const (
 	DownloadURLBase = "https://github.com/npozs77/VocabGen/releases/download"
 )
 
-// UpdateInfo holds the result of a GitHub Releases API check.
-type UpdateInfo struct {
+// Info holds the result of a GitHub Releases API check.
+type Info struct {
 	CurrentVersion string
 	LatestVersion  string
 	HasUpdate      bool
@@ -138,14 +138,14 @@ func BuildDeltaChangelogText(releases []GithubRelease) string {
 // It fetches releases, filters those newer than currentVersion, sorts by
 // version descending, builds download URL using runtime.GOOS/GOARCH,
 // and builds both HTML and plain text delta changelogs.
-func CheckNow(ctx context.Context, currentVersion string) *UpdateInfo {
+func CheckNow(ctx context.Context, currentVersion string) *Info {
 	currentVersion = strings.TrimPrefix(currentVersion, "v")
 
 	// Check if current version is valid semver. Non-release builds (e.g. "dev")
 	// still proceed — they compare against all releases and show the latest.
 	_, _, _, semverErr := ParseSemver(currentVersion)
 
-	info := &UpdateInfo{
+	info := &Info{
 		CurrentVersion: currentVersion,
 	}
 
@@ -223,7 +223,7 @@ func sortReleasesDesc(releases []GithubRelease) {
 
 // latestAsUpdate finds the highest-versioned release and returns it as an update.
 // Used for non-semver current versions (e.g. "dev") where all releases are candidates.
-func latestAsUpdate(info *UpdateInfo, releases []GithubRelease) *UpdateInfo {
+func latestAsUpdate(info *Info, releases []GithubRelease) *Info {
 	// Filter to only valid semver releases.
 	var valid []GithubRelease
 	for _, rel := range releases {
