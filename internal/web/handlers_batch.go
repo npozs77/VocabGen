@@ -15,6 +15,56 @@ import (
 
 const maxUploadSize = 10 << 20 // 10 MB
 
+// parseTextList splits a plain-text word list (one token per line) into
+// []parsing.TokenWithContext. Empty/whitespace-only lines are skipped.
+// Each line may optionally contain a comma-separated context sentence:
+// "token, context sentence". Returns an error if the input is empty after
+// trimming blank lines.
+func parseTextList(text string) ([]parsing.TokenWithContext, error) {
+	var results []parsing.TokenWithContext
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		tc := parsing.TokenWithContext{}
+		if idx := strings.IndexByte(line, ','); idx >= 0 {
+			tc.Token = strings.TrimSpace(line[:idx])
+			tc.Context = strings.TrimSpace(line[idx+1:])
+		} else {
+			tc.Token = line
+		}
+		if tc.Token == "" {
+			continue
+		}
+		results = append(results, tc)
+	}
+	if len(results) == 0 {
+		return nil, fmt.Errorf("word list is empty")
+	}
+	return results, nil
+}
+
+// parseBatchInput extracts tokens from either the word_list form field or the
+// uploaded CSV file. Returns the tokens and an optional file closer (nil when
+// word_list was used). The caller must close the file if non-nil.
+func parseBatchInput(r *http.Request) ([]parsing.TokenWithContext, io.Closer, error) {
+	if wl := r.FormValue("word_list"); strings.TrimSpace(wl) != "" {
+		tokens, err := parseTextList(wl)
+		return tokens, nil, err
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		return nil, nil, fmt.Errorf("CSV file or word list is required")
+	}
+	tokens, err := readCSVFromReader(file)
+	if err != nil {
+		_ = file.Close()
+		return nil, nil, err
+	}
+	return tokens, file, nil
+}
+
 // readCSVFromReader parses CSV tokens from an io.Reader.
 func readCSVFromReader(r io.Reader) ([]parsing.TokenWithContext, error) {
 	reader := csv.NewReader(r)
@@ -58,14 +108,10 @@ func (s *Server) handleBatchJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("file")
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "file is required")
-		return
+	tokens, closer, err := parseBatchInput(r)
+	if closer != nil {
+		defer func() { _ = closer.Close() }()
 	}
-	defer func() { _ = file.Close() }()
-
-	tokens, err := readCSVFromReader(file)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -127,14 +173,10 @@ func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("file")
-	if err != nil {
-		_ = renderPartial(w, "batch_summary", map[string]any{"Error": "CSV file is required"})
-		return
+	tokens, closer, err := parseBatchInput(r)
+	if closer != nil {
+		defer func() { _ = closer.Close() }()
 	}
-	defer func() { _ = file.Close() }()
-
-	tokens, err := readCSVFromReader(file)
 	if err != nil {
 		_ = renderPartial(w, "batch_summary", map[string]any{"Error": err.Error()})
 		return
@@ -211,16 +253,10 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("file")
-	if err != nil {
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = fmt.Fprintf(w, "event: error\ndata: {\"message\":\"CSV file is required\"}\n\n")
-		flusher.Flush()
-		return
+	tokens, closer, err := parseBatchInput(r)
+	if closer != nil {
+		defer func() { _ = closer.Close() }()
 	}
-	defer func() { _ = file.Close() }()
-
-	tokens, err := readCSVFromReader(file)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/event-stream")
 		data, _ := json.Marshal(map[string]string{"message": err.Error()})
