@@ -278,8 +278,9 @@ func ListProfiles() (profiles []string, defaultProfile string, err error) {
 // Creates the directory if it doesn't exist.
 // Never writes API keys to the file.
 // If the existing config file uses multi-profile format, SaveConfig preserves
-// that structure by updating the default profile within the FileConfig.
-func SaveConfig(cfg Config) error {
+// that structure by updating the specified activeProfile within the FileConfig.
+// If activeProfile is empty, it falls back to the file's default_profile.
+func SaveConfig(cfg Config, activeProfile string) error {
 	dir, err := getConfigDir()
 	if err != nil {
 		return err
@@ -294,7 +295,10 @@ func SaveConfig(cfg Config) error {
 	if existing != nil && isMultiProfile(existing) {
 		var fc FileConfig
 		if err := yaml.Unmarshal(existing, &fc); err == nil {
-			profileName := fc.DefaultProfile
+			profileName := activeProfile
+			if profileName == "" {
+				profileName = fc.DefaultProfile
+			}
 			if profileName == "" {
 				for k := range fc.Profiles {
 					profileName = k
