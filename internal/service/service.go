@@ -216,7 +216,7 @@ func entryToWordRow(e *output.Entry, sourceLang, targetLang, tags string) *db.Wo
 	}
 	return &db.WordRow{
 		Word:              e.Word,
-		PartOfSpeech:      e.Type,
+		PartOfSpeech:      parsing.NormalizePOS(e.Type, sourceLang),
 		Article:           e.Article,
 		Definition:        e.Definition,
 		EnglishDefinition: e.EnglishDefinition,
