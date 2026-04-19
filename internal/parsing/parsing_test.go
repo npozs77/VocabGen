@@ -254,9 +254,19 @@ func TestNormalizeWordEdgeCases(t *testing.T) {
 			want:  "hello",
 		},
 		{
-			name:  "parenthetical inflection preserved",
+			name:  "parenthetical inflection stripped when comma present",
 			input: "lopen (liep, gelopen)",
-			want:  "lopen (liep, gelopen)",
+			want:  "lopen",
+		},
+		{
+			name:  "simple parenthetical preserved",
+			input: "(ergens) belanden",
+			want:  "(ergens) belanden",
+		},
+		{
+			name:  "zich parenthetical preserved",
+			input: "(zich) kenmerken door",
+			want:  "(zich) kenmerken door",
 		},
 		{
 			name:  "curly quotes removed",
@@ -267,6 +277,66 @@ func TestNormalizeWordEdgeCases(t *testing.T) {
 			name:  "empty string",
 			input: "",
 			want:  "",
+		},
+		{
+			name:  "separable verb marker stripped",
+			input: "bijsturen (sep.)",
+			want:  "bijsturen",
+		},
+		{
+			name:  "leading asterisk stripped",
+			input: "* fnuikend",
+			want:  "fnuikend",
+		},
+		{
+			name:  "leading article het stripped",
+			input: "het sein",
+			want:  "sein",
+		},
+		{
+			name:  "leading article de stripped",
+			input: "de steekproef",
+			want:  "steekproef",
+		},
+		{
+			name:  "leading article een stripped",
+			input: "een wervel",
+			want:  "wervel",
+		},
+		{
+			name:  "leading article case insensitive",
+			input: "De ingewanden",
+			want:  "ingewanden",
+		},
+		{
+			name:  "trailing asterisk stripped",
+			input: "schommeling*",
+			want:  "schommeling",
+		},
+		{
+			name:  "leading arrow with tab stripped",
+			input: ">\thet sein",
+			want:  "sein",
+		},
+		{
+			name:  "leading arrow with space stripped",
+			input: "> kenmerkend zijn voor",
+			want:  "kenmerkend zijn voor",
+		},
+		{
+			name:  "sep marker with conjugation stripped",
+			input: "doorkrijgen (kreeg door, heeft doorgekregen) (sep.)",
+			want:  "doorkrijgen",
+		},
+		{
+			name:  "conjugation info stripped",
+			input: "doorkrijgen (kreeg door, heeft doorgekregen), doorhebben (had door, heeft doorgehad) (sep.)",
+			want:  "doorkrijgen , doorhebben",
+		},
+		{
+			name:  "multiple markers combined",
+			input: "* doorseinen (sep.)",
+			want:  "doorseinen",
 		},
 	}
 
@@ -308,6 +378,21 @@ func TestNormalizeExpressionEdgeCases(t *testing.T) {
 			name:  "empty string",
 			input: "",
 			want:  "",
+		},
+		{
+			name:  "separable verb marker stripped",
+			input: "eraan toe zijn (sep.)",
+			want:  "eraan toe zijn",
+		},
+		{
+			name:  "leading arrow stripped",
+			input: ">\tkenmerkend zijn voor",
+			want:  "kenmerkend zijn voor",
+		},
+		{
+			name:  "asterisk prefix stripped",
+			input: "* evenmin",
+			want:  "evenmin",
 		},
 	}
 

@@ -73,10 +73,8 @@ func TestPropertyP7_MapFieldsPassThrough(t *testing.T) {
 			if e.SecondaryMeanings != v.SecondaryMeanings {
 				t.Errorf("SecondaryMeanings: got %q, want %q", e.SecondaryMeanings, v.SecondaryMeanings)
 			}
-		} else {
-			if e.Expression != v.Expression {
-				t.Errorf("Expression: got %q, want %q", e.Expression, v.Expression)
-			}
+		} else if e.Expression != v.Expression {
+			t.Errorf("Expression: got %q, want %q", e.Expression, v.Expression)
 		}
 	})
 }
@@ -96,10 +94,8 @@ func TestPropertyP8_TranslationFlattening(t *testing.T) {
 			if got != want {
 				t.Errorf("FlattenTranslation(%+v) = %q, want %q", tr, got, want)
 			}
-		} else {
-			if got != primary {
-				t.Errorf("FlattenTranslation(%+v) = %q, want %q", tr, got, primary)
-			}
+		} else if got != primary {
+			t.Errorf("FlattenTranslation(%+v) = %q, want %q", tr, got, primary)
 		}
 	})
 }
@@ -257,10 +253,8 @@ func FuzzFlattenTranslation(f *testing.F) {
 			if got != expected {
 				t.Errorf("FlattenTranslation(%q, %q) = %q, want %q", primary, alternatives, got, expected)
 			}
-		} else {
-			if got != primary {
-				t.Errorf("FlattenTranslation(%q, %q) = %q, want %q", primary, alternatives, got, primary)
-			}
+		} else if got != primary {
+			t.Errorf("FlattenTranslation(%q, %q) = %q, want %q", primary, alternatives, got, primary)
 		}
 	})
 }

@@ -43,7 +43,7 @@ func TestPropertyP20_MultiProfileRoundTrip(t *testing.T) {
 			name := rapid.StringMatching(`[a-z][a-z0-9_-]{0,9}`).Draw(t, "name")
 			// Ensure unique names
 			for _, exists := profiles[name]; exists; _, exists = profiles[name] {
-				name = name + rapid.StringMatching(`[a-z]`).Draw(t, "suffix")
+				name += rapid.StringMatching(`[a-z]`).Draw(t, "suffix")
 			}
 			profiles[name] = genProfileConfig(t, name)
 			names = append(names, name)
@@ -133,7 +133,7 @@ func TestPropertyP21_UnknownProfileReturnsError(t *testing.T) {
 		// Generate a random name that is NOT in the profiles map.
 		badName := rapid.StringMatching(`[a-z][a-z0-9]{2,10}`).Draw(t, "badName")
 		for badName == "prod" || badName == "local" {
-			badName = badName + "x"
+			badName += "x"
 		}
 
 		_, err := LoadConfigWithProfile(badName)
@@ -633,7 +633,7 @@ func TestPropertyP24_DuplicateNameNeverModifiesProfiles(t *testing.T) {
 		for i := 0; i < numProfiles; i++ {
 			name := rapid.StringMatching(`[a-z][a-z0-9]{1,6}`).Draw(rt, "name")
 			for _, exists := profiles[name]; exists; _, exists = profiles[name] {
-				name = name + rapid.StringMatching(`[a-z]`).Draw(rt, "suffix")
+				name += rapid.StringMatching(`[a-z]`).Draw(rt, "suffix")
 			}
 			profiles[name] = genProfileConfig(rt, name)
 			names = append(names, name)
@@ -708,7 +708,7 @@ func TestPropertyP25_NewProfileCopiesSourceValues(t *testing.T) {
 
 		newName := rapid.StringMatching(`[a-z][a-z0-9]{1,6}`).Draw(rt, "newName")
 		for newName == "source" {
-			newName = newName + "x"
+			newName += "x"
 		}
 
 		if err := CreateProfile(newName, "source"); err != nil {

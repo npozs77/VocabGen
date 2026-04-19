@@ -127,11 +127,7 @@ func ValidateResponse(mode, rawJSON string) (*ValidatedEntry, error) {
 	var missing []string
 	for _, f := range required {
 		if _, exists := data[f]; !exists {
-			if !translationFields[f] {
-				missing = append(missing, f)
-			} else {
-				missing = append(missing, f)
-			}
+			missing = append(missing, f)
 		}
 	}
 	if len(missing) > 0 {

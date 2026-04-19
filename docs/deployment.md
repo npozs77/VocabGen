@@ -160,7 +160,7 @@ Recommended `.vscode/settings.json` (already committed):
 }
 ```
 
-This means `golangci-lint` runs on every save at the package level — catching errcheck, vet, and staticcheck issues before you even run `make quality`.
+This means `golangci-lint` runs on every save at the package level — catching issues from the default linters (errcheck, govet, staticcheck) plus extended linters configured in `.golangci.yml` (errorlint, gocritic, revive, bodyclose, noctx, godoclint) before you even run `make quality`.
 
 ## Upgrading
 

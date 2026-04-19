@@ -12,7 +12,7 @@ import (
 // updateChecker manages background and on-demand update checks.
 type updateChecker struct {
 	mu         sync.RWMutex
-	info       *update.UpdateInfo
+	info       *update.Info
 	dismissed  bool
 	currentVer string
 	logger     *slog.Logger
@@ -27,7 +27,7 @@ func newUpdateChecker(version string, logger *slog.Logger) *updateChecker {
 }
 
 // cached returns the cached update check result, or nil if no check has completed.
-func (uc *updateChecker) cached() *update.UpdateInfo {
+func (uc *updateChecker) cached() *update.Info {
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 	return uc.info
@@ -58,14 +58,14 @@ func (uc *updateChecker) startBackground(ctx context.Context) {
 }
 
 // checkNow delegates to the shared update package, caches the result, and returns it.
-func (uc *updateChecker) checkNow(ctx context.Context) *update.UpdateInfo {
+func (uc *updateChecker) checkNow(ctx context.Context) *update.Info {
 	info := update.CheckNow(ctx, uc.currentVer)
 	uc.cacheResult(info)
 	return info
 }
 
 // cacheResult stores the update info under the write lock.
-func (uc *updateChecker) cacheResult(info *update.UpdateInfo) {
+func (uc *updateChecker) cacheResult(info *update.Info) {
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 	uc.info = info
