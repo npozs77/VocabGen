@@ -32,7 +32,7 @@ PASS=0
 FAIL=0
 ERRORS=""
 
-trap 'rm -rf "$TMPDIR"' EXIT
+trap 'rm -rf "$TMPDIR"; kill $SERVER_PID 2>/dev/null; kill $SETUP_PID 2>/dev/null' EXIT
 
 DB="--db-path $DB_PATH"
 PROFILE_FLAG="--profile $PROFILE"
@@ -223,12 +223,12 @@ echo ""
 echo "--- 11. Update Checker ---"
 # Build with a fake old version so any existing GitHub release triggers "update available".
 go build -ldflags "-X main.version=0.0.1 -X main.buildDate=2025-01-01" -o "$TMPDIR/vocabgen-old" ./cmd/vocabgen/
-"$TMPDIR/vocabgen-old" serve $DB &
+"$TMPDIR/vocabgen-old" serve $DB --port 8092 &
 SERVER_PID=$!
 sleep 2
 
 # Check /update page loads
-if curl -sf http://localhost:8080/update > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+if curl -sf http://localhost:8092/update > "$TMPDIR/out" 2> "$TMPDIR/err"; then
     pass "update page loads"
     stdout_contains "0.0.1" && pass "update page shows version" || fail "update page shows version" "missing 0.0.1"
 else
@@ -236,7 +236,7 @@ else
 fi
 
 # Check /api/update/check returns HTML with update info
-if curl -sf http://localhost:8080/api/update/check > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+if curl -sf http://localhost:8092/api/update/check > "$TMPDIR/out" 2> "$TMPDIR/err"; then
     pass "update check API"
     stdout_contains "Update available" && pass "update available detected" || pass "update check responded (may be up-to-date or API unreachable)"
 else
@@ -244,7 +244,7 @@ else
 fi
 
 # Check dismiss endpoint
-if curl -sf -X POST http://localhost:8080/api/update/dismiss > "$TMPDIR/out" 2> "$TMPDIR/err"; then
+if curl -sf -X POST http://localhost:8092/api/update/dismiss > "$TMPDIR/out" 2> "$TMPDIR/err"; then
     pass "dismiss endpoint"
 else
     fail "dismiss endpoint" "curl failed"
