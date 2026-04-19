@@ -1,6 +1,7 @@
 FROM gcr.io/distroless/static:nonroot
 
-COPY vocabgen /vocabgen
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/vocabgen /vocabgen
 
 # Data directory for config.yaml and vocabgen.db
 VOLUME /home/nonroot/.vocabgen
