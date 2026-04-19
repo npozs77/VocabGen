@@ -1,6 +1,7 @@
 {{define "base"}}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,23 +9,30 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
+
 <body class="bg-gray-50 min-h-screen">
   <nav class="bg-white shadow">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6">
       <span class="font-semibold text-lg text-gray-800">VocabGen</span>
-      <a href="/" class="{{if eq .ActivePage "lookup"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Lookup</a>
-      <a href="/batch" class="{{if eq .ActivePage "batch"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Batch</a>
-      <a href="/config" class="{{if eq .ActivePage "config"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Config</a>
-      <a href="/database" class="{{if eq .ActivePage "database"}}text-blue-600 font-medium{{else}}text-gray-600 hover:text-blue-600{{end}}">Database</a>
+      <a href="/" class="{{if eq .ActivePage " lookup"}}text-blue-600 font-medium{{else}}text-gray-600
+        hover:text-blue-600{{end}}">Lookup</a>
+      <a href="/batch" class="{{if eq .ActivePage " batch"}}text-blue-600 font-medium{{else}}text-gray-600
+        hover:text-blue-600{{end}}">Batch</a>
+      <a href="/config" class="{{if eq .ActivePage " config"}}text-blue-600 font-medium{{else}}text-gray-600
+        hover:text-blue-600{{end}}">Config</a>
+      <a href="/database" class="{{if eq .ActivePage " database"}}text-blue-600 font-medium{{else}}text-gray-600
+        hover:text-blue-600{{end}}">Database</a>
       <div class="flex-1"></div>
+      {{template "profile_switcher" .}}
       <div class="relative" id="help-menu">
         <button onclick="document.getElementById('help-dropdown').classList.toggle('hidden')"
-                class="text-sm {{if isHelpPage .ActivePage}}text-blue-600 font-medium{{else}}text-gray-500 hover:text-blue-600{{end}}">
+          class="text-sm {{if isHelpPage .ActivePage}}text-blue-600 font-medium{{else}}text-gray-500 hover:text-blue-600{{end}}">
           Help ▾
         </button>
         <div id="help-dropdown" class="hidden absolute right-0 mt-1 w-48 bg-white rounded shadow-lg border z-50">
           <a href="/about" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">About</a>
-          <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Report an Issue ↗</a>
+          <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer"
+            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Report an Issue ↗</a>
           <a href="/docs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Documentation</a>
           <a href="/changelog" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Changelog</a>
           <a href="/update" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check for Update</a>
@@ -33,9 +41,12 @@
     </div>
   </nav>
   {{if .UpdateAvailable}}
-  <div id="update-banner" class="bg-blue-50 border-b border-blue-200 px-4 py-2 text-sm text-blue-800 flex items-center justify-between max-w-7xl mx-auto">
-    <span>A new version (v{{.LatestVersion}}) is available. <a href="/update" class="underline font-medium">View details</a></span>
-    <button hx-post="/api/update/dismiss" hx-swap="outerHTML" hx-target="#update-banner" class="text-blue-600 hover:text-blue-800 ml-4">✕</button>
+  <div id="update-banner"
+    class="bg-blue-50 border-b border-blue-200 px-4 py-2 text-sm text-blue-800 flex items-center justify-between max-w-7xl mx-auto">
+    <span>A new version (v{{.LatestVersion}}) is available. <a href="/update" class="underline font-medium">View
+        details</a></span>
+    <button hx-post="/api/update/dismiss" hx-swap="outerHTML" hx-target="#update-banner"
+      class="text-blue-600 hover:text-blue-800 ml-4">✕</button>
   </div>
   {{end}}
   <main class="max-w-7xl mx-auto px-4 py-8">
@@ -44,17 +55,24 @@
   <footer class="max-w-7xl mx-auto px-4 py-4 mt-8 border-t border-gray-200 text-xs text-gray-400 flex gap-4">
     <a href="/docs" class="hover:text-blue-500">Documentation</a>
     <span>·</span>
-    <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500">Report an Issue ↗</a>
+    <a href="https://github.com/npozs77/VocabGen/issues" target="_blank" rel="noopener noreferrer"
+      class="hover:text-blue-500">Report an Issue ↗</a>
   </footer>
   <script>
-  document.addEventListener('click', function(e) {
-    var menu = document.getElementById('help-menu');
-    var dd = document.getElementById('help-dropdown');
-    if (menu && dd && !menu.contains(e.target)) {
-      dd.classList.add('hidden');
-    }
-  });
+    document.addEventListener('click', function (e) {
+      var menu = document.getElementById('help-menu');
+      var dd = document.getElementById('help-dropdown');
+      if (menu && dd && !menu.contains(e.target)) {
+        dd.classList.add('hidden');
+      }
+      var ps = document.getElementById('profile-switcher');
+      var pd = document.getElementById('profile-dropdown');
+      if (ps && pd && !ps.contains(e.target)) {
+        pd.classList.add('hidden');
+      }
+    });
   </script>
 </body>
+
 </html>
 {{end}}

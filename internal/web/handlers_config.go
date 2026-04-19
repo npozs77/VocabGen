@@ -34,6 +34,7 @@ func (s *Server) handleGetProfiles(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Profile string `json:"profile"`
+		Source  string `json:"source"`
 	}
 
 	ct := r.Header.Get("Content-Type")
@@ -48,6 +49,7 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req.Profile = r.FormValue("profile")
+		req.Source = r.FormValue("source")
 	}
 
 	if req.Profile == "" {
@@ -64,6 +66,21 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	*s.cfg = cfg
 	s.activeProfile = req.Profile
 	s.logger.Info("switched config profile", "profile", req.Profile)
+
+	// When switched from the nav-bar profile switcher, return just the
+	// updated switcher partial so HTMX can swap it in-place.
+	if req.Source == "nav" {
+		profiles, _, _ := config.ListProfiles()
+		data := struct {
+			ActiveProfile string
+			Profiles      []string
+		}{
+			ActiveProfile: s.activeProfile,
+			Profiles:      profiles,
+		}
+		_ = renderPartial(w, "profile_switcher", data)
+		return
+	}
 
 	// Re-render the full config form with the new profile's values.
 	// This replaces the two-step approach (PUT then GET) that was prone to
@@ -296,4 +313,18 @@ func checkOllamaReachable() string {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return ""
+}
+
+// handleProfileSwitcherPartial renders the profile switcher partial for the nav bar.
+// Used by HTMX to refresh the switcher after a profile switch.
+func (s *Server) handleProfileSwitcherPartial(w http.ResponseWriter, _ *http.Request) {
+	profiles, _, _ := config.ListProfiles()
+	data := struct {
+		ActiveProfile string
+		Profiles      []string
+	}{
+		ActiveProfile: s.activeProfile,
+		Profiles:      profiles,
+	}
+	_ = renderPartial(w, "profile_switcher", data)
 }

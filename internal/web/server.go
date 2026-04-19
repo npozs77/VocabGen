@@ -37,6 +37,8 @@ type pageData struct {
 	GoVersion       string
 	UpdateAvailable bool
 	LatestVersion   string
+	ActiveProfile   string
+	Profiles        []string
 }
 
 // NewServer creates a Server with all routes registered.
@@ -125,6 +127,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/profiles", s.handleGetProfiles)
 	s.mux.HandleFunc("POST /api/profiles", s.handleCreateProfile)
 	s.mux.HandleFunc("PUT /api/profile/switch", s.handleSwitchProfile)
+	s.mux.HandleFunc("GET /api/profile/switcher", s.handleProfileSwitcherPartial)
 
 	// Database API
 	s.mux.HandleFunc("GET /api/words", s.handleListWords)
@@ -161,13 +164,16 @@ func (s *Server) handlePage(name string) http.HandlerFunc {
 
 // newPageData creates a pageData populated with common fields including update status.
 func (s *Server) newPageData(activePage string) pageData {
+	profiles, _, _ := config.ListProfiles()
 	pd := pageData{
-		ActivePage: activePage,
-		Languages:  service.GetSupportedLanguages(),
-		Config:     s.cfg,
-		Version:    s.version,
-		BuildDate:  s.buildDate,
-		GoVersion:  s.goVersion,
+		ActivePage:    activePage,
+		Languages:     service.GetSupportedLanguages(),
+		Config:        s.cfg,
+		Version:       s.version,
+		BuildDate:     s.buildDate,
+		GoVersion:     s.goVersion,
+		ActiveProfile: s.activeProfile,
+		Profiles:      profiles,
 	}
 	if info := s.updater.cached(); info != nil && info.HasUpdate && !s.updater.isDismissed() {
 		pd.UpdateAvailable = true
