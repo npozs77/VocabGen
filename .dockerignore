@@ -1,0 +1,9 @@
+.git
+.github
+.kiro
+.vscode
+reference
+coverage.out
+*.bak
+dist/
+vocabgen

@@ -44,6 +44,27 @@ sudo mv vocabgen /usr/local/bin/
 # Download vocabgen_windows_amd64.zip from the Releases page, extract, and add to PATH.
 ```
 
+### Docker (alternative)
+
+Run VocabGen as a container without downloading platform-specific binaries:
+
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  ghcr.io/npozs77/vocabgen:latest
+```
+
+The volume mount persists config and database across restarts. Pass API keys via `-e`. All CLI commands work via Docker:
+
+```bash
+docker run ghcr.io/npozs77/vocabgen:latest version
+docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai
+```
+
+See [Deployment — Docker](deployment.md#docker) for image tags and detailed usage.
+
 ## Configuration
 
 On first run, vocabgen creates `~/.vocabgen/config.yaml` with defaults:

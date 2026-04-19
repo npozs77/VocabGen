@@ -203,6 +203,18 @@ Any language name or code can be passed via `-l` — unregistered languages are 
 
 Documentation is also available in the web UI via Help → Documentation when running `vocabgen serve`.
 
+## Docker
+
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  ghcr.io/npozs77/vocabgen:latest
+```
+
+The volume mount persists config and database across restarts. Pass API keys via `-e`. All CLI commands work: `docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl`.
+
 ## Build from Source
 
 ```bash
