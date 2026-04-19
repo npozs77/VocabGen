@@ -30,11 +30,12 @@ var funcMap = template.FuncMap{
 func init() {
 	templates = make(map[string]*template.Template)
 
-	// Parse page templates — each page combines base.html + its own template.
+	// Parse page templates — each page combines base.html + profile_switcher partial + its own template.
 	pages := []string{"lookup", "batch", "config", "database", "about", "docs", "update", "changelog"}
 	for _, page := range pages {
 		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS,
 			"templates/base.html",
+			"templates/partials/profile_switcher.html",
 			fmt.Sprintf("templates/%s.html", page),
 		)
 		if err != nil {
@@ -43,10 +44,11 @@ func init() {
 		templates[page] = t
 	}
 
-	// Parse docs_page separately (also uses base.html).
+	// Parse docs_page separately (also uses base.html + profile_switcher).
 	{
 		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS,
 			"templates/base.html",
+			"templates/partials/profile_switcher.html",
 			"templates/docs_page.html",
 		)
 		if err != nil {
@@ -59,7 +61,7 @@ func init() {
 	partials := []string{
 		"lookup_result", "lookup_conflict", "batch_summary",
 		"entry_edit", "entry_table", "update_result",
-		"setup_local_llm",
+		"setup_local_llm", "profile_switcher",
 	}
 	for _, partial := range partials {
 		t, err := template.ParseFS(templateFS,

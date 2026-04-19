@@ -231,6 +231,7 @@ func TestAPIRoutesRegistered(t *testing.T) {
 		// Profile endpoints
 		{"get-profiles", http.MethodGet, "/api/profiles", http.StatusOK},
 		{"switch-profile", http.MethodPut, "/api/profile/switch", http.StatusBadRequest},
+		{"profile-switcher", http.MethodGet, "/api/profile/switcher", http.StatusOK},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
