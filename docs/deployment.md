@@ -31,7 +31,7 @@ builds:
     goarch:
       - amd64
       - arm64
-    exclude:
+    ignore:
       - goos: windows
         goarch: arm64
     ldflags:
@@ -39,16 +39,46 @@ builds:
       - -X main.version={{.Version}}
       - -X main.buildDate={{.Date}}
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 checksum:
   name_template: checksums.txt
 changelog:
-  sort: asc
+  disable: true
+dockers:
+  - image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+    goarch: amd64
+    goos: linux
+  - image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+    goarch: arm64
+    goos: linux
+docker_manifests:
+  - name_template: "ghcr.io/npozs77/vocabgen:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-amd64"
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/npozs77/vocabgen:latest"
+    image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-amd64"
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-arm64"
 ```
+
+### Docker Images
+
+goreleaser also builds multi-arch Docker images (amd64/arm64) and pushes them to `ghcr.io/npozs77/vocabgen`. The `dockers` section defines per-arch builds using buildx, and `docker_manifests` creates versioned + `latest` multi-arch manifests.
 
 ### Local Snapshot Build
 
@@ -99,14 +129,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - uses: goreleaser/goreleaser-action@v6
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - uses: goreleaser/goreleaser-action@v7
         with:
           version: latest
           args: release --clean
@@ -227,7 +268,10 @@ docker run -v ~/.vocabgen:/home/nonroot/.vocabgen ghcr.io/npozs77/vocabgen:lates
 
 ### Build Locally
 
+The Dockerfile expects a pre-built `vocabgen` binary in the build context (goreleaser provides this during releases). To build locally:
+
 ```bash
-docker build --build-arg VERSION=dev -t vocabgen:local .
+CGO_ENABLED=0 GOOS=linux go build -o vocabgen ./cmd/vocabgen
+docker build -t vocabgen:local .
 docker run -p 8080:8080 vocabgen:local
 ```
