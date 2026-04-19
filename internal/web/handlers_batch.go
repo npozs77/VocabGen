@@ -18,9 +18,9 @@ const maxUploadSize = 10 << 20 // 10 MB
 
 // parseTextList splits a plain-text word list (one token per line) into
 // []parsing.TokenWithContext. Empty/whitespace-only lines are skipped.
-// Each line may optionally contain a comma-separated context sentence:
-// "token, context sentence". Returns an error if the input is empty after
-// trimming blank lines.
+// The entire line is treated as the token — no comma splitting, since
+// vocabulary entries may contain commas (e.g., conjugation annotations).
+// Returns an error if the input is empty after trimming blank lines.
 func parseTextList(text string) ([]parsing.TokenWithContext, error) {
 	var results []parsing.TokenWithContext
 	for _, line := range strings.Split(text, "\n") {
@@ -28,17 +28,7 @@ func parseTextList(text string) ([]parsing.TokenWithContext, error) {
 		if line == "" {
 			continue
 		}
-		tc := parsing.TokenWithContext{}
-		if idx := strings.IndexByte(line, ','); idx >= 0 {
-			tc.Token = strings.TrimSpace(line[:idx])
-			tc.Context = strings.TrimSpace(line[idx+1:])
-		} else {
-			tc.Token = line
-		}
-		if tc.Token == "" {
-			continue
-		}
-		results = append(results, tc)
+		results = append(results, parsing.TokenWithContext{Token: line})
 	}
 	if len(results) == 0 {
 		return nil, fmt.Errorf("word list is empty")

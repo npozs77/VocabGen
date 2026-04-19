@@ -49,18 +49,18 @@ func TestParseTextList(t *testing.T) {
 			wantErr: "word list is empty",
 		},
 		{
-			name:  "comma-separated context",
+			name:  "commas preserved in token",
 			input: "huis, Ik woon in een groot huis\nboek",
 			want: []parsing.TokenWithContext{
-				{Token: "huis", Context: "Ik woon in een groot huis"},
+				{Token: "huis, Ik woon in een groot huis"},
 				{Token: "boek"},
 			},
 		},
 		{
-			name:  "context with extra commas preserved",
-			input: "huis, een groot, mooi huis",
+			name:  "commas in conjugation preserved",
+			input: "doorkrijgen (kreeg door, heeft doorgekregen) (sep.)",
 			want: []parsing.TokenWithContext{
-				{Token: "huis", Context: "een groot, mooi huis"},
+				{Token: "doorkrijgen (kreeg door, heeft doorgekregen) (sep.)"},
 			},
 		},
 		{
@@ -79,9 +79,11 @@ func TestParseTextList(t *testing.T) {
 			},
 		},
 		{
-			name:    "comma only line skipped as empty token",
-			input:   ", some context",
-			wantErr: "word list is empty",
+			name:  "comma only line kept as token",
+			input: ", some context",
+			want: []parsing.TokenWithContext{
+				{Token: ", some context"},
+			},
 		},
 	}
 

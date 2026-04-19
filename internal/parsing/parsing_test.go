@@ -289,6 +289,26 @@ func TestNormalizeWordEdgeCases(t *testing.T) {
 			want:  "fnuikend",
 		},
 		{
+			name:  "leading article het stripped",
+			input: "het sein",
+			want:  "sein",
+		},
+		{
+			name:  "leading article de stripped",
+			input: "de steekproef",
+			want:  "steekproef",
+		},
+		{
+			name:  "leading article een stripped",
+			input: "een wervel",
+			want:  "wervel",
+		},
+		{
+			name:  "leading article case insensitive",
+			input: "De ingewanden",
+			want:  "ingewanden",
+		},
+		{
 			name:  "trailing asterisk stripped",
 			input: "schommeling*",
 			want:  "schommeling",
@@ -296,7 +316,7 @@ func TestNormalizeWordEdgeCases(t *testing.T) {
 		{
 			name:  "leading arrow with tab stripped",
 			input: ">\thet sein",
-			want:  "het sein",
+			want:  "sein",
 		},
 		{
 			name:  "leading arrow with space stripped",
