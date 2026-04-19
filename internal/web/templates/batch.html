@@ -3,7 +3,7 @@
 <h1 class="text-2xl font-bold mb-6">Batch Processing</h1>
 
 <form id="batch-form" class="space-y-4 max-w-lg" enctype="multipart/form-data"
-  onkeydown="if(event.key==='Enter'&&event.target.tagName!=='BUTTON'){event.preventDefault();}">
+  onkeydown="if(event.key==='Enter'&&event.target.tagName!=='BUTTON'&&event.target.tagName!=='TEXTAREA'){event.preventDefault();}">
   <fieldset>
     <legend class="block text-sm font-medium text-gray-700 mb-2">Input Method</legend>
     <div class="flex gap-4 mb-3">
