@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] - 2026-04-19
+
+### Added
+
+- Nav-bar profile switcher — active config profile visible and switchable from any page (#44)
+
+### Fixed
+
+- Enter key no longer submits the batch form when typing in the paste list textarea
+
 ## [1.2.1] - 2026-04-18
 
 ### Added
