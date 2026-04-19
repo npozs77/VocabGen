@@ -296,6 +296,7 @@ Open `http://localhost:8080` in your browser.
 - **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context.
 - **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
 - **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
+- **Flashcards** (`/flashcards`): Study vocabulary with a flip-card interface. Filter by language, tags, and difficulty. Rate cards as easy/hard/natural to focus future sessions. See [Flashcards](#flashcards) below.
 - **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Select individual entries or use select-all to bulk delete. Import CSV, export to Excel. Filter by language, search text, or tags.
 
 ### Help Menu
@@ -309,6 +310,63 @@ The navigation bar includes a Help dropdown with:
 - **Check for Update** (`/update`): Displays the current version, build date, and OS/architecture. On page load, queries the GitHub Releases API to check for newer versions. If an update is available, shows the latest version, a direct download link for your platform, and a delta changelog covering all releases between your version and the latest. If the API is unreachable, displays a fallback message with a manual link to GitHub Releases.
 
 When the web server starts, it performs a background update check. If a newer version is detected, a dismissible banner appears below the navigation bar on all pages with a link to the update page. The banner does not reappear after dismissal until the server is restarted.
+
+## Flashcards
+
+The Flashcards page (`/flashcards`) lets you study vocabulary entries as flip cards. Click "Flashcards" in the navigation bar or go to `http://localhost:8080/flashcards`.
+
+### Filter Controls
+
+Five dropdowns at the top of the page control which cards appear:
+
+| Filter | Options | Default |
+|--------|---------|---------|
+| Source Language | All supported languages, or "All" | All |
+| Target Language | All supported languages, or "All" | All |
+| Tags | All tags present in the database, or "All" | All |
+| Difficulty | Hard + Natural, Hard only, All, Easy only | Hard + Natural |
+| Display Mode | Word first, Detail first | Word first |
+
+Changing any filter reloads the deck automatically (no page refresh). The default difficulty filter hides easy cards so you focus on words that still need practice.
+
+### Card Flip
+
+- Click the card to flip between front and back
+- In "Word first" mode (default): front shows the source-language word, back shows definition, English translation, and target translation
+- In "Detail first" mode: front shows definition and translations, back shows the word
+- Flipping is instant (client-side animation, no server call)
+
+### Navigation
+
+- Use the **Prev** and **Next** buttons below the card to move through the deck
+- The status bar between the buttons shows your position as "N / T" (e.g., "3 / 47")
+- Prev is disabled on the first card; Next is disabled on the last card
+- Navigating to a new card always shows the front face
+
+### Difficulty Rating
+
+Three buttons below the card let you rate each entry:
+
+| Button | Meaning |
+|--------|---------|
+| Easy | Mastered — hidden by default filter |
+| Natural | Normal — included by default |
+| Hard | Needs practice — included by default |
+
+Ratings persist in the database across sessions. The active rating is highlighted on the current card. Rating a card does not advance to the next card or flip it.
+
+### Display Mode
+
+Toggle between "Word first" and "Detail first" in the Display Mode dropdown:
+
+- **Word first**: See the source-language word, then flip to reveal the definition and translations
+- **Detail first**: See the definition and translations, then flip to reveal the word
+
+Changing the mode keeps your position in the deck and resets the card to the front face.
+
+### Empty State
+
+If no entries match your filters, the card area shows: "No flashcards match your filters. Try adjusting your filters or add vocabulary via Lookup or Batch."
 
 ## Tags
 

@@ -1,6 +1,6 @@
 # VocabGen
 
-A single-binary CLI and embedded web app that generates structured vocabulary lists for language learners. It processes words and expressions through LLM providers (AWS Bedrock, OpenAI, Anthropic), validates JSON responses against English schemas, caches results in SQLite, and serves a browser-based HTMX interface — all compiled into one executable with zero runtime dependencies.
+A single-binary CLI and embedded web app that generates structured vocabulary lists for language learners. It processes words and expressions through LLM providers (AWS Bedrock, OpenAI, Anthropic), validates JSON responses against English schemas, caches results in SQLite, and serves a browser-based HTMX interface with lookup, batch processing, database management, and flashcard-based study mode — all compiled into one executable with zero runtime dependencies.
 
 ## Prerequisites
 

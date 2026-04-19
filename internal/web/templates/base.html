@@ -22,6 +22,8 @@
         hover:text-blue-600{{end}}">Config</a>
       <a href="/database" class="{{if eq .ActivePage " database"}}text-blue-600 font-medium{{else}}text-gray-600
         hover:text-blue-600{{end}}">Database</a>
+      <a href="/flashcards" class="{{if eq .ActivePage " flashcards"}}text-blue-600 font-medium{{else}}text-gray-600
+        hover:text-blue-600{{end}}">Flashcards</a>
       <div class="flex-1"></div>
       {{template "profile_switcher" .}}
       <div class="relative" id="help-menu">

@@ -103,6 +103,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /docs/{slug}", s.handleDocsPage)
 	s.mux.HandleFunc("GET /update", s.handleUpdatePage)
 	s.mux.HandleFunc("GET /changelog", s.handleChangelog)
+	s.mux.HandleFunc("GET /flashcards", s.handlePage("flashcards"))
+
+	// Flashcards API
+	s.mux.HandleFunc("GET /api/flashcards/html", s.handleFlashcardsHTML)
+	s.mux.HandleFunc("PUT /api/flashcards/rate", s.handleFlashcardsRate)
 
 	// Update API
 	s.mux.HandleFunc("GET /api/update/check", s.handleUpdateCheck)

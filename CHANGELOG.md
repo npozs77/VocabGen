@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.0]
+
+### Added
+
+- Flashcards study mode — flip through vocabulary cards, filter by language/tag/difficulty, and rate cards for focused review (#39)
+
 ## [1.2.2] - 2026-04-19
 
 ### Added
