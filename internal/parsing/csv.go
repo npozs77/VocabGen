@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"bufio"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -17,6 +18,8 @@ type TokenWithContext struct {
 
 // ReadInputFile reads a CSV file and returns (token, context) pairs.
 // Skips empty/whitespace-only lines. All non-empty lines are treated as data.
+// Parenthetical conjugation annotations like "(woog af, heeft afgewogen)" are
+// stripped before CSV parsing so their internal commas don't cause field splits.
 // Returns error for file not found or empty file (after skipping blanks).
 func ReadInputFile(path string) ([]TokenWithContext, error) {
 	f, err := os.Open(path)
@@ -25,7 +28,21 @@ func ReadInputFile(path string) ([]TokenWithContext, error) {
 	}
 	defer func() { _ = f.Close() }()
 
-	reader := csv.NewReader(f)
+	// Pre-process: strip conjugation parentheticals from each line before
+	// CSV parsing so commas inside e.g. "(greep in, heeft ingrepen)" don't
+	// cause spurious field splits.
+	var cleaned strings.Builder
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := conjugationInfo.ReplaceAllString(scanner.Text(), " ")
+		_, _ = cleaned.WriteString(line)
+		_, _ = cleaned.WriteString("\n")
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading input file: %w", err)
+	}
+
+	reader := csv.NewReader(strings.NewReader(cleaned.String()))
 	reader.FieldsPerRecord = -1 // variable number of fields
 	reader.LazyQuotes = true
 	reader.TrimLeadingSpace = true
