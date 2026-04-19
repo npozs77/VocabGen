@@ -219,6 +219,38 @@ func TestReadInputFileSkipsWhitespaceLines(t *testing.T) {
 	}
 }
 
+// TestReadInputFileStripsConjugationInfo verifies that parenthetical
+// conjugation annotations (containing commas) are stripped before CSV
+// parsing so they don't cause spurious field splits.
+func TestReadInputFileStripsConjugationInfo(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "conj.csv")
+	content := "afwegen tegen (woog af, heeft afgewogen)\ningrijpen (greep in, heeft ingrepen)\ngewoon woord,context zin\n"
+	_ = os.WriteFile(p, []byte(content), 0644)
+
+	results, err := ReadInputFile(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d: %+v", len(results), results)
+	}
+	// Conjugation info stripped, token is the clean word/expression.
+	if results[0].Token != "afwegen tegen" {
+		t.Errorf("result[0].Token = %q, want %q", results[0].Token, "afwegen tegen")
+	}
+	if results[0].Context != "" {
+		t.Errorf("result[0].Context = %q, want empty", results[0].Context)
+	}
+	if results[1].Token != "ingrijpen" {
+		t.Errorf("result[1].Token = %q, want %q", results[1].Token, "ingrijpen")
+	}
+	// Normal CSV with real comma delimiter still works.
+	if results[2].Token != "gewoon woord" || results[2].Context != "context zin" {
+		t.Errorf("result[2] = %+v, want {Token:gewoon woord Context:context zin}", results[2])
+	}
+}
+
 // TestNormalizeWordEdgeCases tests specific normalization behaviors.
 //
 // Validates: Requirements 15.1–15.4
