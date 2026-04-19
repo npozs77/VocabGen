@@ -30,5 +30,37 @@ checksum:
 changelog:
   disable: true
 
+dockers:
+  - image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--build-arg=VERSION={{ .Version }}"
+    goarch: amd64
+    goos: linux
+
+  - image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--build-arg=VERSION={{ .Version }}"
+    goarch: arm64
+    goos: linux
+
+docker_manifests:
+  - name_template: "ghcr.io/npozs77/vocabgen:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-amd64"
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/npozs77/vocabgen:latest"
+    image_templates:
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-amd64"
+      - "ghcr.io/npozs77/vocabgen:{{ .Version }}-arm64"
+
 release:
   header: "{{ .TagBody }}"

@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 ### Added
 
 - Nav-bar profile switcher — active config profile visible and switchable from any page (#44)
+- Docker image distribution via GitHub Container Registry — `docker run ghcr.io/npozs77/vocabgen` with multi-arch support (amd64/arm64) (#47)
 
 ### Fixed
 

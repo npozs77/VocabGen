@@ -192,24 +192,42 @@ sudo mv vocabgen /usr/local/bin/
 
 No migration steps needed — `~/.vocabgen/config.yaml` and `~/.vocabgen/vocabgen.db` are preserved across binary replacements.
 
-## Docker (Optional)
+## Docker
 
-Minimal `FROM scratch` image since vocabgen is a static binary:
+Multi-arch Docker images (amd64/arm64) are published to GitHub Container Registry on each release.
 
-```dockerfile
-FROM scratch
-COPY vocabgen /vocabgen
-VOLUME /root/.vocabgen
-EXPOSE 8080
-ENTRYPOINT ["/vocabgen"]
-```
-
-Build and run:
+### Quick Start
 
 ```bash
-CGO_ENABLED=0 go build -o vocabgen ./cmd/vocabgen
-docker build -t vocabgen .
-docker run -v ~/.vocabgen:/root/.vocabgen -p 8080:8080 vocabgen serve
+docker run -d \
+  -p 8080:8080 \
+  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  ghcr.io/npozs77/vocabgen:latest
 ```
 
-The volume mount at `/root/.vocabgen` persists the config file and SQLite database between container restarts.
+### Image Tags
+
+| Tag | Description |
+|-----|-------------|
+| `latest` | Most recent release |
+| `1.2.2` | Specific version |
+
+### Volume Mount
+
+Mount `/home/nonroot/.vocabgen` to persist `config.yaml` and `vocabgen.db` across container restarts.
+
+### CLI Commands via Docker
+
+```bash
+docker run ghcr.io/npozs77/vocabgen:latest version
+docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai -e OPENAI_API_KEY=...
+docker run -v ~/.vocabgen:/home/nonroot/.vocabgen ghcr.io/npozs77/vocabgen:latest batch --input-file /data/words.csv --mode words -l nl
+```
+
+### Build Locally
+
+```bash
+docker build --build-arg VERSION=dev -t vocabgen:local .
+docker run -p 8080:8080 vocabgen:local
+```
