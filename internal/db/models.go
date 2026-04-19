@@ -20,6 +20,7 @@ type WordRow struct {
 	Tags              string
 	SourceLanguage    string
 	TargetLanguage    string
+	Difficulty        string
 	CreatedAt         string
 	UpdatedAt         string
 }
@@ -40,6 +41,18 @@ type ExpressionRow struct {
 	Tags              string
 	SourceLanguage    string
 	TargetLanguage    string
+	Difficulty        string
 	CreatedAt         string
 	UpdatedAt         string
+}
+
+// FlashcardItem is a unified view of a word or expression entry used for flashcard display.
+type FlashcardItem struct {
+	ID                int64  `json:"id"`
+	Type              string `json:"type"`
+	Text              string `json:"text"`
+	Definition        string `json:"definition"`
+	English           string `json:"english"`
+	TargetTranslation string `json:"target_translation"`
+	Difficulty        string `json:"difficulty"`
 }

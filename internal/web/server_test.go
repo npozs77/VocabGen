@@ -81,6 +81,15 @@ func (s *stubStore) BackupTo(ctx context.Context, destPath string) error { retur
 func (s *stubStore) RestoreFrom(ctx context.Context, srcPath string) error {
 	return nil
 }
+func (s *stubStore) ListDistinctTags(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+func (s *stubStore) UpdateWordDifficulty(ctx context.Context, id int64, difficulty string) error {
+	return nil
+}
+func (s *stubStore) UpdateExpressionDifficulty(ctx context.Context, id int64, difficulty string) error {
+	return nil
+}
 
 func newTestServer() *Server {
 	cfg := config.DefaultConfig()

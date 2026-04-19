@@ -1,0 +1,25 @@
+{{define "flashcard_card"}}
+<!-- Hidden deck data for JS -->
+<div id="fc-deck-data" data-deck="{{.DeckJSON}}" class="hidden"></div>
+<!-- Hidden tags data for populating the tag dropdown -->
+<div id="fc-tags-data" data-tags="{{range $i, $t := .Tags}}{{if $i}},{{end}}{{$t}}{{end}}" class="hidden"></div>
+
+{{if eq .DeckSize 0}}
+<!-- Empty state -->
+<div
+    class="flex items-center justify-center min-h-[300px] border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+    <div class="text-center px-6 py-8">
+        <p class="text-gray-500 text-lg">No flashcards match your filters.</p>
+        <p class="text-gray-400 text-sm mt-2">Try adjusting your filters or add vocabulary via Lookup or Batch.</p>
+    </div>
+</div>
+{{else}}
+<!-- Card scene -->
+<div id="fc-scene" class="fc-scene mx-auto" style="min-height:300px; max-width:600px;">
+    <div class="fc-card bg-white border border-gray-200 rounded-xl shadow-md" style="min-height:300px;">
+        <div class="fc-face fc-face--front bg-white rounded-xl"></div>
+        <div class="fc-face fc-face--back bg-gray-50 rounded-xl"></div>
+    </div>
+</div>
+{{end}}
+{{end}}

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -65,7 +66,7 @@ func (s *SQLiteStore) FindWord(ctx context.Context, word, sourceLang string) (*W
 		`SELECT id, word, part_of_speech, article, definition, english_definition,
 			example, english, target_translation, notes, connotation, register,
 			collocations, contrastive_notes, secondary_meanings, tags,
-			source_language, target_language, created_at, updated_at
+			source_language, target_language, difficulty, created_at, updated_at
 		FROM words WHERE word = ? AND source_language = ? LIMIT 1`,
 		word, sourceLang,
 	)
@@ -78,7 +79,7 @@ func (s *SQLiteStore) GetWord(ctx context.Context, id int64) (*WordRow, error) {
 		`SELECT id, word, part_of_speech, article, definition, english_definition,
 			example, english, target_translation, notes, connotation, register,
 			collocations, contrastive_notes, secondary_meanings, tags,
-			source_language, target_language, created_at, updated_at
+			source_language, target_language, difficulty, created_at, updated_at
 		FROM words WHERE id = ?`,
 		id,
 	)
@@ -92,7 +93,7 @@ func (s *SQLiteStore) FindWords(ctx context.Context, word, sourceLang string) ([
 		`SELECT id, word, part_of_speech, article, definition, english_definition,
 			example, english, target_translation, notes, connotation, register,
 			collocations, contrastive_notes, secondary_meanings, tags,
-			source_language, target_language, created_at, updated_at
+			source_language, target_language, difficulty, created_at, updated_at
 		FROM words WHERE word = ? AND source_language = ?`,
 		word, sourceLang,
 	)
@@ -108,7 +109,7 @@ func (s *SQLiteStore) FindWords(ctx context.Context, word, sourceLang string) ([
 			&w.ID, &w.Word, &w.PartOfSpeech, &w.Article, &w.Definition, &w.EnglishDefinition,
 			&w.Example, &w.English, &w.TargetTranslation, &w.Notes, &w.Connotation, &w.Register,
 			&w.Collocations, &w.ContrastiveNotes, &w.SecondaryMeanings, &w.Tags,
-			&w.SourceLanguage, &w.TargetLanguage, &w.CreatedAt, &w.UpdatedAt,
+			&w.SourceLanguage, &w.TargetLanguage, &w.Difficulty, &w.CreatedAt, &w.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -178,7 +179,7 @@ func (s *SQLiteStore) FindExpression(ctx context.Context, expr, sourceLang strin
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, expression, definition, english_definition, example, english,
 			target_translation, notes, connotation, register, contrastive_notes, tags,
-			source_language, target_language, created_at, updated_at
+			source_language, target_language, difficulty, created_at, updated_at
 		FROM expressions WHERE expression = ? AND source_language = ? LIMIT 1`,
 		expr, sourceLang,
 	)
@@ -191,7 +192,7 @@ func (s *SQLiteStore) GetExpression(ctx context.Context, id int64) (*ExpressionR
 		`SELECT id, expression, definition, english_definition,
 			example, english, target_translation, notes, connotation, register,
 			contrastive_notes, tags,
-			source_language, target_language, created_at, updated_at
+			source_language, target_language, difficulty, created_at, updated_at
 		FROM expressions WHERE id = ?`,
 		id,
 	)
@@ -204,7 +205,7 @@ func (s *SQLiteStore) FindExpressions(ctx context.Context, expr, sourceLang stri
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, expression, definition, english_definition, example, english,
 			target_translation, notes, connotation, register, contrastive_notes, tags,
-			source_language, target_language, created_at, updated_at
+			source_language, target_language, difficulty, created_at, updated_at
 		FROM expressions WHERE expression = ? AND source_language = ?`,
 		expr, sourceLang,
 	)
@@ -219,7 +220,7 @@ func (s *SQLiteStore) FindExpressions(ctx context.Context, expr, sourceLang stri
 		if err := rows.Scan(
 			&e.ID, &e.Expression, &e.Definition, &e.EnglishDefinition, &e.Example, &e.English,
 			&e.TargetTranslation, &e.Notes, &e.Connotation, &e.Register, &e.ContrastiveNotes, &e.Tags,
-			&e.SourceLanguage, &e.TargetLanguage, &e.CreatedAt, &e.UpdatedAt,
+			&e.SourceLanguage, &e.TargetLanguage, &e.Difficulty, &e.CreatedAt, &e.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -339,7 +340,7 @@ func (s *SQLiteStore) ListWords(ctx context.Context, filter ListFilter) ([]WordR
 	dataQuery := `SELECT id, word, part_of_speech, article, definition, english_definition,
 		example, english, target_translation, notes, connotation, register,
 		collocations, contrastive_notes, secondary_meanings, tags,
-		source_language, target_language, created_at, updated_at
+		source_language, target_language, difficulty, created_at, updated_at
 		FROM words` + where + ` ORDER BY id DESC LIMIT ? OFFSET ?`
 	dataArgs := make([]any, len(args), len(args)+2)
 	copy(dataArgs, args)
@@ -358,7 +359,7 @@ func (s *SQLiteStore) ListWords(ctx context.Context, filter ListFilter) ([]WordR
 			&w.ID, &w.Word, &w.PartOfSpeech, &w.Article, &w.Definition, &w.EnglishDefinition,
 			&w.Example, &w.English, &w.TargetTranslation, &w.Notes, &w.Connotation, &w.Register,
 			&w.Collocations, &w.ContrastiveNotes, &w.SecondaryMeanings, &w.Tags,
-			&w.SourceLanguage, &w.TargetLanguage, &w.CreatedAt, &w.UpdatedAt,
+			&w.SourceLanguage, &w.TargetLanguage, &w.Difficulty, &w.CreatedAt, &w.UpdatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -389,7 +390,7 @@ func (s *SQLiteStore) ListExpressions(ctx context.Context, filter ListFilter) ([
 	offset := (page - 1) * pageSize
 	dataQuery := `SELECT id, expression, definition, english_definition, example, english,
 		target_translation, notes, connotation, register, contrastive_notes, tags,
-		source_language, target_language, created_at, updated_at
+		source_language, target_language, difficulty, created_at, updated_at
 		FROM expressions` + where + ` ORDER BY id DESC LIMIT ? OFFSET ?`
 	dataArgs := make([]any, len(args), len(args)+2)
 	copy(dataArgs, args)
@@ -407,7 +408,7 @@ func (s *SQLiteStore) ListExpressions(ctx context.Context, filter ListFilter) ([
 		if err := rows.Scan(
 			&e.ID, &e.Expression, &e.Definition, &e.EnglishDefinition, &e.Example, &e.English,
 			&e.TargetTranslation, &e.Notes, &e.Connotation, &e.Register, &e.ContrastiveNotes, &e.Tags,
-			&e.SourceLanguage, &e.TargetLanguage, &e.CreatedAt, &e.UpdatedAt,
+			&e.SourceLanguage, &e.TargetLanguage, &e.Difficulty, &e.CreatedAt, &e.UpdatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -623,7 +624,7 @@ func scanWordRow(row scanner) (*WordRow, error) {
 		&w.ID, &w.Word, &w.PartOfSpeech, &w.Article, &w.Definition, &w.EnglishDefinition,
 		&w.Example, &w.English, &w.TargetTranslation, &w.Notes, &w.Connotation, &w.Register,
 		&w.Collocations, &w.ContrastiveNotes, &w.SecondaryMeanings, &w.Tags,
-		&w.SourceLanguage, &w.TargetLanguage, &w.CreatedAt, &w.UpdatedAt,
+		&w.SourceLanguage, &w.TargetLanguage, &w.Difficulty, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -640,7 +641,7 @@ func scanExpressionRow(row scanner) (*ExpressionRow, error) {
 	err := row.Scan(
 		&e.ID, &e.Expression, &e.Definition, &e.EnglishDefinition, &e.Example, &e.English,
 		&e.TargetTranslation, &e.Notes, &e.Connotation, &e.Register, &e.ContrastiveNotes, &e.Tags,
-		&e.SourceLanguage, &e.TargetLanguage, &e.CreatedAt, &e.UpdatedAt,
+		&e.SourceLanguage, &e.TargetLanguage, &e.Difficulty, &e.CreatedAt, &e.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -672,8 +673,26 @@ func buildWordFilter(f ListFilter) (string, []any) {
 		args = append(args, pattern, pattern, pattern, pattern)
 	}
 	if f.Tags != "" {
-		clauses = append(clauses, "(',' || tags || ',') LIKE ?")
-		args = append(args, "%,"+f.Tags+",%")
+		tagList := strings.Split(f.Tags, ",")
+		var tagClauses []string
+		for _, tag := range tagList {
+			tag = strings.TrimSpace(tag)
+			if tag != "" {
+				tagClauses = append(tagClauses, "(',' || tags || ',') LIKE ?")
+				args = append(args, "%,"+tag+",%")
+			}
+		}
+		if len(tagClauses) > 0 {
+			clauses = append(clauses, "("+strings.Join(tagClauses, " OR ")+")")
+		}
+	}
+	if len(f.Difficulty) > 0 {
+		placeholders := make([]string, len(f.Difficulty))
+		for i, d := range f.Difficulty {
+			placeholders[i] = "?"
+			args = append(args, d)
+		}
+		clauses = append(clauses, "difficulty IN ("+strings.Join(placeholders, ",")+")")
 	}
 
 	if len(clauses) == 0 {
@@ -701,12 +720,88 @@ func buildExpressionFilter(f ListFilter) (string, []any) {
 		args = append(args, pattern, pattern, pattern, pattern)
 	}
 	if f.Tags != "" {
-		clauses = append(clauses, "(',' || tags || ',') LIKE ?")
-		args = append(args, "%,"+f.Tags+",%")
+		tagList := strings.Split(f.Tags, ",")
+		var tagClauses []string
+		for _, tag := range tagList {
+			tag = strings.TrimSpace(tag)
+			if tag != "" {
+				tagClauses = append(tagClauses, "(',' || tags || ',') LIKE ?")
+				args = append(args, "%,"+tag+",%")
+			}
+		}
+		if len(tagClauses) > 0 {
+			clauses = append(clauses, "("+strings.Join(tagClauses, " OR ")+")")
+		}
+	}
+	if len(f.Difficulty) > 0 {
+		placeholders := make([]string, len(f.Difficulty))
+		for i, d := range f.Difficulty {
+			placeholders[i] = "?"
+			args = append(args, d)
+		}
+		clauses = append(clauses, "difficulty IN ("+strings.Join(placeholders, ",")+")")
 	}
 
 	if len(clauses) == 0 {
 		return "", nil
 	}
 	return " WHERE " + strings.Join(clauses, " AND "), args
+}
+
+// --- Flashcard support ---
+
+// ListDistinctTags returns all unique tags across both words and expressions tables,
+// sorted alphabetically. Returns an empty non-nil slice when no tags exist.
+func (s *SQLiteStore) ListDistinctTags(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT tags FROM words UNION ALL SELECT tags FROM expressions`,
+	)
+	if err != nil {
+		return []string{}, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	seen := make(map[string]bool)
+	for rows.Next() {
+		var tags string
+		if err := rows.Scan(&tags); err != nil {
+			return []string{}, err
+		}
+		for _, tag := range strings.Split(tags, ",") {
+			tag = strings.TrimSpace(tag)
+			if tag != "" {
+				seen[tag] = true
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return []string{}, err
+	}
+
+	result := make([]string, 0, len(seen))
+	for tag := range seen {
+		result = append(result, tag)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+// UpdateWordDifficulty sets the difficulty rating for a word entry.
+func (s *SQLiteStore) UpdateWordDifficulty(ctx context.Context, id int64, difficulty string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE words SET difficulty = ?, updated_at = ? WHERE id = ?`,
+		difficulty, now, id,
+	)
+	return err
+}
+
+// UpdateExpressionDifficulty sets the difficulty rating for an expression entry.
+func (s *SQLiteStore) UpdateExpressionDifficulty(ctx context.Context, id int64, difficulty string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE expressions SET difficulty = ?, updated_at = ? WHERE id = ?`,
+		difficulty, now, id,
+	)
+	return err
 }

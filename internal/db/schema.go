@@ -29,6 +29,12 @@ func (s *SQLiteStore) Migrate() error {
 		}
 	}
 
+	if version < 2 {
+		if err := s.migrateV2(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -95,6 +101,36 @@ func (s *SQLiteStore) migrateV1() error {
 	if _, err := tx.Exec(
 		`INSERT INTO metadata (key, value) VALUES ('schema_version', '1')
 		 ON CONFLICT(key) DO UPDATE SET value = '1'`,
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// migrateV2 adds the difficulty column to words and expressions tables.
+func (s *SQLiteStore) migrateV2() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	stmts := []string{
+		`ALTER TABLE words ADD COLUMN difficulty TEXT DEFAULT 'natural'`,
+		`ALTER TABLE expressions ADD COLUMN difficulty TEXT DEFAULT 'natural'`,
+	}
+
+	for _, stmt := range stmts {
+		if _, err := tx.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	// Upsert schema version.
+	if _, err := tx.Exec(
+		`INSERT INTO metadata (key, value) VALUES ('schema_version', '2')
+		 ON CONFLICT(key) DO UPDATE SET value = '2'`,
 	); err != nil {
 		return err
 	}

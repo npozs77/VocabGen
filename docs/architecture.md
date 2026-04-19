@@ -138,11 +138,13 @@ The service layer sits between the interface layers (CLI, web) and the infrastru
 
 SQLite database at a configurable path (default `~/.vocabgen/vocabgen.db`). Pure-Go driver (`modernc.org/sqlite`) for cross-compilation.
 
-**Schema**: `words` and `expressions` tables with no unique constraint on (source_language, word/expression) — multiple rows allowed for multi-version entries. Indexes on (source_language, word) and (source_language, expression) for query performance. `metadata` table tracks schema version for migrations.
+**Schema**: `words` and `expressions` tables with no unique constraint on (source_language, word/expression) — multiple rows allowed for multi-version entries. Indexes on (source_language, word) and (source_language, expression) for query performance. `metadata` table tracks schema version for migrations. The V2 migration adds a `difficulty TEXT DEFAULT 'natural'` column to both tables for flashcard study tracking (valid values: `easy`, `hard`, `natural`). SQLite's `ALTER TABLE ADD COLUMN` with a `DEFAULT` backfills existing rows automatically.
 
 **CRUD**: `FindWord`/`FindExpression` return first match or nil. `FindWords`/`FindExpressions` return all matches as a slice (for conflict-aware lookups). `InsertWord`/`InsertExpression` set timestamps. `UpdateWord`/`UpdateExpression` target by ID. All queries use parameterized `?` placeholders.
 
-**Pagination**: `ListWords`/`ListExpressions` support filtering by source_language, target_language, search text (LIKE match), and pagination (default 50 per page).
+**Pagination**: `ListWords`/`ListExpressions` support filtering by source_language, target_language, search text (LIKE match), difficulty (IN clause), and pagination (default 50 per page).
+
+**Flashcard support**: `FlashcardItem` is a view model struct (not a DB table) that combines fields from `WordRow` or `ExpressionRow` into a unified card representation (ID, Type, Text, Definition, English, TargetTranslation, Difficulty). `ListDistinctTags` queries both tables and returns sorted, deduplicated tags. `UpdateWordDifficulty`/`UpdateExpressionDifficulty` persist difficulty ratings.
 
 **Import/Export**: `ImportWords`/`ImportExpressions` bulk-insert, skipping duplicates. `BackupTo` copies the DB file. `RestoreFrom` verifies the backup is valid SQLite, creates a safety backup, then replaces.
 
@@ -186,13 +188,15 @@ The web package wraps this with an `updateChecker` struct that adds mutex-protec
 
 Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All templates embedded via `go:embed`. No JavaScript build step.
 
-**Pages**: Lookup (`/`), Batch (`/batch`), Config (`/config`), Database (`/database`), Help dropdown (About `/about`, Documentation `/docs`, Changelog `/changelog`, Check for Update `/update`).
+**Pages**: Lookup (`/`), Batch (`/batch`), Config (`/config`), Database (`/database`), Flashcards (`/flashcards`), Help dropdown (About `/about`, Documentation `/docs`, Changelog `/changelog`, Check for Update `/update`).
 
 **Help menu**: A dropdown in the nav bar groups help-related pages. `isHelpPage` template function highlights the Help item when any subpage is active. Documentation pages render embedded `docs/*.md` via goldmark. The update page queries GitHub Releases via HTMX on load. A dismissible update banner appears on all pages when a newer version is detected at startup.
 
 **HTMX pattern**: Forms use `hx-post` to send requests; server returns HTML fragments that HTMX swaps into the page. No JSON parsing on the client side for UI interactions.
 
 **Batch progress**: Server-Sent Events (SSE) stream real-time progress via `http.Flusher`. Client uses HTMX SSE extension. Supports cancellation — client aborts the fetch via `AbortController`, server detects context cancellation and emits a `cancelled` event with partial results.
+
+**Flashcards**: The `/flashcards` page provides a study mode for reviewing vocabulary. `handlers_flashcards.go` implements two endpoints: `GET /api/flashcards/html` assembles a filtered deck by querying `ListWords` + `ListExpressions` with difficulty/language/tag filters and returns the `flashcard_card` partial with a `data-deck` JSON attribute; `PUT /api/flashcards/rate` persists a difficulty rating (easy/hard/natural) for a word or expression. Inline JavaScript in `flashcards.html` handles card flip (CSS `rotateY` with `perspective` and `backface-visibility`), prev/next deck navigation, display mode toggle (word-first vs detail-first), and difficulty rating via `fetch`. No external JS libraries.
 
 **Conflict resolution UI**: When a lookup with context finds existing entries, the server returns a `lookup_conflict.html` partial showing existing entries side-by-side with the new result, plus resolve buttons (replace/add/skip).
 
@@ -326,7 +330,7 @@ Plain string form: validator normalizes to `{"primary": "the string", "alternati
 
 Words and expressions tables with no unique constraint on (source_language, word/expression) — multiple rows allowed for multi-version entries. Indexes for query performance, not uniqueness.
 
-Tables: `metadata` (schema versioning), `words` (20 columns), `expressions` (16 columns). Timestamps in RFC3339 format.
+Tables: `metadata` (schema versioning), `words` (21 columns incl. `difficulty`), `expressions` (17 columns incl. `difficulty`). Timestamps in RFC3339 format. Schema version tracked in `metadata` — V1 creates tables, V2 adds the `difficulty` column.
 
 ## Error Handling
 
@@ -366,6 +370,7 @@ internal/web/templates/
 ├── batch.html             # Batch upload page
 ├── config.html            # Settings page
 ├── database.html          # Browse/edit/import/export page
+├── flashcards.html        # Flashcard study mode (flip, navigate, rate, filter)
 ├── about.html             # About page (version, build info, links)
 ├── docs.html              # Documentation index (Table of Contents)
 ├── docs_page.html         # Documentation content page (rendered markdown)
@@ -378,6 +383,7 @@ internal/web/templates/
     ├── config_form.html       # Config form with conditional provider fields
     ├── entry_edit.html        # Edit form for a single entry
     ├── entry_table.html       # Paginated table rows
+    ├── flashcard_card.html    # Flashcard deck partial (data-deck JSON + card markup)
     ├── setup_local_llm.html   # Local LLM setup progress (SSE-driven)
     └── update_result.html     # Update check result (up-to-date / update available / error)
 ```
@@ -399,6 +405,8 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | Bulk delete | DELETE /api/words/bulk | Updated table HTML |
 | Import CSV | POST /api/import | Import summary |
 | Export Excel | GET /api/export | .xlsx file download |
+| Load flashcard deck | GET /api/flashcards/html | `flashcard_card.html` partial (filtered deck) |
+| Rate flashcard | PUT /api/flashcards/rate | JSON `{"status":"ok","difficulty":"..."}` |
 
 ### API Routes
 
@@ -432,6 +440,8 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | GET | /changelog | Changelog page |
 | GET | /update | Check for Update page |
 | GET | /api/update/check | HTMX partial: update check result |
+| GET | /api/flashcards/html | Flashcard deck partial (filtered) |
+| PUT | /api/flashcards/rate | Rate a flashcard (difficulty) |
 | POST | /api/update/dismiss | Dismiss update banner |
 
 ## Testing Strategy

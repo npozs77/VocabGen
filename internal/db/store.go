@@ -71,14 +71,25 @@ type Store interface {
 
 	// RestoreFrom replaces the current database with the file at srcPath.
 	RestoreFrom(ctx context.Context, srcPath string) error
+
+	// ListDistinctTags returns all unique tags across both words and expressions tables,
+	// sorted alphabetically. Returns an empty non-nil slice when no tags exist.
+	ListDistinctTags(ctx context.Context) ([]string, error)
+
+	// UpdateWordDifficulty sets the difficulty rating for a word entry.
+	UpdateWordDifficulty(ctx context.Context, id int64, difficulty string) error
+
+	// UpdateExpressionDifficulty sets the difficulty rating for an expression entry.
+	UpdateExpressionDifficulty(ctx context.Context, id int64, difficulty string) error
 }
 
 // ListFilter holds pagination and filter parameters for list queries.
 type ListFilter struct {
 	SourceLang string
 	TargetLang string
-	Search     string // matches against word/expression, definition, english, tags
-	Tags       string // filter entries containing this tag
-	Page       int    // 1-based
-	PageSize   int    // default 50
+	Search     string   // matches against word/expression, definition, english, tags
+	Tags       string   // filter entries containing this tag
+	Difficulty []string // filter by difficulty values (e.g. ["hard", "natural"])
+	Page       int      // 1-based
+	PageSize   int      // default 50
 }

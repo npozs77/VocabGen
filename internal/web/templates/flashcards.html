@@ -1,0 +1,406 @@
+{{define "title"}}Flashcards{{end}}
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Flashcards</h1>
+
+<!-- Filter Controls -->
+<div id="fc-filters" class="flex flex-wrap gap-4 items-end mb-6">
+    <div>
+        <label for="fc-source-lang" class="block text-sm font-medium text-gray-700 mb-1">Source Language</label>
+        <select id="fc-source-lang" name="source_lang"
+            class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            hx-get="/api/flashcards/html" hx-target="#flashcard-area" hx-swap="innerHTML" hx-include="#fc-filters">
+            <option value="">All</option>
+            {{range .Languages}}
+            <option value="{{.Code}}">{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+    <div>
+        <label for="fc-target-lang" class="block text-sm font-medium text-gray-700 mb-1">Target Language</label>
+        <select id="fc-target-lang" name="target_lang"
+            class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            hx-get="/api/flashcards/html" hx-target="#flashcard-area" hx-swap="innerHTML" hx-include="#fc-filters">
+            <option value="">All</option>
+            {{range .Languages}}
+            <option value="{{.Code}}">{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+    <div class="relative">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+        <input type="hidden" id="fc-tags" name="tags" value="">
+        <button type="button" id="fc-tags-btn"
+            class="border border-gray-300 rounded px-3 py-2 bg-white text-left min-w-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-700">
+            All
+        </button>
+        <div id="fc-tags-dropdown"
+            class="hidden absolute z-10 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto min-w-[160px]">
+            <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
+                <input type="checkbox" value="" class="fc-tag-cb mr-2" checked> All
+            </label>
+        </div>
+    </div>
+    <div>
+        <label for="fc-difficulty" class="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+        <select id="fc-difficulty" name="difficulty"
+            class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            hx-get="/api/flashcards/html" hx-target="#flashcard-area" hx-swap="innerHTML" hx-include="#fc-filters">
+            <option value="hard_natural" selected>Hard + Natural</option>
+            <option value="hard">Hard only</option>
+            <option value="all">All</option>
+            <option value="easy">Easy only</option>
+        </select>
+    </div>
+    <div>
+        <label for="fc-display-mode" class="block text-sm font-medium text-gray-700 mb-1">Display Mode</label>
+        <select id="fc-display-mode"
+            class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="word_first" selected>Word first</option>
+            <option value="detail_first">Detail first</option>
+        </select>
+    </div>
+</div>
+
+<!-- Card Area (swapped by HTMX) -->
+<div id="flashcard-area" hx-get="/api/flashcards/html" hx-trigger="load, filterChange" hx-swap="innerHTML"
+    hx-include="#fc-filters">
+    <p class="text-gray-500">Loading flashcards…</p>
+</div>
+
+<!-- Navigation Controls -->
+<div class="flex items-center justify-center gap-6 mt-6">
+    <button id="fc-prev" type="button"
+        class="px-5 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled>
+        ← Prev
+    </button>
+    <span id="fc-status" class="text-sm text-gray-600 font-medium min-w-[60px] text-center">0 / 0</span>
+    <button id="fc-next" type="button"
+        class="px-5 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled>
+        Next →
+    </button>
+</div>
+
+<!-- Difficulty Rating Buttons -->
+<div id="fc-rating" class="flex items-center justify-center gap-3 mt-4">
+    <span class="text-sm text-gray-500 mr-1">Rate:</span>
+    <button type="button" data-difficulty="easy"
+        class="fc-rate-btn px-4 py-1.5 rounded text-sm border border-green-300 text-green-700 hover:bg-green-50">
+        Easy
+    </button>
+    <button type="button" data-difficulty="natural"
+        class="fc-rate-btn px-4 py-1.5 rounded text-sm border border-gray-300 text-gray-700 hover:bg-gray-50">
+        Natural
+    </button>
+    <button type="button" data-difficulty="hard"
+        class="fc-rate-btn px-4 py-1.5 rounded text-sm border border-red-300 text-red-700 hover:bg-red-50">
+        Hard
+    </button>
+</div>
+
+<!-- Flashcard Flip Styles -->
+<style>
+    .fc-scene {
+        perspective: 800px;
+    }
+
+    .fc-card {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform 0.5s ease;
+        transform-style: preserve-3d;
+        cursor: pointer;
+    }
+
+    .fc-card.is-flipped {
+        transform: rotateY(180deg);
+    }
+
+    .fc-face {
+        position: absolute;
+        inset: 0;
+        backface-visibility: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        border-radius: 0.75rem;
+        overflow-y: auto;
+    }
+
+    .fc-face--back {
+        transform: rotateY(180deg);
+    }
+</style>
+
+<script>
+    (function () {
+        var deck = [];
+        var currentIndex = 0;
+
+        var cardArea = document.getElementById('flashcard-area');
+        var prevBtn = document.getElementById('fc-prev');
+        var nextBtn = document.getElementById('fc-next');
+        var statusEl = document.getElementById('fc-status');
+        var displayModeEl = document.getElementById('fc-display-mode');
+        var ratingBtns = document.querySelectorAll('.fc-rate-btn');
+
+        // After HTMX swaps the card area, read the deck JSON and initialize.
+        document.body.addEventListener('htmx:afterSwap', function (evt) {
+            if (evt.detail.target !== cardArea) return;
+            populateTagDropdown();
+            initDeck();
+        });
+
+        function populateTagDropdown() {
+            var tagsEl = document.getElementById('fc-tags-data');
+            var dropdown = document.getElementById('fc-tags-dropdown');
+            var hiddenInput = document.getElementById('fc-tags');
+            if (!tagsEl || !dropdown) return;
+
+            var raw = tagsEl.getAttribute('data-tags') || '';
+            var tags = raw ? raw.split(',') : [];
+            var currentValues = hiddenInput ? hiddenInput.value.split(',').filter(Boolean) : [];
+
+            // Rebuild dropdown: "All" checkbox + each tag.
+            var html = '<label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">'
+                + '<input type="checkbox" value="" class="fc-tag-cb mr-2"' + (currentValues.length === 0 ? ' checked' : '') + '> All</label>';
+            for (var i = 0; i < tags.length; i++) {
+                var checked = currentValues.indexOf(tags[i]) !== -1 ? ' checked' : '';
+                html += '<label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">'
+                    + '<input type="checkbox" value="' + escapeHtml(tags[i]) + '" class="fc-tag-cb mr-2"' + checked + '> '
+                    + escapeHtml(tags[i]) + '</label>';
+            }
+            dropdown.innerHTML = html;
+            updateTagButtonLabel();
+        }
+
+        function updateTagButtonLabel() {
+            var btn = document.getElementById('fc-tags-btn');
+            var hiddenInput = document.getElementById('fc-tags');
+            if (!btn || !hiddenInput) return;
+            var val = hiddenInput.value;
+            if (!val) {
+                btn.textContent = 'All';
+            } else {
+                var tags = val.split(',');
+                btn.textContent = tags.length === 1 ? tags[0] : tags.length + ' tags';
+            }
+        }
+
+        // Toggle tag dropdown visibility.
+        var tagBtn = document.getElementById('fc-tags-btn');
+        var tagDropdown = document.getElementById('fc-tags-dropdown');
+        if (tagBtn && tagDropdown) {
+            tagBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                tagDropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', function (e) {
+                if (!tagDropdown.contains(e.target) && e.target !== tagBtn) {
+                    tagDropdown.classList.add('hidden');
+                }
+            });
+            tagDropdown.addEventListener('change', function (e) {
+                var cb = e.target;
+                if (!cb.classList.contains('fc-tag-cb')) return;
+
+                var allCbs = tagDropdown.querySelectorAll('.fc-tag-cb');
+                var hiddenInput = document.getElementById('fc-tags');
+
+                if (cb.value === '') {
+                    // "All" was toggled — uncheck others.
+                    for (var i = 0; i < allCbs.length; i++) {
+                        allCbs[i].checked = (allCbs[i].value === '');
+                    }
+                    hiddenInput.value = '';
+                } else {
+                    // Uncheck "All" when a specific tag is selected.
+                    allCbs[0].checked = false;
+                    // Collect selected tags.
+                    var selected = [];
+                    for (var i = 0; i < allCbs.length; i++) {
+                        if (allCbs[i].checked && allCbs[i].value !== '') {
+                            selected.push(allCbs[i].value);
+                        }
+                    }
+                    if (selected.length === 0) {
+                        // Nothing selected — revert to All.
+                        allCbs[0].checked = true;
+                        hiddenInput.value = '';
+                    } else {
+                        hiddenInput.value = selected.join(',');
+                    }
+                }
+                updateTagButtonLabel();
+                // Trigger HTMX request to reload deck.
+                htmx.trigger(cardArea, 'filterChange');
+            });
+        }
+
+        function initDeck() {
+            var dataEl = document.getElementById('fc-deck-data');
+            if (dataEl) {
+                try {
+                    deck = JSON.parse(dataEl.getAttribute('data-deck') || '[]');
+                } catch (e) {
+                    deck = [];
+                }
+            } else {
+                deck = [];
+            }
+            currentIndex = 0;
+            renderCard();
+            updateStatus();
+            updateNav();
+            updateRatingHighlight();
+        }
+
+        function renderCard() {
+            var scene = document.getElementById('fc-scene');
+            if (!scene) return;
+            var card = scene.querySelector('.fc-card');
+            if (!card) return;
+
+            // Reset flip state.
+            card.classList.remove('is-flipped');
+
+            if (deck.length === 0) return;
+
+            var item = deck[currentIndex];
+            var mode = displayModeEl ? displayModeEl.value : 'word_first';
+
+            var frontEl = card.querySelector('.fc-face--front');
+            var backEl = card.querySelector('.fc-face--back');
+            if (!frontEl || !backEl) return;
+
+            var wordContent = '<div class="text-3xl font-bold text-gray-800 text-center">' + escapeHtml(item.text) + '</div>';
+
+            var detailContent = '<div class="space-y-3 text-center">'
+                + '<div class="text-lg text-gray-700"><span class="text-sm text-gray-400 block mb-1">Definition</span>' + escapeHtml(item.definition) + '</div>'
+                + '<div class="text-lg text-gray-700"><span class="text-sm text-gray-400 block mb-1">English</span>' + escapeHtml(item.english) + '</div>'
+                + '<div class="text-lg text-gray-700"><span class="text-sm text-gray-400 block mb-1">Translation</span>' + escapeHtml(item.target_translation) + '</div>'
+                + '</div>';
+
+            if (mode === 'word_first') {
+                frontEl.innerHTML = wordContent;
+                backEl.innerHTML = detailContent;
+            } else {
+                frontEl.innerHTML = detailContent;
+                backEl.innerHTML = wordContent;
+            }
+
+            updateRatingHighlight();
+        }
+
+        function updateStatus() {
+            if (!statusEl) return;
+            if (deck.length === 0) {
+                statusEl.textContent = '0 / 0';
+            } else {
+                statusEl.textContent = (currentIndex + 1) + ' / ' + deck.length;
+            }
+        }
+
+        function updateNav() {
+            if (prevBtn) prevBtn.disabled = (deck.length === 0 || currentIndex <= 0);
+            if (nextBtn) nextBtn.disabled = (deck.length === 0 || currentIndex >= deck.length - 1);
+        }
+
+        function updateRatingHighlight() {
+            if (deck.length === 0) return;
+            var item = deck[currentIndex];
+            for (var i = 0; i < ratingBtns.length; i++) {
+                var btn = ratingBtns[i];
+                var diff = btn.getAttribute('data-difficulty');
+                // Reset all buttons.
+                btn.classList.remove('bg-green-100', 'bg-gray-100', 'bg-red-100', 'ring-2', 'ring-green-400', 'ring-gray-400', 'ring-red-400');
+                if (diff === item.difficulty) {
+                    if (diff === 'easy') {
+                        btn.classList.add('bg-green-100', 'ring-2', 'ring-green-400');
+                    } else if (diff === 'hard') {
+                        btn.classList.add('bg-red-100', 'ring-2', 'ring-red-400');
+                    } else {
+                        btn.classList.add('bg-gray-100', 'ring-2', 'ring-gray-400');
+                    }
+                }
+            }
+        }
+
+        // Card flip on click.
+        cardArea.addEventListener('click', function (evt) {
+            var scene = document.getElementById('fc-scene');
+            if (!scene) return;
+            // Only flip if clicking inside the scene.
+            if (!scene.contains(evt.target)) return;
+            var card = scene.querySelector('.fc-card');
+            if (card) card.classList.toggle('is-flipped');
+        });
+
+        // Prev button.
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function () {
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    renderCard();
+                    updateStatus();
+                    updateNav();
+                }
+            });
+        }
+
+        // Next button.
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function () {
+                if (currentIndex < deck.length - 1) {
+                    currentIndex++;
+                    renderCard();
+                    updateStatus();
+                    updateNav();
+                }
+            });
+        }
+
+        // Display mode toggle.
+        if (displayModeEl) {
+            displayModeEl.addEventListener('change', function () {
+                renderCard();
+            });
+        }
+
+        // Difficulty rating buttons.
+        for (var i = 0; i < ratingBtns.length; i++) {
+            ratingBtns[i].addEventListener('click', function () {
+                if (deck.length === 0) return;
+                var item = deck[currentIndex];
+                var difficulty = this.getAttribute('data-difficulty');
+
+                fetch('/api/flashcards/rate', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: item.type, id: item.id, difficulty: difficulty })
+                }).then(function (resp) {
+                    if (!resp.ok) throw new Error('Rate failed: ' + resp.status);
+                    return resp.json();
+                }).then(function (data) {
+                    // Update local deck data.
+                    deck[currentIndex].difficulty = data.difficulty;
+                    updateRatingHighlight();
+                }).catch(function (err) {
+                    console.error('Failed to rate card:', err);
+                });
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+    })();
+</script>
+{{end}}
