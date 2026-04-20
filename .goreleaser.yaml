@@ -1,5 +1,8 @@
 version: 2
 project_name: vocabgen
+before:
+  hooks:
+    - cp CHANGELOG.md docs/changelog.md
 builds:
   - main: ./cmd/vocabgen
     binary: vocabgen
