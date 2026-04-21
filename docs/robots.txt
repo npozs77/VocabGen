@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://npozs77.github.io/VocabGen/sitemap.xml

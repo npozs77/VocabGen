@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VocabGen — Vocabulary Web App & Flashcard Tool for Language Learners</title>
+    <meta name="description"
+        content="Open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV lists, and study with flashcards in your browser. Powered by LLM (OpenAI, Anthropic, Bedrock, Ollama). Single binary, zero setup.">
+    <meta name="keywords"
+        content="vocabulary web app, flashcard app, language learning tool, vocabulary generator, CSV to vocabulary, LLM vocabulary, OpenAI, Anthropic, AWS Bedrock, Ollama, flashcards, language learner, study tool, open source">
+    <meta name="author" content="npozs77">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://npozs77.github.io/VocabGen/">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="VocabGen — Vocabulary Web App & Flashcard Tool">
+    <meta property="og:description"
+        content="Look up words, batch-process CSV lists, and study with flashcards in your browser. Powered by LLM providers. Free, open-source, runs locally.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://npozs77.github.io/VocabGen/">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="VocabGen — Vocabulary Web App & Flashcard Tool">
+    <meta name="twitter:description"
+        content="Look up words, batch-process CSV lists, and study with flashcards in your browser. Powered by LLM providers. Free, open-source, runs locally.">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "VocabGen",
+    "description": "Open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV lists, and study with flashcards in your browser via LLM providers.",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "url": "https://github.com/npozs77/VocabGen",
+    "downloadUrl": "https://github.com/npozs77/VocabGen/releases",
+    "license": "https://opensource.org/licenses/MIT",
+    "programmingLanguage": "Go",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "Browser-based vocabulary lookup, batch processing, and flashcard study",
+      "Flashcard study mode with difficulty rating",
+      "CSV batch processing via web UI or CLI",
+      "Multi-language support (11+ languages, any custom language)",
+      "LLM providers: OpenAI, Anthropic, AWS Bedrock, Ollama (free local)",
+      "SQLite cache for cost efficiency",
+      "Single binary, zero dependencies, runs locally",
+      "CLI for scripting and automation",
+      "Docker support"
+    ]
+  }
+  </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1a1a2e;
+            background: #f8f9fa;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 span {
+            color: #0066cc;
+        }
+
+        .tagline {
+            font-size: 1.1rem;
+            color: #555;
+            margin-bottom: 2rem;
+        }
+
+        .badges {
+            margin-bottom: 1.5rem;
+        }
+
+        .badges img {
+            margin-right: 0.5rem;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            margin: 2rem 0 0.75rem;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.25rem;
+        }
+
+        .features {
+            list-style: none;
+        }
+
+        .features li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #0066cc;
+            font-weight: bold;
+        }
+
+        pre {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+
+        code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        .cta {
+            display: inline-block;
+            background: #0066cc;
+            color: #fff;
+            padding: 0.6rem 1.5rem;
+            border-radius: 6px;
+            text-decoration: none;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            font-weight: 500;
+        }
+
+        .cta:hover {
+            background: #0052a3;
+        }
+
+        .cta.secondary {
+            background: #555;
+        }
+
+        .cta.secondary:hover {
+            background: #333;
+        }
+
+        .languages {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 0.75rem 0;
+        }
+
+        .lang-tag {
+            background: #e8f0fe;
+            color: #0066cc;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .providers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.5rem;
+            margin: 0.75rem 0;
+        }
+
+        .provider {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e0e0e0;
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        a {
+            color: #0066cc;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1><span>VocabGen</span> — Vocabulary Web App & Flashcard Tool</h1>
+        <p class="tagline">Look up words, batch-process CSV lists, and study with flashcards — all in your browser.
+            Powered by LLM providers. Free, open-source, runs locally.</p>
+
+        <div class="badges">
+            <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go Version">
+            <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
+            <img src="https://img.shields.io/github/v/release/npozs77/VocabGen" alt="Latest Release">
+        </div>
+
+        <a class="cta" href="https://github.com/npozs77/VocabGen/releases">Download Latest Release</a>
+        <a class="cta secondary" href="https://github.com/npozs77/VocabGen">View on GitHub</a>
+
+        <h2>What is VocabGen?</h2>
+        <p>VocabGen is a free, open-source vocabulary web app for language learners at B2–C1 level. Start the app, open
+            your browser, and you can look up words, upload CSV word lists for batch processing, study with flashcards,
+            and manage your vocabulary database. It uses LLM providers (OpenAI, Anthropic, AWS Bedrock, Ollama) to
+            generate structured vocabulary entries with definitions, translations, connotation, and register. Everything
+            runs locally on your machine — your data stays private.</p>
+
+        <h2>Features</h2>
+        <ul class="features">
+            <li>Web-based vocabulary app — lookup, batch, flashcards, database, and config in your browser</li>
+            <li>Flashcard study mode — flip cards, rate difficulty, filter by language and tags</li>
+            <li>LLM-powered vocabulary lookup — definitions, translations, connotation, register</li>
+            <li>CSV batch processing — upload word lists via the web UI or process from the command line</li>
+            <li>Multi-language support — 11 built-in languages, any language via full name</li>
+            <li>SQLite cache — never pay twice for the same lookup</li>
+            <li>Single binary — zero runtime dependencies, cross-platform</li>
+            <li>Docker support — multi-arch images on GitHub Container Registry</li>
+            <li>Dry-run mode — preview operations before spending API credits</li>
+            <li>CLI for power users — script lookups and batch jobs from the terminal</li>
+        </ul>
+
+        <h2>Supported Languages</h2>
+        <div class="languages">
+            <span class="lang-tag">Dutch</span>
+            <span class="lang-tag">German</span>
+            <span class="lang-tag">French</span>
+            <span class="lang-tag">Spanish</span>
+            <span class="lang-tag">Italian</span>
+            <span class="lang-tag">Portuguese</span>
+            <span class="lang-tag">Russian</span>
+            <span class="lang-tag">Polish</span>
+            <span class="lang-tag">Turkish</span>
+            <span class="lang-tag">Hungarian</span>
+            <span class="lang-tag">English</span>
+            <span class="lang-tag">+ any language</span>
+        </div>
+
+        <h2>LLM Providers</h2>
+        <div class="providers">
+            <div class="provider">OpenAI</div>
+            <div class="provider">Anthropic</div>
+            <div class="provider">AWS Bedrock</div>
+            <div class="provider">Google Vertex AI</div>
+            <div class="provider">Ollama (free)</div>
+            <div class="provider">Azure OpenAI</div>
+            <div class="provider">LM Studio</div>
+        </div>
+
+        <h2>Quick Start</h2>
+        <pre><code># Start the web app (open http://localhost:8080 in your browser)
+vocabgen serve --port 8080
+
+# Or use the CLI for scripting
+vocabgen lookup "maison" -l French
+vocabgen batch --input-file words.csv --mode words -l German
+
+# Free local LLM (no API key needed)
+vocabgen lookup "casa" -l Italian --provider openai \
+  --base-url http://localhost:11434/v1</code></pre>
+
+        <h2>Use Cases</h2>
+        <ul class="features">
+            <li>Language learners preparing B2–C1 vocabulary lists from textbook chapters</li>
+            <li>Students creating flashcard decks from CSV word lists</li>
+            <li>Teachers generating structured vocabulary materials for classes</li>
+            <li>Developers looking for a simple Go web app example (CLI + HTMX + SQLite)</li>
+            <li>Anyone who wants LLM-powered vocabulary lookup with local caching</li>
+        </ul>
+
+        <h2>Documentation</h2>
+        <ul class="features">
+            <li><a href="https://github.com/npozs77/VocabGen/blob/main/docs/user-guide.md">User Guide</a> —
+                installation, configuration, daily usage</li>
+            <li><a href="https://github.com/npozs77/VocabGen/blob/main/docs/architecture.md">Architecture</a> — system
+                design, package layout, data flows</li>
+            <li><a href="https://github.com/npozs77/VocabGen/blob/main/docs/deployment.md">Deployment</a> —
+                cross-compilation, CI/CD, Docker</li>
+        </ul>
+
+        <footer>
+            <p>MIT License · <a href="https://github.com/npozs77/VocabGen">GitHub</a> · <a
+                    href="https://github.com/npozs77/VocabGen/releases">Releases</a> · <a
+                    href="https://github.com/npozs77/VocabGen/issues">Issues</a></p>
+        </footer>
+    </div>
+</body>
+
+</html>
