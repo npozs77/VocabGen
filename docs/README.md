@@ -46,9 +46,10 @@ Installation, configuration, and daily usage.
 - [Provider Credentials](/docs/user-guide#provider-credentials) — Bedrock, OpenAI, Anthropic, Vertex AI, Ollama
 - [Config Profiles](/docs/user-guide#config-profiles) — named profiles, `--profile` flag, Web UI dropdown
 - [Local LLM Setup](/docs/user-guide#local-llm-setup) — one-click Ollama setup via script or Web UI
-- [First Run](/docs/user-guide#first-run) — your first lookup
-- [Batch Processing](/docs/user-guide#batch-processing) — CSV input, limits, dry-run
-- [Web UI](/docs/user-guide#web-ui) — Lookup, Batch, Config, Database pages
+- [First Run](/docs/user-guide#first-run) — start the web app or use the CLI
+- [Web UI](/docs/user-guide#web-ui) — Lookup, Batch, Flashcards, Config, Database pages
+- [Flashcards](/docs/user-guide#flashcards) — flashcard study mode with difficulty rating
+- [Batch Processing (CLI)](/docs/user-guide#batch-processing-cli) — CSV input, limits, dry-run via command line
 - [Tags](/docs/user-guide#tags) — tagging entries during lookup and batch
 - [Database Management](/docs/user-guide#database-management) — backup, restore, import, export
 - [Provider Switching](/docs/user-guide#provider-switching) — Bedrock, OpenAI, Anthropic, Ollama, Azure

@@ -1,6 +1,25 @@
-# VocabGen
+# VocabGen — Vocabulary Generator & Flashcard App for Language Learners
 
-A single-binary CLI and embedded web app that generates structured vocabulary lists for language learners. It processes words and expressions through LLM providers (AWS Bedrock, OpenAI, Anthropic), validates JSON responses against English schemas, caches results in SQLite, and serves a browser-based HTMX interface with lookup, batch processing, database management, and flashcard-based study mode — all compiled into one executable with zero runtime dependencies.
+<!-- Badges -->
+![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)
+![Build Status](https://github.com/npozs77/VocabGen/actions/workflows/ci.yml/badge.svg?branch=main)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![GitHub Release](https://img.shields.io/github/v/release/npozs77/VocabGen)
+
+**VocabGen** is an open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV word lists, and study with flashcards — all in your browser. Powered by LLM providers (OpenAI, Anthropic, AWS Bedrock, Ollama), it ships as a single binary with zero setup friction.
+
+## Features
+
+- 🖥️ **Web-based vocabulary app** — browser interface for word lookup, batch processing, flashcard study, database management, and configuration
+- 🃏 **Flashcard study mode** — flip cards, rate difficulty, filter by language/tags/difficulty
+- 🔤 **LLM-powered vocabulary lookup** — get definitions, translations, connotation, and register for any word or expression
+- 📄 **CSV batch processing** — upload word lists via the web UI or process them from the command line
+- 🌍 **Multi-language support** — Dutch, German, French, Spanish, Italian, Russian, Portuguese, Polish, Turkish, Hungarian, English, and any custom language
+- 🤖 **Multiple LLM providers** — OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Ollama (free local), Azure OpenAI, LM Studio
+- 💾 **SQLite cache** — never pay twice for the same lookup
+- 📦 **Single binary** — zero dependencies, cross-platform (macOS, Linux, Windows), Docker support
+- 🔒 **Privacy-first** — runs locally, no telemetry, API keys stay in env vars
+- ⌨️ **CLI for power users** — script lookups and batch jobs from the terminal
 
 ## Prerequisites
 
@@ -23,14 +42,20 @@ For best translation quality, use a large model (Claude Sonnet/Opus, GPT-4o). Lo
 ## Quick Start
 
 ```bash
-# Look up a Dutch word (default provider: Bedrock)
-vocabgen lookup "uitkomen" -l nl
-
-# Process a batch of words from CSV
-vocabgen batch --input-file ch1.csv --mode words -l nl --tags "chapter-1"
-
-# Start the web UI
+# Start the web app (lookup, batch, flashcards — all in your browser)
 vocabgen serve --port 8080
+```
+
+Open `http://localhost:8080` — configure your LLM provider on the Config page, then start looking up words and studying flashcards.
+
+For scripting and automation, the CLI is also available:
+
+```bash
+# Look up a word from the terminal
+vocabgen lookup "maison" -l French
+
+# Batch-process a CSV word list
+vocabgen batch --input-file ch1.csv --mode words -l nl --tags "chapter-1"
 ```
 
 ## CLI Usage

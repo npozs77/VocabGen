@@ -194,8 +194,18 @@ If you already have Ollama installed, the script skips installation and proceeds
 
 Make sure you have configured a provider (see [Configuration](#configuration) above). The default provider is AWS Bedrock — if you don't have AWS credentials set up, switch to a different provider first.
 
+The recommended way to get started is the web app:
+
 ```bash
-# With default provider (Bedrock, requires AWS credentials)
+vocabgen serve --port 8080
+```
+
+Open `http://localhost:8080` in your browser. From there you can look up words, upload CSV files for batch processing, study with flashcards, and manage your vocabulary database — all without touching the command line.
+
+For power users and scripting, the CLI is also available:
+
+```bash
+# Look up a word from the terminal
 vocabgen lookup "uitkomen" -l nl
 
 # Or with OpenAI
@@ -205,26 +215,41 @@ vocabgen lookup "uitkomen" -l nl --provider openai --model-id gpt-4o
 vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id translategemma
 ```
 
-On first run, vocabgen creates `~/.vocabgen/` with a default config and SQLite database. The command sends "uitkomen" to the LLM provider, validates the JSON response, stores it in the database, and prints the structured vocabulary entry as JSON.
+On first run, vocabgen creates `~/.vocabgen/` with a default config and SQLite database. Lookups send the word to the LLM provider, validate the JSON response, and store it in the database. Running the same lookup again returns the cached result instantly (no API call).
 
-Expected output (abbreviated):
+## Web UI
 
-```json
-{
-  "word": "uitkomen",
-  "type": "werkwoord",
-  "definition": "naar buiten komen; bekend worden; ...",
-  "english": "to come out; to turn out",
-  "target_translation": "kijönni; kiderülni",
-  "notes": "Scheidbaar werkwoord: 'Ik kom uit'",
-  "connotation": "neutraal",
-  "register": "standaardtaal"
-}
+Start the web app:
+
+```bash
+vocabgen serve --port 8080
 ```
 
-Running the same command again returns the cached result instantly (no API call).
+Open `http://localhost:8080` in your browser. This is the primary way to use VocabGen — everything is available from the browser.
 
-## Batch Processing
+### Pages
+
+- **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context.
+- **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
+- **Flashcards** (`/flashcards`): Study vocabulary with a flip-card interface. Filter by language, tags, and difficulty. Rate cards as easy/hard/natural to focus future sessions. See [Flashcards](#flashcards) below.
+- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
+- **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Select individual entries or use select-all to bulk delete. Import CSV, export to Excel. Filter by language, search text, or tags.
+
+### Help Menu
+
+The navigation bar includes a Help dropdown with:
+
+- **About** (`/about`): Version info, build date, Go version, and links to the GitHub repository.
+- **Report an Issue**: Opens the [GitHub Issues](https://github.com/npozs77/VocabGen/issues) page in a new tab.
+- **Documentation** (`/docs`): Browsable documentation index with deep links into Architecture, Deployment, and User Guide sections. Rendered from the embedded `docs/*.md` files via goldmark.
+- **Changelog** (`/changelog`): Full project changelog rendered as formatted HTML from the embedded `CHANGELOG.md`.
+- **Check for Update** (`/update`): Displays the current version, build date, and OS/architecture. On page load, queries the GitHub Releases API to check for newer versions. If an update is available, shows the latest version, a direct download link for your platform, and a delta changelog covering all releases between your version and the latest. If the API is unreachable, displays a fallback message with a manual link to GitHub Releases.
+
+When the web server starts, it performs a background update check. If a newer version is detected, a dismissible banner appears below the navigation bar on all pages with a link to the update page. The banner does not reappear after dismissal until the server is restarted.
+
+## Batch Processing (CLI)
+
+For scripting and automation, batch processing is also available from the command line. Most users will prefer the web UI Batch page instead.
 
 Prepare a CSV file with one word/expression per line. No header row — all lines are treated as data.
 
@@ -280,36 +305,6 @@ vocabgen batch --input-file idioms.csv --mode expressions -l nl
 # Auto-replace existing entries when context triggers a new lookup
 vocabgen batch --input-file ch1.csv --mode words -l nl --on-conflict replace
 ```
-
-## Web UI
-
-Start the embedded web server:
-
-```bash
-vocabgen serve --port 8080
-```
-
-Open `http://localhost:8080` in your browser.
-
-### Pages
-
-- **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context.
-- **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
-- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
-- **Flashcards** (`/flashcards`): Study vocabulary with a flip-card interface. Filter by language, tags, and difficulty. Rate cards as easy/hard/natural to focus future sessions. See [Flashcards](#flashcards) below.
-- **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Select individual entries or use select-all to bulk delete. Import CSV, export to Excel. Filter by language, search text, or tags.
-
-### Help Menu
-
-The navigation bar includes a Help dropdown with:
-
-- **About** (`/about`): Version info, build date, Go version, and links to the GitHub repository.
-- **Report an Issue**: Opens the [GitHub Issues](https://github.com/npozs77/VocabGen/issues) page in a new tab.
-- **Documentation** (`/docs`): Browsable documentation index with deep links into Architecture, Deployment, and User Guide sections. Rendered from the embedded `docs/*.md` files via goldmark.
-- **Changelog** (`/changelog`): Full project changelog rendered as formatted HTML from the embedded `CHANGELOG.md`.
-- **Check for Update** (`/update`): Displays the current version, build date, and OS/architecture. On page load, queries the GitHub Releases API to check for newer versions. If an update is available, shows the latest version, a direct download link for your platform, and a delta changelog covering all releases between your version and the latest. If the API is unreachable, displays a fallback message with a manual link to GitHub Releases.
-
-When the web server starts, it performs a background update check. If a newer version is detected, a dismissible banner appears below the navigation bar on all pages with a link to the update page. The banner does not reappear after dismissal until the server is restarted.
 
 ## Flashcards
 

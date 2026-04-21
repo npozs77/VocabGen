@@ -1,0 +1,66 @@
+# VocabGen — Vocabulary Web App & Flashcard Tool for Language Learners
+
+## What is VocabGen?
+
+VocabGen is a free, open-source vocabulary web app for language learners. Start the app, open your browser, and you can look up words, upload CSV word lists for batch processing, study with flashcards, and manage your vocabulary database. It uses LLM providers to generate structured vocabulary entries with definitions, translations, connotation, and register. Everything runs locally — your data stays private.
+
+## Primary Use Cases
+
+1. Language learners studying B2–C1 vocabulary via a browser-based flashcard and lookup interface
+2. Students uploading CSV word lists and studying the results as flashcards
+3. Teachers generating structured vocabulary materials for classes
+4. Power users scripting batch lookups and vocabulary processing via CLI
+5. Developers looking for a Go web app example (Cobra CLI + HTMX + SQLite)
+
+## Key Capabilities
+
+- Browser-based vocabulary app: lookup, batch processing, flashcard study, database management, configuration
+- Flashcard study mode with difficulty rating (easy/natural/hard) and filtering
+- LLM-powered vocabulary lookup: definitions, translations, connotation, register
+- CSV batch processing via web UI upload or CLI
+- Multi-language support: Dutch, German, French, Spanish, Italian, Portuguese, Russian, Polish, Turkish, Hungarian, English, and any custom language
+- LLM providers: OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Ollama (free local), Azure OpenAI, LM Studio
+- SQLite cache layer (never pay twice for the same lookup)
+- Single binary distribution (macOS, Linux, Windows) + Docker
+- Config profiles for multiple LLM setups
+- Dry-run mode for cost preview
+- Database import/export (CSV, Excel)
+- CLI for scripting and automation (lookup, batch, backup, restore)
+
+## Technology Stack
+
+- Language: Go 1.22+
+- CLI: Cobra
+- Web: net/http + html/template + HTMX + Tailwind CSS
+- Database: SQLite (pure-Go driver, modernc.org/sqlite)
+- LLM: Interface-based provider pattern (Bedrock, OpenAI, Anthropic, Vertex AI)
+- Assets: go:embed (single binary, zero runtime dependencies)
+- Testing: table-driven + property-based (pgregory.net/rapid)
+
+## Installation
+
+Download from GitHub Releases: https://github.com/npozs77/VocabGen/releases
+
+Or via Docker: docker run -p 8080:8080 ghcr.io/npozs77/vocabgen:latest
+
+## Quick Start
+
+```bash
+# Start the web app (open http://localhost:8080 in your browser)
+vocabgen serve --port 8080
+
+# CLI for scripting
+vocabgen lookup "maison" -l French
+vocabgen batch --input-file words.csv --mode words -l German
+
+# Free local LLM via Ollama (no API key needed)
+vocabgen lookup "casa" -l Italian --provider openai --base-url http://localhost:11434/v1
+```
+
+## Output Format
+
+Each vocabulary entry includes: word, type (part of speech), definition, English translation, target language translation, usage notes, connotation, and register.
+
+## License
+
+MIT License. Source: https://github.com/npozs77/VocabGen
