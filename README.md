@@ -1,5 +1,10 @@
 # VocabGen
 
+<!-- Badges -->
+![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)
+![Build Status](https://github.com/npozs77/VocabGen/actions/workflows/ci.yml/badge.svg?branch=main)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
 A single-binary CLI and embedded web app that generates structured vocabulary lists for language learners. It processes words and expressions through LLM providers (AWS Bedrock, OpenAI, Anthropic), validates JSON responses against English schemas, caches results in SQLite, and serves a browser-based HTMX interface with lookup, batch processing, database management, and flashcard-based study mode — all compiled into one executable with zero runtime dependencies.
 
 ## Prerequisites
