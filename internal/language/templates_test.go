@@ -26,7 +26,7 @@ func TestPropertyP1TemplateFormattingProducesValidPrompts(t *testing.T) {
 			rapid.StringMatching(`[\x{3040}-\x{309F}]{1,10}`), // Hiragana
 		).Draw(t, "sourceLang")
 
-		mode := rapid.SampledFrom([]string{"words", "expressions"}).Draw(t, "mode")
+		mode := rapid.SampledFrom([]string{"words", "expressions", "sentences"}).Draw(t, "mode")
 		token := rapid.StringMatching(`.{1,50}`).Draw(t, "token")
 		context := rapid.StringMatching(`.{0,100}`).Draw(t, "context")
 		targetLang := rapid.OneOf(
@@ -51,11 +51,14 @@ func TestPropertyP1TemplateFormattingProducesValidPrompts(t *testing.T) {
 		if !strings.Contains(result, resolvedTarget) {
 			t.Errorf("output missing resolved target language %q", resolvedTarget)
 		}
-		if !strings.Contains(result, "CORE RULES:") {
-			t.Error("output missing Core Rule Block")
-		}
-		if !strings.Contains(result, "DECISION RUBRIC") {
-			t.Error("output missing Decision Rubric")
+		// CORE RULES and DECISION RUBRIC are only in words/expressions templates.
+		if mode != "sentences" {
+			if !strings.Contains(result, "CORE RULES:") {
+				t.Error("output missing Core Rule Block")
+			}
+			if !strings.Contains(result, "DECISION RUBRIC") {
+				t.Error("output missing Decision Rubric")
+			}
 		}
 		if matches := unresolvedPlaceholder.FindAllString(result, -1); len(matches) > 0 {
 			t.Errorf("output contains unresolved placeholders: %v", matches)
@@ -75,7 +78,7 @@ func TestPropertyP5BuildPromptInjectsAllParameters(t *testing.T) {
 			rapid.StringMatching(`[A-Za-z]{2,20}`),
 		).Draw(t, "sourceLang")
 
-		mode := rapid.SampledFrom([]string{"words", "expressions"}).Draw(t, "mode")
+		mode := rapid.SampledFrom([]string{"words", "expressions", "sentences"}).Draw(t, "mode")
 		token := rapid.StringMatching(`[A-Za-z\x{00C0}-\x{024F}]{1,30}`).Draw(t, "token")
 		context := rapid.StringMatching(`[A-Za-z ]{0,60}`).Draw(t, "context")
 		targetLang := rapid.OneOf(
@@ -97,7 +100,8 @@ func TestPropertyP5BuildPromptInjectsAllParameters(t *testing.T) {
 		if !strings.Contains(result, token) {
 			t.Errorf("output missing token %q", token)
 		}
-		if context != "" && !strings.Contains(result, context) {
+		// Sentence template doesn't use a {context} placeholder.
+		if mode != "sentences" && context != "" && !strings.Contains(result, context) {
 			t.Errorf("output missing context %q", context)
 		}
 		if !strings.Contains(result, resolvedTarget) {
@@ -153,6 +157,7 @@ func TestBuildPromptModeSelection(t *testing.T) {
 	}{
 		{"words mode uses word placeholder", "words", `word or phrase: "test"`, false},
 		{"expressions mode uses expression placeholder", "expressions", `expression: "test"`, false},
+		{"sentences mode uses sentence placeholder", "sentences", `sentence: "test"`, false},
 		{"invalid mode returns error", "invalid", "", true},
 	}
 
@@ -191,4 +196,84 @@ func TestBuildPromptPerLanguage(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSentenceTemplateContainsAllFieldNames verifies that SentenceTemplate
+// mentions all required field names from the sentence schema.
+//
+// Validates: Issue #26
+func TestSentenceTemplateContainsAllFieldNames(t *testing.T) {
+	fields := []string{
+		"sentence", "corrected_sentence", "is_correct", "grammar_errors",
+		"translation", "target_translation", "key_vocabulary", "notes",
+	}
+	for _, f := range fields {
+		if !strings.Contains(SentenceTemplate, `"`+f+`"`) {
+			t.Errorf("SentenceTemplate missing field name %q", f)
+		}
+	}
+}
+
+// TestBuildPromptSentenceMode verifies that mode "sentences" uses SentenceTemplate.
+//
+// Validates: Issue #26
+func TestBuildPromptSentenceMode(t *testing.T) {
+	result, err := BuildPrompt("nl", "sentences", "Ik ga morgen naar de markt", "", "hu")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(result, "analyze a sentence") {
+		t.Error("sentences mode should use SentenceTemplate")
+	}
+	if !strings.Contains(result, "Ik ga morgen naar de markt") {
+		t.Error("output missing the sentence token")
+	}
+	if !strings.Contains(result, "Dutch") {
+		t.Error("output missing resolved source language")
+	}
+	if !strings.Contains(result, "Hungarian") {
+		t.Error("output missing resolved target language")
+	}
+}
+
+// TestPropertyP20_SentenceTemplateProducesValidPrompts verifies that for any
+// source language and sentence, BuildPrompt with mode "sentences" produces
+// output containing the resolved language name, sentence, target language,
+// and no unresolved placeholders.
+//
+// Validates: Issue #26
+func TestPropertyP20_SentenceTemplateProducesValidPrompts(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		sourceLang := rapid.OneOf(
+			rapid.SampledFrom([]string{"nl", "hu", "it", "ru", "en", "de", "fr", "es"}),
+			rapid.StringMatching(`[A-Za-z]{2,15}`),
+		).Draw(t, "sourceLang")
+
+		sentence := rapid.StringMatching(`.{1,80}`).Draw(t, "sentence")
+		targetLang := rapid.OneOf(
+			rapid.SampledFrom([]string{"hu", "en", "de", "fr"}),
+			rapid.StringMatching(`[a-z]{2,10}`),
+		).Draw(t, "targetLang")
+
+		result, err := BuildPrompt(sourceLang, "sentences", sentence, "", targetLang)
+		if err != nil {
+			t.Fatalf("BuildPrompt returned error: %v", err)
+		}
+
+		resolvedSource := ResolveLanguageName(sourceLang)
+		resolvedTarget := ResolveLanguageName(targetLang)
+
+		if !strings.Contains(result, resolvedSource) {
+			t.Errorf("output missing resolved source language %q", resolvedSource)
+		}
+		if !strings.Contains(result, sentence) {
+			t.Errorf("output missing sentence %q", sentence)
+		}
+		if !strings.Contains(result, resolvedTarget) {
+			t.Errorf("output missing resolved target language %q", resolvedTarget)
+		}
+		if matches := unresolvedPlaceholder.FindAllString(result, -1); len(matches) > 0 {
+			t.Errorf("output contains unresolved placeholders: %v", matches)
+		}
+	})
 }

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.0]
+
+### Added
+
+- Sentence lookup mode — analyze full sentences for grammar errors, corrections, translations, and key vocabulary (#26)
+
 ## [1.3.1]
 
 ### Changed

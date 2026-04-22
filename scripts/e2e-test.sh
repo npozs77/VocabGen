@@ -305,8 +305,10 @@ echo "--- 13. Sentence Lookup ---"
 
 assert_exit_zero "sentence lookup" $BINARY lookup "Ik ga morgen naar de markt om groenten te kopen." \
     -l nl --type sentence $PROFILE_FLAG $DB
-stdout_contains '"expression"' && pass "sentence has expression field" || fail "sentence has expression field" "missing"
-stdout_contains '"definition"' && pass "sentence has definition field" || fail "sentence has definition field" "missing"
+stdout_contains '"sentence"' && pass "sentence has sentence field" || fail "sentence has sentence field" "missing"
+stdout_contains '"corrected_sentence"' && pass "sentence has corrected_sentence field" || fail "sentence has corrected_sentence field" "missing"
+stdout_contains '"grammar_errors"' && pass "sentence has grammar_errors field" || fail "sentence has grammar_errors field" "missing"
+stdout_contains '"key_vocabulary"' && pass "sentence has key_vocabulary field" || fail "sentence has key_vocabulary field" "missing"
 stderr_contains "sentence lookup" && pass "sentence logged as ephemeral" || fail "sentence logged as ephemeral" "missing"
 
 # Verify the sentence was NOT cached — a second lookup should NOT say "cache hit".

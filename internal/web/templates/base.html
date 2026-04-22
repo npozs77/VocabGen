@@ -51,6 +51,16 @@
       class="text-blue-600 hover:text-blue-800 ml-4">✕</button>
   </div>
   {{end}}
+  {{if .LocalModelWarning}}
+  <div id="local-model-warning"
+    class="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm text-yellow-800 max-w-7xl mx-auto">
+    ⚠ Using a local model (Ollama). Translation quality may be lower — especially for sentence analysis and less common
+    languages. For best results, use a cloud provider (OpenAI, Anthropic, or AWS Bedrock) via the <a href="/config"
+      class="underline font-medium">Config</a> page.
+  </div>
+  {{else}}
+  <div id="local-model-warning" class="hidden"></div>
+  {{end}}
   <main class="max-w-7xl mx-auto px-4 py-8">
     {{template "content" .}}
   </main>
@@ -71,6 +81,18 @@
       var pd = document.getElementById('profile-dropdown');
       if (ps && pd && !ps.contains(e.target)) {
         pd.classList.add('hidden');
+      }
+    });
+    // Update local model warning banner when profile/provider changes.
+    document.body.addEventListener('localModelWarning', function (e) {
+      var banner = document.getElementById('local-model-warning');
+      if (!banner) return;
+      if (e.detail && e.detail.value === 'show') {
+        banner.className = 'bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm text-yellow-800 max-w-7xl mx-auto';
+        banner.innerHTML = '⚠ Using a local model (Ollama). Translation quality may be lower — especially for sentence analysis and less common languages. For best results, use a cloud provider (OpenAI, Anthropic, or AWS Bedrock) via the <a href="/config" class="underline font-medium">Config</a> page.';
+      } else {
+        banner.className = 'hidden';
+        banner.innerHTML = '';
       }
     });
   </script>

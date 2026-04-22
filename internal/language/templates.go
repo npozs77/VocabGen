@@ -83,9 +83,46 @@ Requirements for the JSON fields:
 Now process this expression:
 "{expression}"`
 
+// SentenceTemplate is the prompt template for sentence analysis lookups.
+// Sentences are user-written and may contain errors — the prompt asks for
+// grammar checking, correction, key vocabulary extraction, and translation.
+// Placeholders: {source_language}, {sentence}, {target_language_name}.
+const SentenceTemplate = `You are a {source_language} language tutor helping a B2–C1 learner analyze a sentence they wrote or encountered.
+The learner's native language is {target_language_name}. All target translations MUST be in {target_language_name}.
+Return your answer ONLY as a single JSON object, no extra text.
+
+Given:
+- {source_language} sentence: "{sentence}"
+- Target language for translations: {target_language_name}
+
+This sentence was written or encountered by a language learner. Analyze it for grammar, vocabulary, and meaning.
+
+CRITICAL: The "target_translation" field MUST contain a {target_language_name} translation, NOT English or any other language.
+
+Requirements for the JSON fields:
+- "sentence": repeat the original sentence exactly as provided
+- "corrected_sentence": the grammatically correct version of the sentence (identical to "sentence" if no errors found)
+- "is_correct": boolean — true if the sentence is grammatically correct, false if errors were found
+- "grammar_errors": array of objects, each with:
+  - "error": the specific part of the sentence that is wrong
+  - "correction": the corrected form
+  - "explanation": brief explanation of the grammar rule violated (in {source_language}, so the learner stays immersed in the target language)
+  If the sentence is correct, return an empty array [].
+- "translation": object with "primary" (best English translation of the full sentence) and "alternatives" (semicolon-separated alternative translations, or empty string)
+- "target_translation": object with "primary" (best {target_language_name} translation of the full sentence — this MUST be in {target_language_name}) and "alternatives" (semicolon-separated {target_language_name} alternatives, or empty string)
+- "key_vocabulary": array of objects, each with:
+  - "word": the {source_language} word or phrase from the sentence
+  - "definition": brief definition in {source_language}
+  - "english": English translation
+  Extract 2–5 key vocabulary items that a B2–C1 learner would benefit from studying.
+- "notes": optional notes about register, formality, or usage context of the sentence (in {source_language})
+
+Now analyze this sentence:
+"{sentence}"`
+
 // BuildPrompt constructs a complete prompt from template + parameters.
-// sourceLang is a language code or name; mode is "words" or "expressions";
-// token is the word/expression; context is an optional context sentence;
+// sourceLang is a language code or name; mode is "words", "expressions", or "sentences";
+// token is the word/expression/sentence; context is an optional context sentence;
 // targetLang is the target language code or name.
 func BuildPrompt(sourceLang, mode, token, context, targetLang string) (string, error) {
 	langName := ResolveLanguageName(sourceLang)
@@ -97,14 +134,17 @@ func BuildPrompt(sourceLang, mode, token, context, targetLang string) (string, e
 		tmpl = WordsTemplate
 	case "expressions":
 		tmpl = ExpressionsTemplate
+	case "sentences":
+		tmpl = SentenceTemplate
 	default:
-		return "", fmt.Errorf("invalid mode: %q (must be \"words\" or \"expressions\")", mode)
+		return "", fmt.Errorf("invalid mode: %q (must be \"words\", \"expressions\", or \"sentences\")", mode)
 	}
 
 	r := strings.NewReplacer(
 		"{source_language}", langName,
 		"{word}", token,
 		"{expression}", token,
+		"{sentence}", token,
 		"{context}", context,
 		"{target_language_name}", targetName,
 	)

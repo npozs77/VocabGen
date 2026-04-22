@@ -12,6 +12,7 @@
 
 - 🖥️ **Web-based vocabulary app** — browser interface for word lookup, batch processing, flashcard study, database management, and configuration
 - 🃏 **Flashcard study mode** — flip cards, rate difficulty, filter by language/tags/difficulty
+- 📝 **Sentence analysis** — grammar checking, corrections, key vocabulary extraction, and translation
 - 🔤 **LLM-powered vocabulary lookup** — get definitions, translations, connotation, and register for any word or expression
 - 📄 **CSV batch processing** — upload word lists via the web UI or process them from the command line
 - 🌍 **Multi-language support** — Dutch, German, French, Spanish, Italian, Russian, Portuguese, Polish, Turkish, Hungarian, English, and any custom language
@@ -62,7 +63,7 @@ vocabgen batch --input-file ch1.csv --mode words -l nl --tags "chapter-1"
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `lookup` | Look up a single word or expression | `vocabgen lookup "werk" -l nl --type word` |
+| `lookup` | Look up a word, expression, or sentence | `vocabgen lookup "werk" -l nl --type word` |
 | `batch` | Process words/expressions from a CSV file | `vocabgen batch --input-file words.csv --mode words -l nl` |
 | `serve` | Start the embedded web UI | `vocabgen serve --port 8080` |
 | `backup` | Create a timestamped database backup | `vocabgen backup` |
@@ -95,6 +96,7 @@ vocabgen batch --input-file ch1.csv --mode words -l nl --tags "chapter-1"
 vocabgen lookup "uitkomen" -l nl
 vocabgen lookup "werk" -l nl --type word --context "Het werk is klaar"
 vocabgen lookup "het zit zo" -l nl --type expression
+vocabgen lookup "Ik ga morgen naar de markt" -l nl --type sentence  # grammar check + vocabulary
 vocabgen lookup "uitkomen" -l nl --on-conflict replace   # auto-resolve conflicts
 vocabgen lookup "uitkomen" -l nl --dry-run               # preview without API call
 ```
