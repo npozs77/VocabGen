@@ -9,6 +9,71 @@
   {{.Warning}}
 </div>
 {{end}}
+{{if .Entry.Sentence}}
+<!-- Sentence analysis result -->
+<div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <tbody>
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Sentence</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Sentence}}</td>
+      </tr>
+      {{if not .Entry.IsCorrect}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Corrected</td>
+        <td class="px-4 py-2 text-green-700 font-medium">{{.Entry.CorrectedSentence}}</td>
+      </tr>
+      {{end}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Grammar</td>
+        <td class="px-4 py-2">
+          {{if .Entry.IsCorrect}}
+          <span class="text-green-600">✓ No errors found</span>
+          {{else}}
+          <div class="space-y-2">
+            {{range .Entry.GrammarErrors}}
+            <div class="bg-red-50 rounded p-2 text-sm">
+              <div><span class="text-red-600 font-medium">{{.Error}}</span> → <span
+                  class="text-green-700 font-medium">{{.Correction}}</span></div>
+              <div class="text-gray-600 mt-0.5">{{.Explanation}}</div>
+            </div>
+            {{end}}
+          </div>
+          {{end}}
+        </td>
+      </tr>
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">English</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.English}}</td>
+      </tr>
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Target Translation</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.TargetTranslation}}</td>
+      </tr>
+      {{if .Entry.KeyVocabulary}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3 align-top">Key Vocabulary</td>
+        <td class="px-4 py-2">
+          <div class="space-y-1">
+            {{range .Entry.KeyVocabulary}}
+            <div class="text-sm"><span class="font-medium text-gray-800">{{.Word}}</span> — {{.Definition}} <span
+                class="text-gray-500">({{.English}})</span></div>
+            {{end}}
+          </div>
+        </td>
+      </tr>
+      {{end}}
+      {{if .Entry.Notes}}
+      <tr class="border-b border-gray-100">
+        <td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-1/3">Notes</td>
+        <td class="px-4 py-2 text-gray-800">{{.Entry.Notes}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<!-- Word/Expression result -->
 <div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
   {{if .FromCache}}<div class="bg-blue-50 text-blue-700 text-xs px-4 py-1">From cache</div>{{end}}
   <table class="w-full text-sm">
@@ -98,5 +163,6 @@
     </tbody>
   </table>
 </div>
+{{end}}{{/* end sentence vs word/expression */}}
 {{end}}
 {{end}}

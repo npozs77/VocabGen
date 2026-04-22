@@ -120,7 +120,7 @@ func (s *Server) handleLookupHTML(w http.ResponseWriter, r *http.Request) {
 	if result.NeedsResolution {
 		entryJSON, _ := json.Marshal(result.Entry)
 		mode := "words"
-		if params.LookupType == "expression" || params.LookupType == "sentence" {
+		if params.LookupType == "expression" {
 			mode = "expressions"
 		}
 		data := map[string]any{

@@ -211,6 +211,14 @@ func createProvider(cmd *cobra.Command) (llm.Provider, error) {
 	return p, nil
 }
 
+// warnIfLocalModel prints a warning to stderr when the active config uses a
+// local Ollama model, which may produce lower quality results.
+func warnIfLocalModel() {
+	if strings.Contains(appConfig.BaseURL, "localhost:11434") {
+		fmt.Fprintln(os.Stderr, "⚠ Using a local model (Ollama). Translation quality may be lower — especially for sentence analysis and less common languages. For best results, use a cloud provider (OpenAI, Anthropic, or AWS Bedrock).")
+	}
+}
+
 // openStore opens the SQLite database from the configured path.
 func openStore() (*db.SQLiteStore, error) {
 	dbPath := appConfig.DBPath
@@ -266,6 +274,7 @@ var lookupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		warnIfLocalModel()
 
 		store, err := openStore()
 		if err != nil {
@@ -413,6 +422,7 @@ var batchCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		warnIfLocalModel()
 
 		store, err := openStore()
 		if err != nil {

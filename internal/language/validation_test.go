@@ -430,3 +430,127 @@ func FuzzValidateResponse(f *testing.F) {
 		_, _ = ValidateResponse(mode, rawJSON)
 	})
 }
+
+// --- Sentence validation tests ---
+
+// validSentenceJSON generates a valid sentence response JSON map.
+func validSentenceJSON(t *rapid.T) map[string]any {
+	return map[string]any{
+		"sentence":           rapid.StringMatching(`[A-Za-z ]{5,50}`).Draw(t, "sentence"),
+		"corrected_sentence": rapid.StringMatching(`[A-Za-z ]{5,50}`).Draw(t, "corrected_sentence"),
+		"is_correct":         rapid.Bool().Draw(t, "is_correct"),
+		"grammar_errors":     []any{},
+		"translation":        map[string]any{"primary": rapid.String().Draw(t, "trans_p"), "alternatives": ""},
+		"target_translation": map[string]any{"primary": rapid.String().Draw(t, "tgt_p"), "alternatives": ""},
+		"key_vocabulary":     []any{},
+		"notes":              rapid.String().Draw(t, "notes"),
+	}
+}
+
+// TestPropertyP21_SentenceValidationAcceptsValidJSON verifies that ValidateResponse
+// accepts any valid sentence JSON structure.
+//
+// Validates: Issue #26
+func TestPropertyP21_SentenceValidationAcceptsValidJSON(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		data := validSentenceJSON(t)
+		raw, _ := json.Marshal(data)
+
+		entry, err := ValidateResponse("sentences", string(raw))
+		if err != nil {
+			t.Fatalf("ValidateResponse rejected valid sentence JSON: %v\nJSON: %s", err, raw)
+		}
+		if entry.Sentence != data["sentence"] {
+			t.Errorf("Sentence: got %q, want %q", entry.Sentence, data["sentence"])
+		}
+		if entry.CorrectedSentence != data["corrected_sentence"] {
+			t.Errorf("CorrectedSentence: got %q, want %q", entry.CorrectedSentence, data["corrected_sentence"])
+		}
+	})
+}
+
+// TestSentenceValidation_MissingRequiredFields verifies that missing required
+// fields in sentence mode return a ValidationError.
+//
+// Validates: Issue #26
+func TestSentenceValidation_MissingRequiredFields(t *testing.T) {
+	requiredFields := []string{
+		"sentence", "corrected_sentence", "is_correct",
+		"grammar_errors", "translation", "target_translation", "key_vocabulary",
+	}
+
+	for _, field := range requiredFields {
+		t.Run("missing_"+field, func(t *testing.T) {
+			data := map[string]any{
+				"sentence":           "test sentence",
+				"corrected_sentence": "test sentence",
+				"is_correct":         true,
+				"grammar_errors":     []any{},
+				"translation":        map[string]any{"primary": "test", "alternatives": ""},
+				"target_translation": map[string]any{"primary": "teszt", "alternatives": ""},
+				"key_vocabulary":     []any{},
+			}
+			delete(data, field)
+			raw, _ := json.Marshal(data)
+
+			_, err := ValidateResponse("sentences", string(raw))
+			if err == nil {
+				t.Fatalf("expected error for missing field %q", field)
+			}
+			var ve *ValidationError
+			if !errors.As(err, &ve) {
+				t.Fatalf("expected ValidationError, got %T: %v", err, err)
+			}
+		})
+	}
+}
+
+// TestSentenceValidation_GrammarErrorsParsing verifies that grammar_errors
+// array is correctly parsed into GrammarError structs.
+//
+// Validates: Issue #26
+func TestSentenceValidation_GrammarErrorsParsing(t *testing.T) {
+	data := map[string]any{
+		"sentence":           "Ik ga morgen naar de markt",
+		"corrected_sentence": "Ik ga morgen naar de markt.",
+		"is_correct":         false,
+		"grammar_errors": []any{
+			map[string]any{
+				"error":       "markt",
+				"correction":  "markt.",
+				"explanation": "Missing period",
+			},
+			map[string]any{
+				"error":       "ga",
+				"correction":  "ging",
+				"explanation": "Past tense required",
+			},
+		},
+		"translation":        map[string]any{"primary": "I go to the market tomorrow", "alternatives": ""},
+		"target_translation": map[string]any{"primary": "Holnap a piacra megyek", "alternatives": ""},
+		"key_vocabulary": []any{
+			map[string]any{"word": "morgen", "definition": "de volgende dag", "english": "tomorrow"},
+		},
+	}
+	raw, _ := json.Marshal(data)
+
+	entry, err := ValidateResponse("sentences", string(raw))
+	if err != nil {
+		t.Fatalf("ValidateResponse error: %v", err)
+	}
+	if len(entry.GrammarErrors) != 2 {
+		t.Fatalf("expected 2 grammar errors, got %d", len(entry.GrammarErrors))
+	}
+	if entry.GrammarErrors[0].Error != "markt" {
+		t.Errorf("grammar error[0].Error = %q, want %q", entry.GrammarErrors[0].Error, "markt")
+	}
+	if entry.GrammarErrors[1].Correction != "ging" {
+		t.Errorf("grammar error[1].Correction = %q, want %q", entry.GrammarErrors[1].Correction, "ging")
+	}
+	if len(entry.KeyVocabulary) != 1 {
+		t.Fatalf("expected 1 key vocabulary item, got %d", len(entry.KeyVocabulary))
+	}
+	if entry.KeyVocabulary[0].Word != "morgen" {
+		t.Errorf("key_vocabulary[0].Word = %q, want %q", entry.KeyVocabulary[0].Word, "morgen")
+	}
+}

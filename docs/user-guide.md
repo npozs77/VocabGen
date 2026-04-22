@@ -200,7 +200,7 @@ The recommended way to get started is the web app:
 vocabgen serve --port 8080
 ```
 
-Open `http://localhost:8080` in your browser. From there you can look up words, upload CSV files for batch processing, study with flashcards, and manage your vocabulary database — all without touching the command line.
+Open `http://localhost:8080` in your browser. On first launch, go to the **Config** page (`http://localhost:8080/config`) to set up your LLM provider — lookups won't work until a provider is configured. From there you can look up words, upload CSV files for batch processing, study with flashcards, and manage your vocabulary database — all without touching the command line.
 
 For power users and scripting, the CLI is also available:
 
@@ -229,7 +229,7 @@ Open `http://localhost:8080` in your browser. This is the primary way to use Voc
 
 ### Pages
 
-- **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context.
+- **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context. Select "Sentence" type to analyze a full sentence — the LLM checks grammar, provides corrections, translates the sentence, and extracts key vocabulary. Sentence lookups are ephemeral (not stored in the database).
 - **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
 - **Flashcards** (`/flashcards`): Study vocabulary with a flip-card interface. Filter by language, tags, and difficulty. Rate cards as easy/hard/natural to focus future sessions. See [Flashcards](#flashcards) below.
 - **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
@@ -305,6 +305,22 @@ vocabgen batch --input-file idioms.csv --mode expressions -l nl
 # Auto-replace existing entries when context triggers a new lookup
 vocabgen batch --input-file ch1.csv --mode words -l nl --on-conflict replace
 ```
+
+## Sentence Lookup
+
+Sentence lookup analyzes a full sentence for grammar, vocabulary, and meaning. Select "Sentence" as the lookup type in the web UI or use `--type sentence` from the CLI:
+
+```bash
+vocabgen lookup "Ik ga morgen naar de markt" -l nl --type sentence
+```
+
+The LLM response includes:
+- Grammar check with corrections and explanations for each error
+- Full sentence translation (English and target language)
+- Key vocabulary extracted from the sentence (2–5 items)
+- Notes on register and usage
+
+Sentence lookups are ephemeral — results are displayed but not stored in the database. Each lookup always invokes the LLM (no caching).
 
 ## Flashcards
 

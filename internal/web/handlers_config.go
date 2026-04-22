@@ -67,6 +67,9 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	s.activeProfile = req.Profile
 	s.logger.Info("switched config profile", "profile", req.Profile)
 
+	// Determine if the new profile uses a local model (for warning banner).
+	isLocal := strings.Contains(cfg.BaseURL, "localhost:11434")
+
 	// When switched from the nav-bar profile switcher, return just the
 	// updated switcher partial so HTMX can swap it in-place.
 	if req.Source == "nav" {
@@ -77,6 +80,12 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 		}{
 			ActiveProfile: s.activeProfile,
 			Profiles:      profiles,
+		}
+		// Signal the page to update the local model warning banner.
+		if isLocal {
+			w.Header().Set("HX-Trigger", `{"localModelWarning": "show"}`)
+		} else {
+			w.Header().Set("HX-Trigger", `{"localModelWarning": "hide"}`)
 		}
 		_ = renderPartial(w, "profile_switcher", data)
 		return
@@ -98,6 +107,12 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 		Profiles:      profiles,
 		ActiveProfile: s.activeProfile,
 		StatusMessage: template.HTML(`<p class="text-green-600 text-sm mt-1">Switched to profile "` + req.Profile + `".</p>`),
+	}
+	// Signal the page to update the local model warning banner.
+	if isLocal {
+		w.Header().Set("HX-Trigger", `{"localModelWarning": "show"}`)
+	} else {
+		w.Header().Set("HX-Trigger", `{"localModelWarning": "hide"}`)
 	}
 	_ = renderPartial(w, "config_form", data)
 }
@@ -203,6 +218,13 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Info("config saved", "profile", s.activeProfile, "provider", updated.Provider)
 
+	// Signal the page to update the local model warning banner.
+	if strings.Contains(updated.BaseURL, "localhost:11434") {
+		w.Header().Set("HX-Trigger", `{"localModelWarning": "show"}`)
+	} else {
+		w.Header().Set("HX-Trigger", `{"localModelWarning": "hide"}`)
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(`<p class="text-green-600 text-sm mt-1">Configuration saved to profile "` + s.activeProfile + `".</p>`))
 }
@@ -237,6 +259,14 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 		Languages:     service.GetSupportedLanguages(),
 		Profiles:      profiles,
 		ActiveProfile: s.activeProfile,
+	}
+	// Signal the page to update the local model warning banner based on
+	// the previewed provider. Non-openai providers never use a local URL.
+	isLocal := cfg.Provider == "openai" && strings.Contains(cfg.BaseURL, "localhost:11434")
+	if isLocal {
+		w.Header().Set("HX-Trigger", `{"localModelWarning": "show"}`)
+	} else {
+		w.Header().Set("HX-Trigger", `{"localModelWarning": "hide"}`)
 	}
 	_ = renderPartial(w, "config_form", data)
 }

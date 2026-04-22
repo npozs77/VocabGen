@@ -146,3 +146,35 @@ func (m *failingMockProvider) Invoke(ctx context.Context, prompt, modelID string
 }
 
 func (m *failingMockProvider) Name() string { return "failing-mock" }
+
+// mockSentenceProvider returns valid sentence JSON.
+type mockSentenceProvider struct {
+	invocations atomic.Int64
+}
+
+func (m *mockSentenceProvider) Invoke(_ context.Context, _, _ string) (string, error) {
+	m.invocations.Add(1)
+	resp := map[string]any{
+		"sentence":           "Ik ga morgen naar de markt",
+		"corrected_sentence": "Ik ga morgen naar de markt.",
+		"is_correct":         false,
+		"grammar_errors": []map[string]any{
+			{
+				"error":       "markt",
+				"correction":  "markt.",
+				"explanation": "Missing period at end of sentence",
+			},
+		},
+		"translation":        map[string]any{"primary": "I am going to the market tomorrow", "alternatives": ""},
+		"target_translation": map[string]any{"primary": "Holnap a piacra megyek", "alternatives": ""},
+		"key_vocabulary": []map[string]any{
+			{"word": "morgen", "definition": "de volgende dag", "english": "tomorrow"},
+			{"word": "markt", "definition": "plaats waar handel plaatsvindt", "english": "market"},
+		},
+		"notes": "informal register",
+	}
+	b, _ := json.Marshal(resp)
+	return string(b), nil
+}
+
+func (m *mockSentenceProvider) Name() string { return "mock-sentence" }

@@ -44,10 +44,14 @@ type LookupResult struct {
 
 // mode returns the prompt mode string based on the lookup type.
 func mode(lookupType string) string {
-	if lookupType == "expression" || lookupType == "sentence" {
+	switch lookupType {
+	case "expression":
 		return "expressions"
+	case "sentence":
+		return "sentences"
+	default:
+		return "words"
 	}
-	return "words"
 }
 
 // checkHallucination checks if the input token appears in the example sentence.

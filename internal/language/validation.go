@@ -33,6 +33,27 @@ type ValidatedEntry struct {
 	Collocations      string // words only
 	ContrastiveNotes  string
 	SecondaryMeanings string // words only
+
+	// Sentence fields (ephemeral, not stored in DB)
+	Sentence          string
+	CorrectedSentence string
+	IsCorrect         bool
+	GrammarErrors     []GrammarError
+	KeyVocabulary     []VocabItem
+}
+
+// GrammarError represents a single grammar error found in a sentence.
+type GrammarError struct {
+	Error       string `json:"error"`
+	Correction  string `json:"correction"`
+	Explanation string `json:"explanation"`
+}
+
+// VocabItem represents a key vocabulary item extracted from a sentence.
+type VocabItem struct {
+	Word       string `json:"word"`
+	Definition string `json:"definition"`
+	English    string `json:"english"`
 }
 
 // ValidationError is returned when LLM JSON doesn't match the expected schema.
@@ -55,6 +76,12 @@ var wordsOptional = []string{"english_definition", "notes", "connotation", "regi
 
 // expressionsOptional lists optional fields for expressions mode.
 var expressionsOptional = []string{"english_definition", "notes", "connotation", "register", "contrastive_notes"}
+
+// sentenceRequired lists required fields for sentences mode.
+var sentenceRequired = []string{"sentence", "corrected_sentence", "is_correct", "grammar_errors", "translation", "target_translation", "key_vocabulary"}
+
+// sentenceOptional lists optional fields for sentences mode.
+var sentenceOptional = []string{"notes"}
 
 // translationFields are fields that accept string or {primary, alternatives} object.
 var translationFields = map[string]bool{"english": true, "target_translation": true}
@@ -119,6 +146,8 @@ func ValidateResponse(mode, rawJSON string) (*ValidatedEntry, error) {
 	case "expressions":
 		required = expressionsRequired
 		optional = expressionsOptional
+	case "sentences":
+		return validateSentenceResponse(data)
 	default:
 		return nil, fmt.Errorf("invalid mode: %q", mode)
 	}
@@ -213,6 +242,148 @@ func ValidateResponse(mode, rawJSON string) (*ValidatedEntry, error) {
 		entry.SecondaryMeanings = getString("secondary_meanings")
 	} else {
 		entry.Expression = getString("expression")
+	}
+
+	return entry, nil
+}
+
+// validateSentenceResponse validates and extracts sentence-specific fields from
+// the parsed JSON data. Sentence responses have a different structure than
+// words/expressions: they include grammar_errors (array), key_vocabulary (array),
+// is_correct (bool), and translation fields.
+func validateSentenceResponse(data map[string]any) (*ValidatedEntry, error) {
+	// Check required fields
+	var missing []string
+	for _, f := range sentenceRequired {
+		if _, exists := data[f]; !exists {
+			missing = append(missing, f)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, &ValidationError{
+			Message: fmt.Sprintf("missing required fields: %s", strings.Join(missing, ", ")),
+			Fields:  missing,
+		}
+	}
+
+	getString := func(key string) string {
+		if s, ok := data[key].(string); ok {
+			return s
+		}
+		return ""
+	}
+
+	// Validate sentence (string)
+	if _, ok := data["sentence"].(string); !ok {
+		return nil, &ValidationError{
+			Message: fmt.Sprintf("field %q: expected string, got %T", "sentence", data["sentence"]),
+			Fields:  []string{"sentence"},
+		}
+	}
+
+	// Validate corrected_sentence (string)
+	if _, ok := data["corrected_sentence"].(string); !ok {
+		return nil, &ValidationError{
+			Message: fmt.Sprintf("field %q: expected string, got %T", "corrected_sentence", data["corrected_sentence"]),
+			Fields:  []string{"corrected_sentence"},
+		}
+	}
+
+	// Validate is_correct (bool)
+	isCorrect, ok := data["is_correct"].(bool)
+	if !ok {
+		return nil, &ValidationError{
+			Message: fmt.Sprintf("field %q: expected boolean, got %T", "is_correct", data["is_correct"]),
+			Fields:  []string{"is_correct"},
+		}
+	}
+
+	// Validate and parse grammar_errors (array of objects)
+	grammarRaw, ok := data["grammar_errors"].([]any)
+	if !ok {
+		return nil, &ValidationError{
+			Message: fmt.Sprintf("field %q: expected array, got %T", "grammar_errors", data["grammar_errors"]),
+			Fields:  []string{"grammar_errors"},
+		}
+	}
+	grammarErrors := make([]GrammarError, 0, len(grammarRaw))
+	for i, item := range grammarRaw {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			return nil, &ValidationError{
+				Message: fmt.Sprintf("grammar_errors[%d]: expected object, got %T", i, item),
+				Fields:  []string{"grammar_errors"},
+			}
+		}
+		ge := GrammarError{}
+		if v, ok := obj["error"].(string); ok {
+			ge.Error = v
+		}
+		if v, ok := obj["correction"].(string); ok {
+			ge.Correction = v
+		}
+		if v, ok := obj["explanation"].(string); ok {
+			ge.Explanation = v
+		}
+		grammarErrors = append(grammarErrors, ge)
+	}
+
+	// Validate and normalize translation fields
+	translation, err := normalizeTranslation("translation", data["translation"])
+	if err != nil {
+		return nil, &ValidationError{Message: err.Error(), Fields: []string{"translation"}}
+	}
+	targetTranslation, err := normalizeTranslation("target_translation", data["target_translation"])
+	if err != nil {
+		return nil, &ValidationError{Message: err.Error(), Fields: []string{"target_translation"}}
+	}
+
+	// Validate and parse key_vocabulary (array of objects)
+	vocabRaw, ok := data["key_vocabulary"].([]any)
+	if !ok {
+		return nil, &ValidationError{
+			Message: fmt.Sprintf("field %q: expected array, got %T", "key_vocabulary", data["key_vocabulary"]),
+			Fields:  []string{"key_vocabulary"},
+		}
+	}
+	keyVocab := make([]VocabItem, 0, len(vocabRaw))
+	for i, item := range vocabRaw {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			return nil, &ValidationError{
+				Message: fmt.Sprintf("key_vocabulary[%d]: expected object, got %T", i, item),
+				Fields:  []string{"key_vocabulary"},
+			}
+		}
+		vi := VocabItem{}
+		if v, ok := obj["word"].(string); ok {
+			vi.Word = v
+		}
+		if v, ok := obj["definition"].(string); ok {
+			vi.Definition = v
+		}
+		if v, ok := obj["english"].(string); ok {
+			vi.English = v
+		}
+		keyVocab = append(keyVocab, vi)
+	}
+
+	// Default optional fields to "" if absent.
+	for _, f := range sentenceOptional {
+		if _, exists := data[f]; !exists {
+			data[f] = ""
+		}
+	}
+
+	entry := &ValidatedEntry{
+		Sentence:          getString("sentence"),
+		CorrectedSentence: getString("corrected_sentence"),
+		IsCorrect:         isCorrect,
+		GrammarErrors:     grammarErrors,
+		English:           translation,
+		TargetTranslation: targetTranslation,
+		KeyVocabulary:     keyVocab,
+		Notes:             getString("notes"),
 	}
 
 	return entry, nil

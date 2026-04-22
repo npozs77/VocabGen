@@ -1132,3 +1132,74 @@ func TestProcessBatch_CancelledContextExpressions(t *testing.T) {
 		t.Errorf("expected 0 provider invocations with pre-cancelled context, got %d", provider.invocations.Load())
 	}
 }
+
+// TestModeFunction verifies that mode() returns the correct mode string
+// for each lookup type, including the fix for sentence mode (Issue #26).
+func TestModeFunction(t *testing.T) {
+	tests := []struct {
+		lookupType string
+		want       string
+	}{
+		{"word", "words"},
+		{"expression", "expressions"},
+		{"sentence", "sentences"},
+		{"", "words"},
+		{"unknown", "words"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.lookupType, func(t *testing.T) {
+			got := mode(tc.lookupType)
+			if got != tc.want {
+				t.Errorf("mode(%q) = %q, want %q", tc.lookupType, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLookupSentence_Ephemeral verifies that sentence lookups are ephemeral
+// (always invoke LLM, never cache) and use the sentences mode.
+//
+// Validates: Issue #26
+func TestLookupSentence_Ephemeral(t *testing.T) {
+	store := newTestStore(t)
+	provider := &mockSentenceProvider{}
+
+	params := LookupParams{
+		SourceLang: "nl",
+		LookupType: "sentence",
+		Text:       "Ik ga morgen naar de markt",
+		Provider:   provider,
+		ModelID:    "test",
+		TargetLang: "hu",
+	}
+
+	result, err := Lookup(context.Background(), store, params)
+	if err != nil {
+		t.Fatalf("Lookup error: %v", err)
+	}
+	if result.Entry == nil {
+		t.Fatal("expected non-nil entry")
+	}
+	if result.Entry.Sentence == "" {
+		t.Error("expected Sentence field to be populated")
+	}
+	if result.FromCache {
+		t.Error("sentence lookups should never be from cache")
+	}
+	if provider.invocations.Load() != 1 {
+		t.Errorf("expected 1 LLM invocation, got %d", provider.invocations.Load())
+	}
+
+	// Second lookup should also invoke LLM (no caching).
+	result2, err := Lookup(context.Background(), store, params)
+	if err != nil {
+		t.Fatalf("second Lookup error: %v", err)
+	}
+	if result2.Entry.Sentence == "" {
+		t.Error("expected Sentence field on second lookup")
+	}
+	if provider.invocations.Load() != 2 {
+		t.Errorf("expected 2 LLM invocations, got %d", provider.invocations.Load())
+	}
+}

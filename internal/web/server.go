@@ -3,9 +3,11 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/user/vocabgen/internal/config"
@@ -29,16 +31,17 @@ type Server struct {
 
 // pageData is the common data passed to all page templates.
 type pageData struct {
-	ActivePage      string
-	Languages       []service.LanguageInfo
-	Config          *config.Config
-	Version         string
-	BuildDate       string
-	GoVersion       string
-	UpdateAvailable bool
-	LatestVersion   string
-	ActiveProfile   string
-	Profiles        []string
+	ActivePage        string
+	Languages         []service.LanguageInfo
+	Config            *config.Config
+	Version           string
+	BuildDate         string
+	GoVersion         string
+	UpdateAvailable   bool
+	LatestVersion     string
+	ActiveProfile     string
+	Profiles          []string
+	LocalModelWarning bool
 }
 
 // NewServer creates a Server with all routes registered.
@@ -73,7 +76,8 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		s.logger.Info("web server listening", "addr", addr)
+		s.logger.Info("web server listening", "addr", addr, "url", "http://localhost"+addr)
+		fmt.Fprintf(os.Stderr, "\n  Open http://localhost%s in your browser\n  Configure your LLM provider at http://localhost%s/config\n\n", addr, addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -183,6 +187,9 @@ func (s *Server) newPageData(activePage string) pageData {
 	if info := s.updater.cached(); info != nil && info.HasUpdate && !s.updater.isDismissed() {
 		pd.UpdateAvailable = true
 		pd.LatestVersion = info.LatestVersion
+	}
+	if strings.Contains(s.cfg.BaseURL, "localhost:11434") {
+		pd.LocalModelWarning = true
 	}
 	return pd
 }
