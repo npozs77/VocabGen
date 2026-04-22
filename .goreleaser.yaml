@@ -42,6 +42,15 @@ dockers_v2:
     platforms:
       - linux/amd64
       - linux/arm64
+    labels:
+      "org.opencontainers.image.title": "VocabGen"
+      "org.opencontainers.image.description": "Vocabulary web app and flashcard tool for language learners"
+      "org.opencontainers.image.source": "https://github.com/npozs77/VocabGen"
+      "org.opencontainers.image.url": "https://npozs77.github.io/VocabGen/"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.created": "{{ .Date }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.licenses": "MIT"
 
 release:
   header: "{{ .TagBody }}"
