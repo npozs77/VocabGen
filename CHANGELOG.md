@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.1]
+
+### Changed
+
+- Highlighted provider quality guidance across README, user guide, and marketing page — clearer messaging that paid models produce better results for nuanced vocabulary tasks
+- OCI labels on Docker images — GitHub Packages page now shows title, description, version, and license metadata
+- Docker packages link added to the marketing page footer
+- GitHub Pages deployment now only triggers when `docs/` changes (dedicated workflow with path filter)
+- Dependabot auto-rebases open PRs when they fall behind main
+
 ## [1.3.0]
 
 ### Added
