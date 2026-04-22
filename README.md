@@ -35,9 +35,9 @@ This app calls LLM APIs to generate vocabulary data. It does not include a built
 
 A free ChatGPT, Claude, or Gemini account does not provide API access. You need a separate API key from the provider's developer platform, which requires a payment method on file.
 
-The cheapest way to get started is Ollama — install it, pull a model (`ollama pull translategemma`), and point vocabgen at it with `--provider openai --base-url http://localhost:11434/v1`.
-
-For best translation quality, use a large model (Claude Sonnet/Opus, GPT-4o). Local models like Llama 3 work but produce noticeably lower quality for nuanced vocabulary tasks — especially for less common languages, connotation/register distinctions, and contrastive notes. Use `--dry-run` to preview results before committing to a provider.
+> **💡 Free to try, better with a paid model.** The cheapest way to get started is Ollama — install it, pull a model (`ollama pull translategemma`), and point vocabgen at it with `--provider openai --base-url http://localhost:11434/v1`.
+>
+> For best translation quality, use a large model (Claude Sonnet/Opus, GPT-4o). Local models like Llama 3 work but produce noticeably lower quality for nuanced vocabulary tasks — especially for less common languages, connotation/register distinctions, and contrastive notes. Use `--dry-run` to preview results before committing to a provider.
 
 ## Quick Start
 

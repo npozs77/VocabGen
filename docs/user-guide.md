@@ -15,7 +15,7 @@ ollama pull translategemma
 vocabgen lookup "uitkomen" -l nl --provider openai --base-url http://localhost:11434/v1 --model-id translategemma
 ```
 
-Note on model quality: vocabgen's prompts are designed for large, capable models (Claude Sonnet/Opus, GPT-4o). Local models like Llama 3 will work but produce lower quality results — particularly for less common language pairs, connotation/register nuances, and contrastive notes. If translation quality matters to you, a paid API is worth it.
+> **💡 Free to try, better with a paid model.** vocabgen's prompts are designed for large, capable models (Claude Sonnet/Opus, GPT-4o). Local models like Llama 3 will work but produce lower quality results — particularly for less common language pairs, connotation/register nuances, and contrastive notes. If translation quality matters to you, a paid API is worth it.
 
 ## Installation
 
