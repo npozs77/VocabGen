@@ -23,6 +23,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 
 ## [1.3.1]
 
+### Added
+
+- `make dev` and `make dev-serve` targets for a faster build-and-run development workflow (#71)
+
 ### Changed
 
 - Highlighted provider quality guidance across README, user guide, and marketing page — clearer messaging that paid models produce better results for nuanced vocabulary tasks
