@@ -25,6 +25,9 @@
       <a href="/flashcards" class="{{if eq .ActivePage " flashcards"}}text-blue-600 font-medium{{else}}text-gray-600
         hover:text-blue-600{{end}}">Flashcards</a>
       <div class="flex-1"></div>
+      {{if .DBPath}}
+      <span class="text-xs text-gray-400 truncate max-w-xs" title="{{.DBPath}}">📂 {{.DBPath}}</span>
+      {{end}}
       {{template "profile_switcher" .}}
       <div class="relative" id="help-menu">
         <button onclick="document.getElementById('help-dropdown').classList.toggle('hidden')"

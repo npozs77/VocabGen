@@ -607,6 +607,17 @@ All user data is stored in `~/.vocabgen/`, independent of where the vocabgen bin
 |------|---------|
 | `~/.vocabgen/config.yaml` | Application configuration (provider, languages, model) |
 | `~/.vocabgen/vocabgen.db` | SQLite vocabulary database (cached lookups, entries) |
+| `~/.vocabgen/vocabgen-dev.db` | Dev database (used by `make dev-serve`, never touched by production) |
+
+The web UI displays the active database path in the navigation bar (next to the profile indicator), so you can always tell at a glance which database you're connected to.
+
+To use a custom database path:
+
+```bash
+vocabgen serve --db-path ~/.vocabgen/my-project.db
+```
+
+If the file doesn't exist, it's created automatically. The `--db-path` flag overrides the `db_path` setting in `config.yaml`.
 
 Replacing the binary (e.g., downloading a new release) does not affect your configuration or vocabulary data. You can safely update vocabgen by overwriting the binary in place — your settings and database remain untouched.
 

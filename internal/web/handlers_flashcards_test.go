@@ -130,7 +130,7 @@ func matchesFilter(sourceLang, targetLang, tags, difficulty string, f db.ListFil
 
 func newFlashcardTestServer(store *flashcardMockStore) *Server {
 	cfg := config.DefaultConfig()
-	return NewServer(store, &cfg, slog.Default(), "test", "unknown", "go1.22")
+	return NewServer(store, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db")
 }
 
 // TestFlashcardsPage_Returns200 verifies GET /flashcards returns 200 with HTML content type.

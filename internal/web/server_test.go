@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,7 +94,7 @@ func (s *stubStore) UpdateExpressionDifficulty(ctx context.Context, id int64, di
 
 func newTestServer() *Server {
 	cfg := config.DefaultConfig()
-	return NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22")
+	return NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db")
 }
 
 func TestNewServer(t *testing.T) {
@@ -261,6 +262,50 @@ func TestAPIRoutesRegistered(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestDBPathRenderedInNavBar verifies that the active database path is
+// displayed in the navigation bar on all pages.
+func TestDBPathRenderedInNavBar(t *testing.T) {
+	cfg := config.DefaultConfig()
+	srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/home/user/.vocabgen/vocabgen-dev.db")
+
+	pages := []string{"/", "/batch", "/config", "/database", "/about"}
+	for _, path := range pages {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("GET %s: expected 200, got %d", path, w.Code)
+			}
+			body := w.Body.String()
+			if !strings.Contains(body, "/home/user/.vocabgen/vocabgen-dev.db") {
+				t.Fatalf("GET %s: response does not contain the DB path", path)
+			}
+		})
+	}
+}
+
+// TestDBPathEmptyNotRendered verifies that when dbPath is empty, no DB path
+// indicator appears in the navigation bar.
+func TestDBPathEmptyNotRendered(t *testing.T) {
+	cfg := config.DefaultConfig()
+	srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "")
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	// The 📂 emoji is only rendered when DBPath is non-empty
+	if strings.Contains(body, "📂") {
+		t.Fatal("DB path indicator should not be rendered when dbPath is empty")
 	}
 }
 

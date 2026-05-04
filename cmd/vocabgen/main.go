@@ -511,6 +511,14 @@ var serveCmd = &cobra.Command{
 		}
 		defer func() { _ = store.Close() }()
 
+		// Resolve the DB path for display in the web UI.
+		resolvedDBPath := appConfig.DBPath
+		if strings.HasPrefix(resolvedDBPath, "~/") {
+			if home, hErr := os.UserHomeDir(); hErr == nil {
+				resolvedDBPath = filepath.Join(home, resolvedDBPath[2:])
+			}
+		}
+
 		addr := fmt.Sprintf(":%d", port)
 		slog.Info("starting web server", "addr", addr)
 
@@ -518,7 +526,7 @@ var serveCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
-		srv := web.NewServer(store, &appConfig, slog.Default(), version, buildDate, runtime.Version())
+		srv := web.NewServer(store, &appConfig, slog.Default(), version, buildDate, runtime.Version(), resolvedDBPath)
 		return srv.ListenAndServe(ctx, addr)
 	},
 }

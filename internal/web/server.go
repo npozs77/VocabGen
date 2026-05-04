@@ -21,6 +21,7 @@ type Server struct {
 	store         db.Store
 	cfg           *config.Config
 	activeProfile string
+	dbPath        string
 	mux           *http.ServeMux
 	logger        *slog.Logger
 	version       string
@@ -42,10 +43,11 @@ type pageData struct {
 	ActiveProfile     string
 	Profiles          []string
 	LocalModelWarning bool
+	DBPath            string
 }
 
 // NewServer creates a Server with all routes registered.
-func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version, buildDate, goVersion string) *Server {
+func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version, buildDate, goVersion, dbPath string) *Server {
 	// Resolve the initial active profile name.
 	_, defaultProfile, _ := config.ListProfiles()
 
@@ -53,6 +55,7 @@ func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version,
 		store:         store,
 		cfg:           cfg,
 		activeProfile: defaultProfile,
+		dbPath:        dbPath,
 		mux:           http.NewServeMux(),
 		logger:        logger,
 		version:       version,
@@ -184,6 +187,7 @@ func (s *Server) newPageData(activePage string) pageData {
 		GoVersion:     s.goVersion,
 		ActiveProfile: s.activeProfile,
 		Profiles:      profiles,
+		DBPath:        s.dbPath,
 	}
 	if info := s.updater.cached(); info != nil && info.HasUpdate && !s.updater.isDismissed() {
 		pd.UpdateAvailable = true
