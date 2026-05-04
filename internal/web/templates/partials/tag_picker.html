@@ -1,0 +1,212 @@
+{{define "tag_picker_filter"}}
+<!-- Tag picker: filter mode (Database page) -->
+<div class="relative" id="tag-picker-filter">
+    <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+    <input type="hidden" id="db-tags" name="tags" value="" hx-get="/api/words" hx-target="#entry-table"
+        hx-swap="innerHTML" hx-include="#db-filters" hx-trigger="change">
+    <button type="button" id="tag-filter-btn"
+        class="border border-gray-300 rounded px-3 py-2 bg-white text-left min-w-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-700">
+        All
+    </button>
+    <div id="tag-filter-dropdown"
+        class="hidden absolute z-10 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto min-w-[160px]">
+        <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
+            <input type="checkbox" value="" class="tag-filter-cb mr-2" checked> All
+        </label>
+    </div>
+</div>
+<script>
+    (function () {
+        var btn = document.getElementById('tag-filter-btn');
+        var dropdown = document.getElementById('tag-filter-dropdown');
+        var hiddenInput = document.getElementById('db-tags');
+        if (!btn || !dropdown || !hiddenInput) return;
+
+        // Fetch tags and populate dropdown.
+        fetch('/api/tags').then(function (r) { return r.json(); }).then(function (tags) {
+            if (!tags || !tags.length) return;
+            for (var i = 0; i < tags.length; i++) {
+                var label = document.createElement('label');
+                label.className = 'flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm';
+                label.innerHTML = '<input type="checkbox" value="' + escapeAttr(tags[i]) + '" class="tag-filter-cb mr-2"> ' + escapeText(tags[i]);
+                dropdown.appendChild(label);
+            }
+        });
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target) && e.target !== btn) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        dropdown.addEventListener('change', function (e) {
+            var cb = e.target;
+            if (!cb.classList.contains('tag-filter-cb')) return;
+            var allCbs = dropdown.querySelectorAll('.tag-filter-cb');
+            if (cb.value === '') {
+                for (var i = 0; i < allCbs.length; i++) allCbs[i].checked = (allCbs[i].value === '');
+                hiddenInput.value = '';
+            } else {
+                allCbs[0].checked = false;
+                var selected = [];
+                for (var i = 0; i < allCbs.length; i++) {
+                    if (allCbs[i].checked && allCbs[i].value !== '') selected.push(allCbs[i].value);
+                }
+                if (selected.length === 0) {
+                    allCbs[0].checked = true;
+                    hiddenInput.value = '';
+                } else {
+                    hiddenInput.value = selected.join(',');
+                }
+            }
+            updateFilterBtnLabel();
+            htmx.trigger(hiddenInput, 'change');
+        });
+
+        function updateFilterBtnLabel() {
+            var val = hiddenInput.value;
+            if (!val) { btn.textContent = 'All'; return; }
+            var tags = val.split(',');
+            btn.textContent = tags.length === 1 ? tags[0] : tags.length + ' tags';
+        }
+
+        function escapeAttr(s) {
+            return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function escapeText(s) {
+            var d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML;
+        }
+    })();
+</script>
+{{end}}
+
+{{define "tag_picker_input"}}
+<!-- Tag picker: input mode (Lookup/Batch pages) -->
+<div class="relative" id="tag-picker-input">
+    <label for="tags" class="block text-sm font-medium text-gray-700 mb-1">Tags (optional)</label>
+    <input type="text" id="tags" name="tags"
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="e.g. chapter-3, B2" autocomplete="off">
+    <div id="tag-suggestions"
+        class="hidden absolute z-10 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto w-full">
+    </div>
+</div>
+<script>
+    (function () {
+        var input = document.getElementById('tags');
+        var suggestionsDiv = document.getElementById('tag-suggestions');
+        if (!input || !suggestionsDiv) return;
+
+        var allTags = [];
+
+        // Fetch existing tags for suggestions.
+        fetch('/api/tags').then(function (r) { return r.json(); }).then(function (tags) {
+            allTags = tags || [];
+        });
+
+        input.addEventListener('input', function () {
+            var parts = input.value.split(',');
+            var current = parts[parts.length - 1].trim().toLowerCase();
+            if (!current || allTags.length === 0) {
+                suggestionsDiv.classList.add('hidden');
+                return;
+            }
+            // Already-entered tags (to exclude from suggestions).
+            var entered = {};
+            for (var i = 0; i < parts.length - 1; i++) {
+                entered[parts[i].trim().toLowerCase()] = true;
+            }
+            var matches = [];
+            for (var i = 0; i < allTags.length; i++) {
+                if (allTags[i].toLowerCase().indexOf(current) !== -1 && !entered[allTags[i].toLowerCase()]) {
+                    matches.push(allTags[i]);
+                }
+            }
+            if (matches.length === 0) {
+                suggestionsDiv.classList.add('hidden');
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < matches.length; i++) {
+                html += '<div class="tag-suggestion px-3 py-1.5 hover:bg-blue-50 cursor-pointer text-sm">' + escapeText(matches[i]) + '</div>';
+            }
+            suggestionsDiv.innerHTML = html;
+            suggestionsDiv.classList.remove('hidden');
+        });
+
+        input.addEventListener('focus', function () {
+            // Show all tags if input is empty or at a comma boundary.
+            var parts = input.value.split(',');
+            var current = parts[parts.length - 1].trim();
+            if (current === '' && allTags.length > 0) {
+                var entered = {};
+                for (var i = 0; i < parts.length - 1; i++) {
+                    entered[parts[i].trim().toLowerCase()] = true;
+                }
+                var available = [];
+                for (var i = 0; i < allTags.length; i++) {
+                    if (!entered[allTags[i].toLowerCase()]) available.push(allTags[i]);
+                }
+                if (available.length > 0) {
+                    var html = '';
+                    for (var i = 0; i < available.length; i++) {
+                        html += '<div class="tag-suggestion px-3 py-1.5 hover:bg-blue-50 cursor-pointer text-sm">' + escapeText(available[i]) + '</div>';
+                    }
+                    suggestionsDiv.innerHTML = html;
+                    suggestionsDiv.classList.remove('hidden');
+                }
+            }
+        });
+
+        suggestionsDiv.addEventListener('click', function (e) {
+            var el = e.target;
+            if (!el.classList.contains('tag-suggestion')) return;
+            e.stopPropagation(); // Prevent document click from hiding the dropdown.
+            var tag = el.textContent;
+            // Append the selected tag to existing tags.
+            var existing = input.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+            existing.push(tag);
+            input.value = existing.join(', ');
+            input.focus();
+            // Show remaining available tags for multi-select.
+            showAvailableTags();
+        });
+
+        function showAvailableTags() {
+            var parts = input.value.split(',');
+            var entered = {};
+            for (var i = 0; i < parts.length; i++) {
+                var t = parts[i].trim().toLowerCase();
+                if (t) entered[t] = true;
+            }
+            var available = [];
+            for (var i = 0; i < allTags.length; i++) {
+                if (!entered[allTags[i].toLowerCase()]) available.push(allTags[i]);
+            }
+            if (available.length === 0) {
+                suggestionsDiv.classList.add('hidden');
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < available.length; i++) {
+                html += '<div class="tag-suggestion px-3 py-1.5 hover:bg-blue-50 cursor-pointer text-sm">' + escapeText(available[i]) + '</div>';
+            }
+            suggestionsDiv.innerHTML = html;
+            suggestionsDiv.classList.remove('hidden');
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!suggestionsDiv.contains(e.target) && e.target !== input) {
+                suggestionsDiv.classList.add('hidden');
+            }
+        });
+
+        function escapeText(s) {
+            var d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML;
+        }
+    })();
+</script>
+{{end}}

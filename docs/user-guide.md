@@ -390,6 +390,16 @@ vocabgen batch --input-file ch2.csv --mode words -l nl --tags "chapter-2"
 
 Tags are stored as comma-separated strings. Filter by tags in the web UI database page.
 
+### Tag Picker (Web UI)
+
+All pages that use tags share a unified tag picker component:
+
+- **Database page**: A dropdown filter populated from existing tags in the database. Select one or more tags to filter the entry list — works the same way as the language and type filters. Select "All" to clear the filter.
+- **Lookup and Batch pages**: A text input with autocomplete suggestions from existing tags. Start typing to see matching tags, or click the field to see all available tags. You can also type a new tag that doesn't exist yet. Separate multiple tags with commas.
+- **Flashcards page**: A dropdown filter identical to the Database page — select tags to narrow the study deck.
+
+Tags are fetched from the `GET /api/tags` endpoint, which returns all distinct tags across words and expressions.
+
 ## Database Management
 
 ### Backup

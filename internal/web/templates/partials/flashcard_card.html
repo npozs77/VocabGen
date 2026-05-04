@@ -1,8 +1,6 @@
 {{define "flashcard_card"}}
 <!-- Hidden deck data for JS -->
 <div id="fc-deck-data" data-deck="{{.DeckJSON}}" class="hidden"></div>
-<!-- Hidden tags data for populating the tag dropdown -->
-<div id="fc-tags-data" data-tags="{{range $i, $t := .Tags}}{{if $i}},{{end}}{{$t}}{{end}}" class="hidden"></div>
 
 {{if eq .DeckSize 0}}
 <!-- Empty state -->

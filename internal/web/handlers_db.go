@@ -43,6 +43,17 @@ func parseListParams(r *http.Request) (db.ListFilter, error) {
 	return filter, nil
 }
 
+// handleListTags handles GET /api/tags — returns all distinct tags as a JSON array.
+func (s *Server) handleListTags(w http.ResponseWriter, r *http.Request) {
+	tags, err := s.store.ListDistinctTags(r.Context())
+	if err != nil {
+		s.logger.Error("list tags failed", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to list tags")
+		return
+	}
+	writeJSON(w, http.StatusOK, tags)
+}
+
 // handleListWords handles GET /api/words — paginated word list.
 func (s *Server) handleListWords(w http.ResponseWriter, r *http.Request) {
 	// If type=expressions, delegate to the expressions handler.

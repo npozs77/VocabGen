@@ -30,14 +30,24 @@ var funcMap = template.FuncMap{
 func init() {
 	templates = make(map[string]*template.Template)
 
+	// Pages that include the tag_picker partial in addition to base + profile_switcher.
+	tagPickerPages := map[string]bool{
+		"lookup": true, "batch": true, "database": true, "flashcards": true,
+	}
+
 	// Parse page templates — each page combines base.html + profile_switcher partial + its own template.
+	// Pages that use the tag picker also include the tag_picker partial.
 	pages := []string{"lookup", "batch", "config", "database", "flashcards", "about", "docs", "update", "changelog"}
 	for _, page := range pages {
-		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS,
+		files := []string{
 			"templates/base.html",
 			"templates/partials/profile_switcher.html",
 			fmt.Sprintf("templates/%s.html", page),
-		)
+		}
+		if tagPickerPages[page] {
+			files = append(files, "templates/partials/tag_picker.html")
+		}
+		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, files...)
 		if err != nil {
 			panic(fmt.Sprintf("parse template %s: %v", page, err))
 		}

@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 ### Added
 
 - `make dev` and `make dev-serve` targets for a faster build-and-run development workflow (#71)
+- Unified tag picker across Database, Lookup, and Batch pages — select existing tags from a dropdown instead of typing from memory; Lookup and Batch also support free-text entry for new tags (#74)
 
 ### Fixed
 
