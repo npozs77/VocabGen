@@ -233,6 +233,8 @@ func TestAPIRoutesRegistered(t *testing.T) {
 		{"bulk-delete-expressions", http.MethodDelete, "/api/expressions/bulk", http.StatusBadRequest},
 		// Export with empty store → 200 (empty xlsx)
 		{"export", http.MethodGet, "/api/export", http.StatusOK},
+		// Tags endpoint
+		{"tags", http.MethodGet, "/api/tags", http.StatusOK},
 		// Config update with empty body
 		{"put-config", http.MethodPut, "/api/config", 0},
 		// Test connection with no provider configured

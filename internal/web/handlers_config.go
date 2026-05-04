@@ -202,6 +202,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Validate provider credentials are available via environment.
 	if warning := validateProviderEnv(updated.Provider, updated.BaseURL, updated.GCPProject); warning != "" {
+		s.logger.Warn("provider env validation failed", "provider", updated.Provider, "warning", warning)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">` + warning + `</p>`))
 		return
@@ -284,12 +285,14 @@ func (s *Server) handleTestConnection(w http.ResponseWriter, r *http.Request) {
 	// Try a minimal invocation to test the connection
 	_, err = provider.Invoke(r.Context(), "Say hello in one word.", s.cfg.ModelID)
 	if err != nil {
+		s.logger.Warn("connection test failed", "provider", provider.Name(), "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(`<div class="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">` +
 			"Connection failed: " + err.Error() + `</div>`))
 		return
 	}
 
+	s.logger.Info("connection test successful", "provider", provider.Name())
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(`<div class="bg-green-50 border border-green-200 text-green-700 rounded p-3 text-sm">` +
 		"Connection successful! Provider: " + provider.Name() + `</div>`))

@@ -139,6 +139,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/profile/switcher", s.handleProfileSwitcherPartial)
 
 	// Database API
+	s.mux.HandleFunc("GET /api/tags", s.handleListTags)
 	s.mux.HandleFunc("GET /api/words", s.handleListWords)
 	s.mux.HandleFunc("GET /api/expressions", s.handleListExpressions)
 	s.mux.HandleFunc("GET /api/words/{id}/edit", s.handleEditWord)

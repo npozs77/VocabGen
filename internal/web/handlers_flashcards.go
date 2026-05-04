@@ -87,13 +87,6 @@ func (s *Server) handleFlashcardsHTML(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Fetch distinct tags for the tag dropdown — graceful degradation on error.
-	allTags, err := s.store.ListDistinctTags(r.Context())
-	if err != nil {
-		s.logger.Error("flashcards: list distinct tags failed", "error", err)
-		allTags = []string{}
-	}
-
 	// Shuffle the deck for varied study order.
 	rand.Shuffle(len(deck), func(i, j int) {
 		deck[i], deck[j] = deck[j], deck[i]
@@ -105,7 +98,6 @@ func (s *Server) handleFlashcardsHTML(w http.ResponseWriter, r *http.Request) {
 		"Deck":       deck,
 		"DeckJSON":   string(deckJSON),
 		"DeckSize":   len(deck),
-		"Tags":       allTags,
 		"SourceLang": sourceLang,
 		"TargetLang": targetLang,
 		"ActiveTag":  tags,

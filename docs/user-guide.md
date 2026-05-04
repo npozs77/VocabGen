@@ -51,16 +51,16 @@ Run VocabGen as a container without downloading platform-specific binaries:
 ```bash
 docker run -d \
   -p 8080:8080 \
-  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -v ./data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   ghcr.io/npozs77/vocabgen:latest
 ```
 
-The volume mount persists config and database across restarts. Pass API keys via `-e`. All CLI commands work via Docker:
+Inside the container, vocabgen automatically defaults to `/data/vocabgen.db` — just mount a host directory to `/data` and you're set. No `chown` or UID mapping needed. Pass API keys via `-e`. All CLI commands work via Docker:
 
 ```bash
 docker run ghcr.io/npozs77/vocabgen:latest version
-docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai
+docker run -e OPENAI_API_KEY=sk-... ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai
 ```
 
 See [Deployment — Docker](deployment.md#docker) for image tags and detailed usage.
@@ -389,6 +389,16 @@ vocabgen batch --input-file ch2.csv --mode words -l nl --tags "chapter-2"
 ```
 
 Tags are stored as comma-separated strings. Filter by tags in the web UI database page.
+
+### Tag Picker (Web UI)
+
+All pages that use tags share a unified tag picker component:
+
+- **Database page**: A dropdown filter populated from existing tags in the database. Select one or more tags to filter the entry list — works the same way as the language and type filters. Select "All" to clear the filter.
+- **Lookup and Batch pages**: A text input with autocomplete suggestions from existing tags. Start typing to see matching tags, or click the field to see all available tags. You can also type a new tag that doesn't exist yet. Separate multiple tags with commas.
+- **Flashcards page**: A dropdown filter identical to the Database page — select tags to narrow the study deck.
+
+Tags are fetched from the `GET /api/tags` endpoint, which returns all distinct tags across words and expressions.
 
 ## Database Management
 

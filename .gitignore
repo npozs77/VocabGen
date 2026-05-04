@@ -5,6 +5,7 @@
 *.so
 *.dylib
 /vocabgen
+bin/
 
 # Test binary
 *.test

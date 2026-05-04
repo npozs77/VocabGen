@@ -3,7 +3,7 @@
 <h1 class="text-2xl font-bold mb-6">Database</h1>
 
 <div class="space-y-4">
-  <div class="flex flex-wrap gap-4 items-end">
+  <div id="db-filters" class="flex flex-wrap gap-4 items-end">
     <div>
       <label for="db-source-lang" class="block text-sm font-medium text-gray-700 mb-1">Source Language</label>
       <select id="db-source-lang" name="source_lang" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
@@ -34,13 +34,7 @@
         <option value="expressions">Expressions</option>
       </select>
     </fieldset>
-    <div>
-      <label for="db-tags" class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-      <input type="text" id="db-tags" name="tags" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
-        hx-trigger="keyup changed delay:300ms" hx-include="#db-filters"
-        class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
-        placeholder="e.g. HS2.2">
-    </div>
+    {{template "tag_picker_filter" .}}
     <div class="flex-1 min-w-[200px]">
       <label for="db-search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
       <input type="text" id="db-search" name="search" hx-get="/api/words" hx-target="#entry-table" hx-swap="innerHTML"
@@ -49,10 +43,6 @@
         placeholder="Search entries...">
     </div>
   </div>
-
-  <form id="db-filters" class="hidden">
-    <!-- Hidden form to collect all filter values for hx-include -->
-  </form>
 
   <div class="flex gap-3">
     <a id="export-btn" href="#" target="_blank"

@@ -1,12 +1,22 @@
-.PHONY: build test lint vet fmt-check clean coverage quality e2e
+.PHONY: build dev dev-serve test lint vet fmt-check clean coverage quality e2e
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -X main.version=$(VERSION) -X main.buildDate=$(BUILD_DATE)
 
+# Production build — outputs to ./vocabgen (used by CI and release pipeline)
 build:
 	cp CHANGELOG.md docs/changelog.md
 	go build -ldflags "$(LDFLAGS)" -o vocabgen ./cmd/vocabgen
+
+# Dev build — outputs to bin/vocabgen (use on feature branches)
+dev:
+	cp CHANGELOG.md docs/changelog.md
+	go build -ldflags "$(LDFLAGS)" -o bin/vocabgen ./cmd/vocabgen
+
+# Dev build + launch web server on port 8081 (keeps stable on 8080)
+dev-serve: dev
+	bin/vocabgen serve --port 8081
 
 test:
 	go test -race ./...
@@ -26,11 +36,13 @@ vet:
 	go vet ./...
 
 fmt-check:
-	@test -z "$$(gofmt -l .)" || { echo "Files not formatted:"; gofmt -l .; exit 1; }
+	@test -z "$(gofmt -l .)" || { echo "Files not formatted:"; gofmt -l .; exit 1; }
 
 clean:
 	rm -f vocabgen coverage.out coverage.html
+	rm -rf bin/
 
+# Full quality gate — build, vet, format, lint, tests + coverage
 quality:
 	@echo "=== Build ==="
 	cp CHANGELOG.md docs/changelog.md
@@ -52,5 +64,6 @@ quality:
 	@echo "=== Coverage Summary ==="
 	@go tool cover -func=coverage.out | tail -1
 
+# End-to-end tests (requires E2E_PROFILE env var)
 e2e:
 	@E2E_PROFILE=$(E2E_PROFILE) ./scripts/e2e-test.sh

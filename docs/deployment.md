@@ -242,10 +242,12 @@ Multi-arch Docker images (amd64/arm64) are published to GitHub Container Registr
 ```bash
 docker run -d \
   -p 8080:8080 \
-  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -v ./data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   ghcr.io/npozs77/vocabgen:latest
 ```
+
+Inside the container, vocabgen automatically detects the Docker environment and defaults to `/data/vocabgen.db` for the database (instead of `~/.vocabgen/vocabgen.db`). A simple `-v ./data:/data` mount is all you need — no `chown` or UID mapping required.
 
 ### Image Tags
 
@@ -256,14 +258,20 @@ docker run -d \
 
 ### Volume Mount
 
-Mount `/home/nonroot/.vocabgen` to persist `config.yaml` and `vocabgen.db` across container restarts.
+Mount `/data` to persist `config.yaml` and `vocabgen.db` across container restarts:
+
+```bash
+-v ./data:/data
+```
+
+The container runs as a non-root user (UID 65532). The `/data` directory is writable by this user out of the box.
 
 ### CLI Commands via Docker
 
 ```bash
 docker run ghcr.io/npozs77/vocabgen:latest version
-docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai -e OPENAI_API_KEY=...
-docker run -v ~/.vocabgen:/home/nonroot/.vocabgen ghcr.io/npozs77/vocabgen:latest batch --input-file /data/words.csv --mode words -l nl
+docker run -e OPENAI_API_KEY=sk-... ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai
+docker run -v ./data:/data ghcr.io/npozs77/vocabgen:latest batch --input-file /data/words.csv --mode words -l nl
 ```
 
 ### Build Locally
@@ -273,5 +281,5 @@ The Dockerfile expects a pre-built `vocabgen` binary in the build context (gorel
 ```bash
 CGO_ENABLED=0 GOOS=linux go build -o vocabgen ./cmd/vocabgen
 docker build -t vocabgen:local .
-docker run -p 8080:8080 vocabgen:local
+docker run -p 8080:8080 -v ./data:/data vocabgen:local
 ```

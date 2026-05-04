@@ -235,12 +235,12 @@ Documentation is also available in the web UI via Help → Documentation when ru
 ```bash
 docker run -d \
   -p 8080:8080 \
-  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -v ./data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   ghcr.io/npozs77/vocabgen:latest
 ```
 
-The volume mount persists config and database across restarts. Pass API keys via `-e`. All CLI commands work: `docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl`.
+The container auto-detects Docker and defaults to `/data/vocabgen.db` — just mount a host directory to `/data`. Pass API keys via `-e`. All CLI commands work: `docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl`.
 
 ## Build from Source
 

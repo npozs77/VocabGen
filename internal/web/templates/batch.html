@@ -71,12 +71,7 @@
     </div>
   </div>
 
-  <div>
-    <label for="tags" class="block text-sm font-medium text-gray-700 mb-1">Tags (optional)</label>
-    <input type="text" id="tags" name="tags"
-      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      placeholder="e.g. chapter-1, B2">
-  </div>
+  {{template "tag_picker_input" .}}
 
   <button type="submit" id="batch-submit"
     class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">

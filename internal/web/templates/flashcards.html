@@ -151,32 +151,34 @@
         // After HTMX swaps the card area, read the deck JSON and initialize.
         document.body.addEventListener('htmx:afterSwap', function (evt) {
             if (evt.detail.target !== cardArea) return;
-            populateTagDropdown();
             initDeck();
         });
 
+        // Fetch tags from API and populate dropdown (replaces inline fc-tags-data approach).
         function populateTagDropdown() {
-            var tagsEl = document.getElementById('fc-tags-data');
             var dropdown = document.getElementById('fc-tags-dropdown');
             var hiddenInput = document.getElementById('fc-tags');
-            if (!tagsEl || !dropdown) return;
+            if (!dropdown || !hiddenInput) return;
 
-            var raw = tagsEl.getAttribute('data-tags') || '';
-            var tags = raw ? raw.split(',') : [];
-            var currentValues = hiddenInput ? hiddenInput.value.split(',').filter(Boolean) : [];
+            fetch('/api/tags').then(function (r) { return r.json(); }).then(function (tags) {
+                if (!tags || !tags.length) return;
+                var currentValues = hiddenInput.value.split(',').filter(Boolean);
 
-            // Rebuild dropdown: "All" checkbox + each tag.
-            var html = '<label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">'
-                + '<input type="checkbox" value="" class="fc-tag-cb mr-2"' + (currentValues.length === 0 ? ' checked' : '') + '> All</label>';
-            for (var i = 0; i < tags.length; i++) {
-                var checked = currentValues.indexOf(tags[i]) !== -1 ? ' checked' : '';
-                html += '<label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">'
-                    + '<input type="checkbox" value="' + escapeHtml(tags[i]) + '" class="fc-tag-cb mr-2"' + checked + '> '
-                    + escapeHtml(tags[i]) + '</label>';
-            }
-            dropdown.innerHTML = html;
-            updateTagButtonLabel();
+                var html = '<label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">'
+                    + '<input type="checkbox" value="" class="fc-tag-cb mr-2"' + (currentValues.length === 0 ? ' checked' : '') + '> All</label>';
+                for (var i = 0; i < tags.length; i++) {
+                    var checked = currentValues.indexOf(tags[i]) !== -1 ? ' checked' : '';
+                    html += '<label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">'
+                        + '<input type="checkbox" value="' + escapeHtml(tags[i]) + '" class="fc-tag-cb mr-2"' + checked + '> '
+                        + escapeHtml(tags[i]) + '</label>';
+                }
+                dropdown.innerHTML = html;
+                updateTagButtonLabel();
+            });
         }
+
+        // Populate tags on initial load.
+        populateTagDropdown();
 
         function updateTagButtonLabel() {
             var btn = document.getElementById('fc-tags-btn');
