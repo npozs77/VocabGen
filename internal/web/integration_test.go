@@ -504,7 +504,7 @@ func TestPropertyP21_AboutPageContentIdentical(t *testing.T) {
 		goVersion := rapid.StringMatching(`go1\.[0-9]{1,2}(\.[0-9]{1,2})?`).Draw(t, "goVersion")
 
 		cfg := config.DefaultConfig()
-		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, buildDate, goVersion)
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, buildDate, goVersion, "/tmp/test.db")
 
 		req := httptest.NewRequest(http.MethodGet, "/about", nil)
 		w := httptest.NewRecorder()
@@ -560,7 +560,7 @@ func TestPropertyP22_AboutURLServesAboutPage(t *testing.T) {
 		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
 
 		cfg := config.DefaultConfig()
-		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22")
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22", "/tmp/test.db")
 
 		req := httptest.NewRequest(http.MethodGet, "/about", nil)
 		w := httptest.NewRecorder()
@@ -742,7 +742,7 @@ func TestPropertyP12_HelpDropdownContainsFiveLinksInOrder(t *testing.T) {
 		path := pagePaths[idx]
 
 		cfg := config.DefaultConfig()
-		srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22")
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db")
 
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		w := httptest.NewRecorder()
@@ -808,7 +808,7 @@ func TestPropertyP31_ReportAnIssueOpensCorrectURL(t *testing.T) {
 		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
 
 		cfg := config.DefaultConfig()
-		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22")
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22", "/tmp/test.db")
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
@@ -838,7 +838,7 @@ func TestPropertyP32_ReportAnIssueOpensInNewTabSecurely(t *testing.T) {
 		version := rapid.StringMatching(`[a-z0-9]{1,20}`).Draw(t, "version")
 
 		cfg := config.DefaultConfig()
-		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22")
+		srv := NewServer(&stubStore{}, &cfg, slog.Default(), version, "2026-01-01", "go1.22", "/tmp/test.db")
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()

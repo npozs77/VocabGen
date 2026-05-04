@@ -16,7 +16,7 @@ dev:
 
 # Dev build + launch web server on port 8081 (keeps stable on 8080)
 dev-serve: dev
-	bin/vocabgen serve --port 8081
+	bin/vocabgen serve --port 8081 --db-path ~/.vocabgen/vocabgen-dev.db
 
 test:
 	go test -race ./...

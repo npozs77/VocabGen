@@ -181,6 +181,28 @@ Version is injected at build time via ldflags:
 go build -ldflags "-X main.version=v1.0.0 -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o vocabgen ./cmd/vocabgen
 ```
 
+## Development Workflow
+
+### Build Targets
+
+| Target | Output | Purpose |
+|--------|--------|---------|
+| `make build` | `./vocabgen` | Production build (CI, releases) |
+| `make dev` | `bin/vocabgen` | Dev build (feature branches) |
+| `make dev-serve` | — | Dev build + launch web server on port 8081 |
+
+### Dev Database
+
+`make dev-serve` passes `--db-path ~/.vocabgen/vocabgen-dev.db` so development testing never touches the production database (`~/.vocabgen/vocabgen.db`). The active database path is displayed in the web UI nav bar next to the profile indicator, making it immediately clear which database you're looking at.
+
+To use a custom database path with the production binary:
+
+```bash
+vocabgen serve --port 8080 --db-path ~/.vocabgen/my-project.db
+```
+
+The `--db-path` flag overrides the `db_path` setting in `config.yaml`. If the file doesn't exist, it's created automatically with all migrations applied.
+
 ## IDE Setup (VS Code / Kiro)
 
 Install the [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.Go) (`golang.Go`). It provides:

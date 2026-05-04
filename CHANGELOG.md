@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 
 - `make dev` and `make dev-serve` targets for a faster build-and-run development workflow (#71)
 - Unified tag picker across Database, Lookup, and Batch pages — select existing tags from a dropdown instead of typing from memory; Lookup and Batch also support free-text entry for new tags (#74)
+- Separate dev database for `make dev-serve` — uses `~/.vocabgen/vocabgen-dev.db` so dev testing never pollutes the production database; active DB path shown in the nav bar next to the profile indicator (#72)
 
 ### Fixed
 
