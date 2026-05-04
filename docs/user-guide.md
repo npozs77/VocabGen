@@ -51,16 +51,16 @@ Run VocabGen as a container without downloading platform-specific binaries:
 ```bash
 docker run -d \
   -p 8080:8080 \
-  -v ~/.vocabgen:/home/nonroot/.vocabgen \
+  -v ./data:/data \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   ghcr.io/npozs77/vocabgen:latest
 ```
 
-The volume mount persists config and database across restarts. Pass API keys via `-e`. All CLI commands work via Docker:
+Inside the container, vocabgen automatically defaults to `/data/vocabgen.db` — just mount a host directory to `/data` and you're set. No `chown` or UID mapping needed. Pass API keys via `-e`. All CLI commands work via Docker:
 
 ```bash
 docker run ghcr.io/npozs77/vocabgen:latest version
-docker run ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai
+docker run -e OPENAI_API_KEY=sk-... ghcr.io/npozs77/vocabgen:latest lookup "werk" -l nl --provider openai
 ```
 
 See [Deployment — Docker](deployment.md#docker) for image tags and detailed usage.

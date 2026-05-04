@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.1]
+
+### Added
+
+- `make dev` and `make dev-serve` targets for a faster build-and-run development workflow (#71)
+
+### Fixed
+
+- Docker image now defaults to `/data/vocabgen.db` instead of `~/.vocabgen/vocabgen.db` — simple `-v ./data:/data` mount works out of the box without `chown` or UID mapping (#73)
+
 ## [1.4.0]
 
 ### Added
@@ -11,10 +21,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 - Sentence lookup mode — analyze full sentences for grammar errors, corrections, translations, and key vocabulary (#26)
 
 ## [1.3.1]
-
-### Added
-
-- `make dev` and `make dev-serve` targets for a faster build-and-run development workflow (#71)
 
 ### Changed
 

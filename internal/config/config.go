@@ -53,6 +53,23 @@ type Config struct {
 	DBPath                string `yaml:"db_path"`
 }
 
+// isDocker reports whether the process is running inside a Docker container.
+// It checks for the /.dockerenv marker file that Docker creates automatically.
+var isDocker = func() bool {
+	_, err := os.Stat("/.dockerenv")
+	return err == nil
+}
+
+// DefaultDBPath returns the default database path. Inside a Docker container
+// it returns "/data/vocabgen.db" (a standard mount point); otherwise it
+// returns "~/.vocabgen/vocabgen.db" (the user's home directory).
+func DefaultDBPath() string {
+	if isDocker() {
+		return "/data/vocabgen.db"
+	}
+	return "~/.vocabgen/vocabgen.db"
+}
+
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
@@ -60,7 +77,7 @@ func DefaultConfig() Config {
 		AWSRegion:             "us-east-1",
 		DefaultSourceLanguage: "nl",
 		DefaultTargetLanguage: "hu",
-		DBPath:                "~/.vocabgen/vocabgen.db",
+		DBPath:                DefaultDBPath(),
 	}
 }
 

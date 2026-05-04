@@ -121,3 +121,62 @@ func TestSaveConfigCreatesDirectory(t *testing.T) {
 		t.Fatal("expected a file, got a directory")
 	}
 }
+
+// TestDefaultDBPath verifies that DefaultDBPath returns the correct path
+// depending on whether the process is running inside Docker or not.
+//
+// Validates: Issue #73 — Docker image uses container-friendly /data path.
+func TestDefaultDBPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		inDocker bool
+		want     string
+	}{
+		{
+			name:     "non-Docker environment returns home-dir path",
+			inDocker: false,
+			want:     "~/.vocabgen/vocabgen.db",
+		},
+		{
+			name:     "Docker environment returns /data path",
+			inDocker: true,
+			want:     "/data/vocabgen.db",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origIsDocker := isDocker
+			isDocker = func() bool { return tt.inDocker }
+			t.Cleanup(func() { isDocker = origIsDocker })
+
+			got := DefaultDBPath()
+			if got != tt.want {
+				t.Fatalf("DefaultDBPath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDefaultConfigUsesDefaultDBPath verifies that DefaultConfig() delegates
+// to DefaultDBPath() for the DBPath field, so Docker detection flows through.
+//
+// Validates: Issue #73 — DefaultConfig uses dynamic path detection.
+func TestDefaultConfigUsesDefaultDBPath(t *testing.T) {
+	// Simulate Docker environment
+	origIsDocker := isDocker
+	isDocker = func() bool { return true }
+	t.Cleanup(func() { isDocker = origIsDocker })
+
+	cfg := DefaultConfig()
+	if cfg.DBPath != "/data/vocabgen.db" {
+		t.Fatalf("DefaultConfig().DBPath = %q in Docker, want %q", cfg.DBPath, "/data/vocabgen.db")
+	}
+
+	// Simulate non-Docker environment
+	isDocker = func() bool { return false }
+	cfg = DefaultConfig()
+	if cfg.DBPath != "~/.vocabgen/vocabgen.db" {
+		t.Fatalf("DefaultConfig().DBPath = %q outside Docker, want %q", cfg.DBPath, "~/.vocabgen/vocabgen.db")
+	}
+}
