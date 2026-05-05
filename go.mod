@@ -9,7 +9,7 @@ require (
 	github.com/xuri/excelize/v2 v2.10.1
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.50.0
-	pgregory.net/rapid v1.2.0
+	pgregory.net/rapid v1.3.0
 )
 
 require github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.23 // indirect
