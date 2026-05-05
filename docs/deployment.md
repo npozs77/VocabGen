@@ -286,7 +286,15 @@ Mount `/data` to persist `config.yaml` and `vocabgen.db` across container restar
 -v ./data:/data
 ```
 
-The container runs as a non-root user (UID 65532). The `/data` directory is writable by this user out of the box.
+The container runs as a non-root user (`vocabgen`). The `/data` directory is writable by this user out of the box.
+
+### Healthcheck
+
+The image includes a built-in `HEALTHCHECK` that polls `/api/health` every 30 seconds using `curl`. Docker reports container health status automatically:
+
+```bash
+docker inspect --format='{{.State.Health.Status}}' <container>
+```
 
 ### CLI Commands via Docker
 
@@ -296,12 +304,22 @@ docker run -e OPENAI_API_KEY=sk-... ghcr.io/npozs77/vocabgen:latest lookup "werk
 docker run -v ./data:/data ghcr.io/npozs77/vocabgen:latest batch --input-file /data/words.csv --mode words -l nl
 ```
 
-### Build Locally
+### Debugging with docker exec
 
-The Dockerfile expects a pre-built `vocabgen` binary in the build context (goreleaser provides this during releases). To build locally:
+The Alpine-based image includes a shell, so you can exec into a running container:
 
 ```bash
-CGO_ENABLED=0 GOOS=linux go build -o vocabgen ./cmd/vocabgen
+docker exec <container> sh -c "whoami"          # verify non-root user
+docker exec <container> /vocabgen version       # run CLI commands
+docker exec <container> ls /data                # inspect mounted data
+```
+
+### Build Locally
+
+The Dockerfile expects a pre-built `vocabgen` binary at `linux/amd64/vocabgen` (goreleaser provides this during releases). To build locally for a quick test:
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o linux/amd64/vocabgen ./cmd/vocabgen
 docker build -t vocabgen:local .
 docker run -p 8080:8080 -v ./data:/data vocabgen:local
 ```

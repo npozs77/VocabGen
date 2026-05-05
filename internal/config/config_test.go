@@ -180,3 +180,59 @@ func TestDefaultConfigUsesDefaultDBPath(t *testing.T) {
 		t.Fatalf("DefaultConfig().DBPath = %q outside Docker, want %q", cfg.DBPath, "~/.vocabgen/vocabgen.db")
 	}
 }
+
+// TestGetConfigDirDocker verifies that getConfigDir returns /data inside Docker
+// and ~/.vocabgen outside Docker (when configDir override is not set).
+//
+// Validates: Issue #78 — config file stored in /data inside containers.
+func TestGetConfigDirDocker(t *testing.T) {
+	origDir := configDir
+	configDir = "" // clear override so Docker detection is exercised
+	t.Cleanup(func() { configDir = origDir })
+
+	origIsDocker := isDocker
+	t.Cleanup(func() { isDocker = origIsDocker })
+
+	// Docker environment → /data
+	isDocker = func() bool { return true }
+	got, err := getConfigDir()
+	if err != nil {
+		t.Fatalf("getConfigDir() error in Docker: %v", err)
+	}
+	if got != "/data" {
+		t.Fatalf("getConfigDir() in Docker = %q, want %q", got, "/data")
+	}
+
+	// Non-Docker environment → ~/.vocabgen
+	isDocker = func() bool { return false }
+	got, err = getConfigDir()
+	if err != nil {
+		t.Fatalf("getConfigDir() error outside Docker: %v", err)
+	}
+	home, _ := os.UserHomeDir()
+	want := filepath.Join(home, ".vocabgen")
+	if got != want {
+		t.Fatalf("getConfigDir() outside Docker = %q, want %q", got, want)
+	}
+}
+
+// TestGetConfigDirOverride verifies that the configDir test override takes
+// precedence over Docker detection.
+func TestGetConfigDirOverride(t *testing.T) {
+	origDir := configDir
+	override := t.TempDir()
+	configDir = override
+	t.Cleanup(func() { configDir = origDir })
+
+	origIsDocker := isDocker
+	isDocker = func() bool { return true } // Docker is true, but override wins
+	t.Cleanup(func() { isDocker = origIsDocker })
+
+	got, err := getConfigDir()
+	if err != nil {
+		t.Fatalf("getConfigDir() error: %v", err)
+	}
+	if got != override {
+		t.Fatalf("getConfigDir() with override = %q, want %q", got, override)
+	}
+}
