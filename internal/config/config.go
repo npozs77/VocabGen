@@ -82,9 +82,13 @@ func DefaultConfig() Config {
 }
 
 // getConfigDir returns the resolved config directory path.
+// In Docker, it uses /data (the standard mount point); otherwise ~/.vocabgen.
 func getConfigDir() (string, error) {
 	if configDir != "" {
 		return configDir, nil
+	}
+	if isDocker() {
+		return "/data", nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

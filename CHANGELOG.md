@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.2]
+
+### Added
+
+- Docker image switched from distroless to Alpine — enables `docker exec` for debugging, CLI subcommands inside the container, and built-in healthcheck via `curl` (#78)
+
+### Fixed
+
+- Docker config file now stored in `/data/config.yaml` inside containers — config persists across container restarts with the same `-v ./data:/data` mount (#78)
+
 ## [1.4.1]
 
 ### Added
