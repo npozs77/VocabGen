@@ -3,14 +3,24 @@ updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: weekly
-    rebase-strategy: auto
+      interval: monthly
     commit-message:
-      prefix: "deps"
+      prefix: "deps:"
+    groups:
+      all-go-deps:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "github.com/aws/aws-sdk-go-v2/internal/*"
+        update-types: ["version-update:semver-patch"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    rebase-strategy: auto
+      interval: monthly
     commit-message:
-      prefix: "ci"
+      prefix: "ci:"
+    groups:
+      actions:
+        patterns:
+          - "*"
