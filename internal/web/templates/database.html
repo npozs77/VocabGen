@@ -99,6 +99,15 @@
 </div>
 
 <script>
+  function toggleDetail(id, url, el) {
+    var existing = document.getElementById('edit-row-' + id);
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    htmx.ajax('GET', url, { target: el.closest('tr'), swap: 'afterend' });
+  }
+
   function toggleSelectAll(el) {
     var cbs = document.querySelectorAll('.entry-cb');
     for (var i = 0; i < cbs.length; i++) {
