@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 ### Added
 
 - Database picker dropdown on Config page — lists existing `.db` files in the config directory, select one or create a new database with inline name validation (#76)
+- Multiple meanings support — add a second (or third) meaning for the same word via "Skip cache / Add new meaning" checkbox in the Web UI or `--new-meaning` flag in the CLI; each meaning stored as a separate entry with disambiguation suffixes displayed when 2+ meanings exist (#86)
 
 ### Fixed
 

@@ -64,6 +64,11 @@ func (s *Server) handleFlashcardsHTML(w http.ResponseWriter, r *http.Request) {
 
 	// Convert to FlashcardItem slice.
 	deck := make([]db.FlashcardItem, 0, len(words)+len(expressions))
+
+	// Apply disambiguation for words with multiple meanings.
+	disambiguateWords(words)
+	disambiguateExpressions(expressions)
+
 	for _, w := range words {
 		deck = append(deck, db.FlashcardItem{
 			ID:                w.ID,

@@ -17,6 +17,7 @@ type lookupRequest struct {
 	Context        string `json:"context"`
 	TargetLanguage string `json:"target_language"`
 	Tags           string `json:"tags"`
+	SkipCache      bool   `json:"skip_cache"`
 }
 
 // resolveRequest is the JSON body for POST /api/lookup/resolve.
@@ -51,6 +52,7 @@ func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, error
 			Context:        r.FormValue("context"),
 			TargetLanguage: r.FormValue("target_language"),
 			Tags:           r.FormValue("tags"),
+			SkipCache:      r.FormValue("skip_cache") == "on" || r.FormValue("skip_cache") == "true",
 		}
 	}
 
@@ -81,6 +83,7 @@ func (s *Server) parseLookupParams(r *http.Request) (service.LookupParams, error
 		Context:    req.Context,
 		TargetLang: req.TargetLanguage,
 		Tags:       req.Tags,
+		SkipCache:  req.SkipCache,
 	}, nil
 }
 

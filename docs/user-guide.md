@@ -692,3 +692,44 @@ Batch default is `skip`. Override with `--on-conflict`:
 ```bash
 vocabgen batch --input-file ch1.csv --mode words -l nl --on-conflict replace
 ```
+
+## Multiple Meanings
+
+Many words have multiple meanings or can function as different parts of speech. vocabgen supports storing each meaning as a separate entry with its own context, definition, and translations.
+
+### Adding a New Meaning (Web UI)
+
+1. On the Lookup page, check the **"Skip cache / Add new meaning"** checkbox
+2. The context field becomes required — enter a sentence that disambiguates the specific meaning you want
+3. Submit the lookup — the LLM returns a result for that specific sense only
+4. The new entry is stored as a separate row (no conflict resolution needed)
+
+### Adding a New Meaning (CLI)
+
+Use the `--new-meaning` flag with a `--context` sentence:
+
+```bash
+vocabgen lookup "beslaan" -l nl --new-meaning --context "De ramen van de auto beslaan door de temperatuurverschillen."
+vocabgen lookup "beslaan" -l nl --new-meaning --context "De vergadering besloeg drie uur van mijn ochtend."
+vocabgen lookup "beslaan" -l nl --new-meaning --context "De hoefsmid besloeg het paard met nieuwe ijzers."
+```
+
+The `--new-meaning` flag requires `--context` — without a context sentence, the command returns an error.
+
+### Disambiguation Display
+
+When a word has 2 or more entries in the database, all entries display a numeric suffix:
+
+- `beslaan (1)` — to fog up
+- `beslaan (2)` — to occupy (space/time)
+- `beslaan (3)` — to shoe (a horse)
+
+Single-meaning words display without any suffix. The disambiguation indicator appears in:
+
+- Database browser
+- Flashcards
+- XLSX export
+
+### Batch Processing
+
+In batch mode, use `skip_cache` (Web UI checkbox) to add new meanings for all tokens in the batch. Each token must have a context sentence (second CSV column). Tokens without context are skipped when skip-cache is active.

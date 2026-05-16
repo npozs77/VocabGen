@@ -75,6 +75,9 @@ func (s *Server) handleListWords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply disambiguation suffixes for words with multiple meanings.
+	disambiguateWords(words)
+
 	// Check if HTMX request — return partial
 	if r.Header.Get("HX-Request") == "true" {
 		totalPages := (total + filter.PageSize - 1) / filter.PageSize
@@ -121,6 +124,9 @@ func (s *Server) handleListExpressions(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Apply disambiguation suffixes for expressions with multiple meanings.
+	disambiguateExpressions(expressions)
 
 	if r.Header.Get("HX-Request") == "true" {
 		totalPages := (total + filter.PageSize - 1) / filter.PageSize
@@ -764,6 +770,10 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Apply disambiguation for words with multiple meanings.
+	disambiguateWords(words)
+
 	for _, wr := range words {
 		wordEntries = append(wordEntries, output.Entry{
 			Word: wr.Word, Type: wr.PartOfSpeech, Article: wr.Article,
@@ -782,6 +792,10 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Apply disambiguation for expressions with multiple meanings.
+	disambiguateExpressions(exprs)
+
 	for _, er := range exprs {
 		exprEntries = append(exprEntries, output.Entry{
 			Expression: er.Expression, Definition: er.Definition,

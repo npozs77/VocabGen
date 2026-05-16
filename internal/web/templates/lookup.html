@@ -54,6 +54,26 @@
       placeholder="Sentence or context where the word appears"></textarea>
   </div>
 
+  <div class="flex items-center gap-2">
+    <input type="checkbox" id="skip_cache" name="skip_cache"
+      class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" onchange="toggleContextRequired(this)">
+    <label for="skip_cache" class="text-sm font-medium text-gray-700">Skip cache / Add new meaning</label>
+    <span class="text-xs text-gray-500">(context becomes required)</span>
+  </div>
+
+  <script>
+    function toggleContextRequired(cb) {
+      var ctx = document.getElementById('context');
+      if (cb.checked) {
+        ctx.setAttribute('required', 'required');
+        ctx.placeholder = 'Context sentence is required when adding a new meaning';
+      } else {
+        ctx.removeAttribute('required');
+        ctx.placeholder = 'Sentence or context where the word appears';
+      }
+    }
+  </script>
+
   {{template "tag_picker_input" .}}
 
   <div class="flex items-center gap-3">
