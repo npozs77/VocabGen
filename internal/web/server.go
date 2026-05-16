@@ -200,6 +200,25 @@ func (s *Server) newPageData(activePage string) pageData {
 	return pd
 }
 
+// switchDatabase closes the current store and opens a new one at the given path.
+// Updates s.store and s.dbPath on success. Returns an error if the new store
+// cannot be opened (the old store remains closed in that case).
+func (s *Server) switchDatabase(newPath string) error {
+	if newPath == s.dbPath {
+		return nil
+	}
+	_ = s.store.Close()
+	newStore, err := db.NewSQLiteStore(newPath)
+	if err != nil {
+		s.logger.Error("failed to open new database", "path", newPath, "error", err)
+		return err
+	}
+	s.store = newStore
+	s.dbPath = newPath
+	s.logger.Info("switched database", "path", newPath)
+	return nil
+}
+
 // handleHealth returns a simple health check response.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

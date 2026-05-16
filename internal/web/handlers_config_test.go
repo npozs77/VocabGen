@@ -824,6 +824,10 @@ func TestPutConfig_NewDBName_Valid(t *testing.T) {
 	if !strings.Contains(srv.cfg.DBPath, "my-new-course.db") {
 		t.Fatalf("expected db_path to contain 'my-new-course.db', got %q", srv.cfg.DBPath)
 	}
+	// Verify the .db file was actually created on disk.
+	if _, err := os.Stat(srv.cfg.DBPath); os.IsNotExist(err) {
+		t.Fatalf("expected database file to be created at %q, but it does not exist", srv.cfg.DBPath)
+	}
 }
 
 // TestPutConfig_NewDBName_Conflict tests that a conflicting new DB name is rejected.
@@ -943,5 +947,79 @@ func TestIsValidDBName(t *testing.T) {
 				t.Fatalf("isValidDBName(%q) = %v, want %v", tc.input, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestPutConfig_NewDBPath_FallbackWhenNew tests that db_path="__new__" without a name falls back to current.
+func TestPutConfig_NewDBPath_FallbackWhenNew(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	t.Setenv("AWS_PROFILE", "test")
+
+	srv := newTestServer()
+	originalDBPath := srv.cfg.DBPath
+
+	// Send __new__ as db_path but no db_path_new_name — should fall back to current.
+	form := "provider=bedrock&aws_region=us-east-1&default_source_language=nl&default_target_language=hu&db_path=__new__&db_path_new_name="
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if srv.cfg.DBPath != originalDBPath {
+		t.Fatalf("expected db_path to remain %q, got %q", originalDBPath, srv.cfg.DBPath)
+	}
+}
+
+// TestSwitchProfile_IncludesDatabases tests that profile switch re-renders with database picker.
+func TestSwitchProfile_IncludesDatabases(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	// Create a .db file so it shows in the picker.
+	if err := os.WriteFile(dir+"/vocabgen.db", []byte{}, 0o644); err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+
+	// Write a multi-profile config.
+	fc := config.FileConfig{
+		DefaultProfile: "default",
+		Profiles: map[string]config.ProfileConfig{
+			"default": {Provider: "bedrock", AWSRegion: "us-east-1"},
+			"local":   {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "test"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                dir + "/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+	srv.cfg.DBPath = dir + "/vocabgen.db"
+
+	form := "profile=local"
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	// The response should contain the database picker with "Create new" option.
+	body := w.Body.String()
+	if !strings.Contains(body, "Create new") {
+		t.Fatalf("expected 'Create new' in profile switch response, got: %s", body)
+	}
+	if !strings.Contains(body, "Save") {
+		t.Fatalf("expected 'Save' button in profile switch response, got: %s", body)
 	}
 }

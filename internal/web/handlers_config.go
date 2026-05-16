@@ -104,6 +104,13 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	s.activeProfile = req.Profile
 	s.logger.Info("switched config profile", "profile", req.Profile)
 
+	// Hot-swap database if the new profile has a different DB path.
+	if cfg.DBPath != "" && cfg.DBPath != s.dbPath {
+		if err := s.switchDatabase(cfg.DBPath); err != nil {
+			s.logger.Error("failed to switch database on profile change", "path", cfg.DBPath, "error", err)
+		}
+	}
+
 	// Determine if the new profile uses a local model (for warning banner).
 	isLocal := strings.Contains(cfg.BaseURL, "localhost:11434")
 
@@ -132,17 +139,32 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	// This replaces the two-step approach (PUT then GET) that was prone to
 	// stale form values leaking into the re-render request (#28).
 	profiles, _, _ := config.ListProfiles()
+
+	// Scan config directory for existing .db files.
+	var databases []string
+	if dir, dirErr := config.ConfigDir(); dirErr == nil {
+		if entries, readErr := os.ReadDir(dir); readErr == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".db") {
+					databases = append(databases, dir+"/"+entry.Name())
+				}
+			}
+		}
+	}
+
 	data := struct {
 		Config        *config.Config
 		Languages     []service.LanguageInfo
 		Profiles      []string
 		ActiveProfile string
+		Databases     []string
 		StatusMessage template.HTML
 	}{
 		Config:        &cfg,
 		Languages:     service.GetSupportedLanguages(),
 		Profiles:      profiles,
 		ActiveProfile: s.activeProfile,
+		Databases:     databases,
 		StatusMessage: template.HTML(`<p class="text-green-600 text-sm mt-1">Switched to profile "` + req.Profile + `".</p>`),
 	}
 	// Signal the page to update the local model warning banner.
@@ -233,7 +255,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	if updated.Provider == "" {
 		updated.Provider = "bedrock"
 	}
-	if updated.DBPath == "" {
+	if updated.DBPath == "" || updated.DBPath == "__new__" {
 		updated.DBPath = s.cfg.DBPath
 	}
 
@@ -267,6 +289,14 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		// Set the db_path to the new file in the config directory.
 		if dir != "" {
 			updated.DBPath = filepath.Join(dir, newDBName)
+			// Create the empty database file so it appears in the picker immediately.
+			f, createErr := os.Create(updated.DBPath)
+			if createErr != nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Failed to create database file: ` + createErr.Error() + `</p>`))
+				return
+			}
+			_ = f.Close()
 		}
 	}
 
@@ -286,6 +316,15 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Update in-memory config
 	*s.cfg = updated
+
+	// Hot-swap database if path changed.
+	if updated.DBPath != s.dbPath {
+		if err := s.switchDatabase(updated.DBPath); err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Config saved but failed to switch database: ` + err.Error() + `</p>`))
+			return
+		}
+	}
 
 	s.logger.Info("config saved", "profile", s.activeProfile, "provider", updated.Provider)
 
@@ -319,17 +358,31 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 
 	profiles, _, _ := config.ListProfiles()
 
+	// Scan config directory for existing .db files.
+	var databases []string
+	if dir, err := config.ConfigDir(); err == nil {
+		if entries, err := os.ReadDir(dir); err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".db") {
+					databases = append(databases, dir+"/"+entry.Name())
+				}
+			}
+		}
+	}
+
 	data := struct {
 		Config        *config.Config
 		Languages     []service.LanguageInfo
 		Profiles      []string
 		ActiveProfile string
+		Databases     []string
 		StatusMessage template.HTML
 	}{
 		Config:        &cfg,
 		Languages:     service.GetSupportedLanguages(),
 		Profiles:      profiles,
 		ActiveProfile: s.activeProfile,
+		Databases:     databases,
 	}
 	// Signal the page to update the local model warning banner based on
 	// the previewed provider. Non-openai providers never use a local URL.
