@@ -138,9 +138,88 @@
 
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-1">Database Path</label>
-    <input type="text" value="{{.Config.DBPath}}" readonly
-      class="w-full border border-gray-200 rounded px-3 py-2 bg-gray-100 text-gray-500">
+    <div id="db-picker-container">
+      <select id="db_path_selector" name="db_path"
+        onchange="if(this.value==='__new__'){document.getElementById('db-new-name-container').style.display='block'}else{document.getElementById('db-new-name-container').style.display='none';document.getElementById('db_path_new_name').value=''}"
+        hx-get="/api/databases" hx-trigger="load" hx-target="#db-picker-options" hx-swap="innerHTML"
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="{{.Config.DBPath}}" selected>{{.Config.DBPath}}</option>
+      </select>
+      <template id="db-picker-options-template">
+        <!-- Populated by HTMX from /api/databases -->
+      </template>
+    </div>
+    <div id="db-new-name-container" style="display:none" class="mt-2">
+      <input type="text" id="db_path_new_name" name="db_path_new_name" placeholder="e.g. my-course"
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <p class="text-gray-500 text-xs mt-1">Enter a name for the new database (without .db extension). It will be
+        created in the config directory on next restart.</p>
+      <p id="db-name-error" class="text-red-600 text-sm mt-1" style="display:none"></p>
+    </div>
+    <p class="text-gray-500 text-xs mt-1">Server restart required to switch databases.</p>
   </div>
+
+  <script>
+    // Populate the database picker dropdown from /api/databases response.
+    document.addEventListener('htmx:afterRequest', function (evt) {
+      if (evt.detail.pathInfo && evt.detail.pathInfo.requestPath === '/api/databases') {
+        try {
+          var databases = JSON.parse(evt.detail.xhr.responseText);
+          var select = document.getElementById('db_path_selector');
+          var currentDBPath = '{{.Config.DBPath}}';
+          // Clear existing options
+          select.innerHTML = '';
+          // Add options for each existing database
+          var configDir = currentDBPath.substring(0, currentDBPath.lastIndexOf('/'));
+          var found = false;
+          databases.forEach(function (db) {
+            var fullPath = configDir + '/' + db;
+            var opt = document.createElement('option');
+            opt.value = fullPath;
+            opt.textContent = db;
+            if (fullPath === currentDBPath) {
+              opt.selected = true;
+              found = true;
+            }
+            select.appendChild(opt);
+          });
+          // If current DB path wasn't in the list, add it at the top
+          if (!found) {
+            var opt = document.createElement('option');
+            opt.value = currentDBPath;
+            opt.textContent = currentDBPath.split('/').pop() + ' (current)';
+            opt.selected = true;
+            select.insertBefore(opt, select.firstChild);
+          }
+          // Add "Create new…" option
+          var newOpt = document.createElement('option');
+          newOpt.value = '__new__';
+          newOpt.textContent = 'Create new\u2026';
+          select.appendChild(newOpt);
+        } catch (e) {
+          // If parsing fails, keep the current option
+        }
+      }
+    });
+    // Client-side validation for new DB name
+    (function () {
+      var input = document.getElementById('db_path_new_name');
+      if (input) {
+        input.addEventListener('input', function () {
+          var val = this.value.trim();
+          var errEl = document.getElementById('db-name-error');
+          if (!val) { errEl.style.display = 'none'; return; }
+          var pattern = /^[a-zA-Z0-9_-]+(\\.db)?$/;
+          if (!pattern.test(val)) {
+            errEl.textContent = 'Use only letters, numbers, hyphens, and underscores.';
+            errEl.style.display = 'block';
+          } else {
+            errEl.style.display = 'none';
+          }
+        });
+      }
+    })();
+  </script>
 
   <div id="save-status">{{if .StatusMessage}}{{.StatusMessage}}{{end}}</div>
 

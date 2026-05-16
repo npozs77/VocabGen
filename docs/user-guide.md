@@ -232,7 +232,7 @@ Open `http://localhost:8080` in your browser. This is the primary way to use Voc
 - **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context. Select "Sentence" type to analyze a full sentence — the LLM checks grammar, provides corrections, translates the sentence, and extracts key vocabulary. Sentence lookups are ephemeral (not stored in the database).
 - **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
 - **Flashcards** (`/flashcards`): Study vocabulary with a flip-card interface. Filter by language, tags, and difficulty. Rate cards as easy/hard/natural to focus future sessions. See [Flashcards](#flashcards) below.
-- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
+- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock). A database picker dropdown lists all `.db` files in the config directory — select an existing database or choose "Create new…" to enter a name for a new one (validated inline to prevent accidental overwrites). A server restart is required to switch databases.
 - **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Select individual entries or use select-all to bulk delete. Import CSV, export to Excel. Filter by language, search text, or tags.
 
 ### Help Menu
@@ -611,7 +611,17 @@ All user data is stored in `~/.vocabgen/`, independent of where the vocabgen bin
 
 The web UI displays the active database path in the navigation bar (next to the profile indicator), so you can always tell at a glance which database you're connected to.
 
-To use a custom database path:
+### Database Picker (Web UI)
+
+The Config page includes a database picker dropdown that lists all `.db` files found in the config directory (`~/.vocabgen/` or `/data/` in Docker). This makes it easy to manage multiple databases (e.g., per-course or dev/prod) without remembering file paths.
+
+- **Select an existing database**: Choose from the dropdown to set it as the active database path
+- **Create a new database**: Select "Create new…" at the bottom of the dropdown, then type a name (letters, numbers, hyphens, underscores only). The name is validated inline — if it conflicts with an existing file, an error is shown
+- **Server restart required**: The database switch takes effect on the next server restart (hot-swap is not supported)
+
+The new database file is created automatically by vocabgen on the next startup (existing behavior — `NewSQLiteStore` auto-creates missing files).
+
+To use a custom database path from the CLI:
 
 ```bash
 vocabgen serve --db-path ~/.vocabgen/my-project.db

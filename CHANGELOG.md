@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.3]
+
+### Added
+
+- Database picker dropdown on Config page — lists existing `.db` files in the config directory, select one or create a new database with inline name validation (#76)
+
+### Fixed
+
+- Database view detail panel now toggles on click — clicking an expanded word/expression collapses it (#87)
+
 ## [1.4.2]
 
 ### Added

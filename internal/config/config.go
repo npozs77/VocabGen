@@ -97,6 +97,14 @@ func getConfigDir() (string, error) {
 	return filepath.Join(home, ".vocabgen"), nil
 }
 
+// ConfigDir returns the resolved config directory path.
+// In Docker, it returns /data; otherwise ~/.vocabgen.
+// This is the exported version of getConfigDir for use by other packages
+// (e.g., scanning for database files).
+func ConfigDir() (string, error) {
+	return getConfigDir()
+}
+
 // FilePath returns the resolved path to the config file.
 func FilePath() string {
 	dir, err := getConfigDir()
