@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VocabGen — Look &amp; Feel</title>
+    <title>VocabGen — UI Preview</title>
     <meta name="description"
         content="Preview VocabGen's UI — static mockups of the Lookup, Batch, Flashcards, Database, and Config pages with sample data.">
-    <link rel="canonical" href="https://npozs77.github.io/VocabGen/look-and-feel.html">
+    <link rel="canonical" href="https://npozs77.github.io/VocabGen/ui-preview.html">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .fc-scene {
@@ -51,45 +51,46 @@
 </head>
 
 <body class="bg-gray-50 min-h-screen">
-    <!-- Nav Bar (static replica) -->
+    <!-- Mockup Nav Bar (replica of the real app nav — items switch tabs) -->
     <nav class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6">
             <span class="font-semibold text-lg text-gray-800">VocabGen</span>
-            <span class="text-blue-600 font-medium">Lookup</span>
-            <span class="text-gray-600">Batch</span>
-            <span class="text-gray-600">Config</span>
-            <span class="text-gray-600">Database</span>
-            <span class="text-gray-600">Flashcards</span>
+            <a href="#" onclick="showTab('lookup'); return false;" id="nav-lookup"
+                class="text-blue-600 font-medium">Lookup</a>
+            <a href="#" onclick="showTab('batch'); return false;" id="nav-batch"
+                class="text-gray-600 hover:text-blue-600">Batch</a>
+            <a href="#" onclick="showTab('config'); return false;" id="nav-config"
+                class="text-gray-600 hover:text-blue-600">Config</a>
+            <a href="#" onclick="showTab('database'); return false;" id="nav-database"
+                class="text-gray-600 hover:text-blue-600">Database</a>
+            <a href="#" onclick="showTab('flashcards'); return false;" id="nav-flashcards"
+                class="text-gray-600 hover:text-blue-600">Flashcards</a>
             <div class="flex-1"></div>
             <span class="text-xs text-gray-400">📂 ~/.vocabgen/vocabgen.db</span>
+            <!-- Profile switcher -->
             <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">default</span>
-            <span class="text-sm text-gray-500">Help ▾</span>
+            <!-- Help menu -->
+            <div class="relative">
+                <button onclick="document.getElementById('help-dropdown').classList.toggle('hidden')"
+                    class="text-sm text-gray-500 hover:text-blue-600">Help ▾</button>
+                <div id="help-dropdown"
+                    class="hidden absolute right-0 mt-1 w-48 bg-white rounded shadow-lg border z-50">
+                    <span class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">About</span>
+                    <span class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Report an Issue ↗</span>
+                    <span class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Documentation</span>
+                    <span class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Changelog</span>
+                    <span class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check for Update</span>
+                </div>
+            </div>
         </div>
     </nav>
 
-    <!-- Page Header -->
-    <div class="max-w-7xl mx-auto px-4 pt-6 pb-2">
-        <h1 class="text-2xl font-bold text-gray-800 mb-1">Look &amp; Feel</h1>
-        <p class="text-gray-500 text-sm mb-4">Static mockups of VocabGen's main views with sample data. All controls are
-            visual only — nothing is interactive.</p>
-
-        <!-- Tab Navigation -->
-        <div class="flex gap-1 border-b border-gray-200 mb-6">
-            <button onclick="showTab('lookup')"
-                class="tab-btn active px-4 py-2 text-sm font-medium border-b-2 border-transparent"
-                id="tab-lookup">Lookup</button>
-            <button onclick="showTab('batch')"
-                class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
-                id="tab-batch">Batch</button>
-            <button onclick="showTab('flashcards')"
-                class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
-                id="tab-flashcards">Flashcards</button>
-            <button onclick="showTab('database')"
-                class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
-                id="tab-database">Database</button>
-            <button onclick="showTab('config')"
-                class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
-                id="tab-config">Config</button>
+    <!-- UI Preview info box -->
+    <div class="max-w-7xl mx-auto px-4 pt-4 pb-2">
+        <div class="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-6 shadow-sm">
+            <h1 class="text-lg font-semibold text-gray-800 inline">UI Preview</h1>
+            <span class="text-gray-500 text-sm ml-2">— Static mockups of VocabGen's main views with sample data. All
+                controls are visual only.</span>
         </div>
     </div>
 
@@ -529,13 +530,11 @@ het klopt</textarea>
             var panels = ['lookup', 'batch', 'flashcards', 'database', 'config'];
             for (var i = 0; i < panels.length; i++) {
                 document.getElementById('panel-' + panels[i]).classList.toggle('hidden', panels[i] !== name);
-                var btn = document.getElementById('tab-' + panels[i]);
+                var nav = document.getElementById('nav-' + panels[i]);
                 if (panels[i] === name) {
-                    btn.classList.add('active');
-                    btn.classList.remove('text-gray-500');
+                    nav.className = 'text-blue-600 font-medium';
                 } else {
-                    btn.classList.remove('active');
-                    btn.classList.add('text-gray-500');
+                    nav.className = 'text-gray-600 hover:text-blue-600';
                 }
             }
         }
