@@ -232,7 +232,7 @@ Open `http://localhost:8080` in your browser. This is the primary way to use Voc
 - **Lookup** (`/`): Enter a word or expression, select source/target language, optionally provide context. Results display inline. Conflict resolution UI appears when an existing entry is found with a new context. Select "Sentence" type to analyze a full sentence — the LLM checks grammar, provides corrections, translates the sentence, and extracts key vocabulary. Sentence lookups are ephemeral (not stored in the database).
 - **Batch** (`/batch`): Upload a CSV file, select mode and languages, set conflict strategy. Progress streams via SSE. Cancel a running batch at any time — partial results are preserved. Summary shows processed/cached/failed/replaced/added counts.
 - **Flashcards** (`/flashcards`): Study vocabulary with a flip-card interface. Filter by language, tags, and difficulty. Rate cards as easy/hard/natural to focus future sessions. See [Flashcards](#flashcards) below.
-- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock).
+- **Config** (`/config`): View and edit provider settings, test connection to the LLM provider. Credential env var hints are shown per provider; API keys are read from environment variables automatically. On first launch, the "default" profile is shown — edit the fields and click Save to configure your provider. Use "Add new profile…" in the profile dropdown to create additional setups (e.g., a "local" profile for Ollama and a "prod" profile for Bedrock). A database picker dropdown lists all `.db` files in the config directory — select an existing database or choose "Create new…" to enter a name for a new one (validated inline to prevent accidental overwrites). A server restart is required to switch databases.
 - **Database** (`/database`): Browse, search, edit, delete vocabulary entries. Select individual entries or use select-all to bulk delete. Import CSV, export to Excel. Filter by language, search text, or tags.
 
 ### Help Menu
@@ -611,7 +611,15 @@ All user data is stored in `~/.vocabgen/`, independent of where the vocabgen bin
 
 The web UI displays the active database path in the navigation bar (next to the profile indicator), so you can always tell at a glance which database you're connected to.
 
-To use a custom database path:
+### Database Picker (Web UI)
+
+The Config page includes a database picker dropdown that lists all `.db` files found in the config directory (`~/.vocabgen/` or `/data/` in Docker). This makes it easy to manage multiple databases (e.g., per-course or dev/prod) without remembering file paths.
+
+- **Select an existing database**: Choose from the dropdown and click Save — the server switches to the new database immediately (no restart needed)
+- **Create a new database**: Select "Create new…" at the bottom of the dropdown, then type a name (letters, numbers, hyphens, underscores only). The name is validated inline — if it conflicts with an existing file, an error is shown. The file is created on Save.
+- **Profile-based switching**: Each config profile can point to a different database. Switching profiles also switches the active database live.
+
+To use a custom database path from the CLI:
 
 ```bash
 vocabgen serve --db-path ~/.vocabgen/my-project.db
@@ -682,3 +690,44 @@ Batch default is `skip`. Override with `--on-conflict`:
 ```bash
 vocabgen batch --input-file ch1.csv --mode words -l nl --on-conflict replace
 ```
+
+## Multiple Meanings
+
+Many words have multiple meanings or can function as different parts of speech. vocabgen supports storing each meaning as a separate entry with its own context, definition, and translations.
+
+### Adding a New Meaning (Web UI)
+
+1. On the Lookup page, check the **"Skip cache / Add new meaning"** checkbox
+2. The context field becomes required — enter a sentence that disambiguates the specific meaning you want
+3. Submit the lookup — the LLM returns a result for that specific sense only
+4. The new entry is stored as a separate row (no conflict resolution needed)
+
+### Adding a New Meaning (CLI)
+
+Use the `--new-meaning` flag with a `--context` sentence:
+
+```bash
+vocabgen lookup "beslaan" -l nl --new-meaning --context "De ramen van de auto beslaan door de temperatuurverschillen."
+vocabgen lookup "beslaan" -l nl --new-meaning --context "De vergadering besloeg drie uur van mijn ochtend."
+vocabgen lookup "beslaan" -l nl --new-meaning --context "De hoefsmid besloeg het paard met nieuwe ijzers."
+```
+
+The `--new-meaning` flag requires `--context` — without a context sentence, the command returns an error.
+
+### Disambiguation Display
+
+When a word has 2 or more entries in the database, all entries display a numeric suffix:
+
+- `beslaan (1)` — to fog up
+- `beslaan (2)` — to occupy (space/time)
+- `beslaan (3)` — to shoe (a horse)
+
+Single-meaning words display without any suffix. The disambiguation indicator appears in:
+
+- Database browser
+- Flashcards
+- XLSX export
+
+### Batch Processing
+
+In batch mode, use `skip_cache` (Web UI checkbox) to add new meanings for all tokens in the batch. Each token must have a context sentence (second CSV column). Tokens without context are skipped when skip-cache is active.

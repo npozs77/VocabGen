@@ -27,6 +27,7 @@ type LookupParams struct {
 	TargetLang string
 	Tags       string
 	DryRun     bool
+	SkipCache  bool // bypass cache and add a new meaning (requires Context)
 	Timeout    time.Duration
 	OnConflict ConflictStrategy
 	ReplaceID  int64
@@ -325,6 +326,39 @@ func Lookup(ctx context.Context, store db.Store, params LookupParams) (*LookupRe
 
 // lookupWord handles the cache-check and LLM invocation flow for a single word lookup.
 func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, normalized, sourceLang, targetLang string) (*LookupResult, error) {
+	// SkipCache mode: bypass cache entirely, invoke LLM, and always insert as a new row.
+	if params.SkipCache {
+		if params.Context == "" {
+			return nil, fmt.Errorf("context sentence is required when adding a new meaning (skip cache)")
+		}
+		slog.Info("skip cache (new meaning)", slog.String("word", normalized), slog.String("context", params.Context))
+		entry, err := invokeLLM(ctx, params.Provider, params.ModelID, sourceLang, m, normalized, params.Context, targetLang)
+		if err != nil {
+			return nil, err
+		}
+		entry.Tags = params.Tags
+
+		result := &LookupResult{Entry: entry}
+		if w := checkNonWord(normalized, entry); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("word", normalized))
+			return result, nil
+		}
+
+		row := entryToWordRow(entry, params.SourceLang, params.TargetLang, params.Tags)
+		row.Word = normalized
+		if err := store.InsertWord(ctx, row); err != nil {
+			slog.Error("database insert failed", slog.String("word", normalized), slog.String("error", err.Error()))
+			return nil, fmt.Errorf("database insert failed: %w", err)
+		}
+		slog.Info("new meaning added", slog.String("word", normalized))
+		if w := checkHallucination(normalized, entry.Example); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("word", normalized))
+		}
+		return result, nil
+	}
+
 	existing, err := store.FindWords(ctx, normalized, params.SourceLang)
 	if err != nil {
 		slog.Error("database lookup failed", slog.String("word", normalized), slog.String("error", err.Error()))
@@ -414,6 +448,35 @@ func lookupWord(ctx context.Context, store db.Store, params LookupParams, m, nor
 
 // lookupExpression handles the cache-check and LLM invocation flow for a single expression lookup.
 func lookupExpression(ctx context.Context, store db.Store, params LookupParams, m, normalized, sourceLang, targetLang string) (*LookupResult, error) {
+	// SkipCache mode: bypass cache entirely, invoke LLM, and always insert as a new row.
+	if params.SkipCache {
+		if params.Context == "" {
+			return nil, fmt.Errorf("context sentence is required when adding a new meaning (skip cache)")
+		}
+		slog.Info("skip cache (new meaning)", slog.String("expression", normalized), slog.String("context", params.Context))
+		entry, err := invokeLLM(ctx, params.Provider, params.ModelID, sourceLang, m, normalized, params.Context, targetLang)
+		if err != nil {
+			return nil, err
+		}
+		entry.Tags = params.Tags
+
+		result := &LookupResult{Entry: entry}
+		if w := checkNonWord(normalized, entry); w != "" {
+			result.Warning = w
+			slog.Warn(w, slog.String("expression", normalized))
+			return result, nil
+		}
+
+		row := entryToExprRow(entry, params.SourceLang, params.TargetLang, params.Tags)
+		row.Expression = normalized
+		if err := store.InsertExpression(ctx, row); err != nil {
+			slog.Error("database insert failed", slog.String("expression", normalized), slog.String("error", err.Error()))
+			return nil, fmt.Errorf("database insert failed: %w", err)
+		}
+		slog.Info("new meaning added", slog.String("expression", normalized))
+		return result, nil
+	}
+
 	existing, err := store.FindExpressions(ctx, normalized, params.SourceLang)
 	if err != nil {
 		slog.Error("database lookup failed", slog.String("expression", normalized), slog.String("error", err.Error()))
@@ -533,6 +596,7 @@ type BatchParams struct {
 	Tags       string
 	Limit      int
 	DryRun     bool
+	SkipCache  bool // bypass cache for all tokens (requires context per token)
 	Timeout    time.Duration
 	OnConflict ConflictStrategy // default: "skip"
 	OnProgress ProgressFunc     // optional progress callback
@@ -651,6 +715,38 @@ func processBatchWord(ctx context.Context, store db.Store, params BatchParams, s
 		return
 	}
 
+	// SkipCache mode: always invoke LLM and insert as new row.
+	if params.SkipCache {
+		if ctxSentence == "" {
+			slog.Warn("batch: skip_cache requires context, skipping", slog.String("word", normalized))
+			result.Skipped++
+			return
+		}
+		if params.Limit > 0 && *newCount >= params.Limit {
+			return
+		}
+		entry, err := invokeLLM(ctx, params.Provider, params.ModelID, sourceLang, params.Mode, normalized, ctxSentence, targetLang)
+		if err != nil {
+			slog.Error("batch: LLM failed", slog.String("word", normalized), slog.String("error", err.Error()))
+			result.Errors = append(result.Errors, BatchError{Token: normalized, Message: err.Error()})
+			result.Failed++
+			*newCount++
+			return
+		}
+		entry.Tags = params.Tags
+		row := entryToWordRow(entry, params.SourceLang, params.TargetLang, params.Tags)
+		row.Word = normalized
+		if err := store.InsertWord(ctx, row); err != nil {
+			result.Errors = append(result.Errors, BatchError{Token: normalized, Message: err.Error()})
+			result.Failed++
+		} else {
+			result.Added++
+			result.Results = append(result.Results, *entry)
+		}
+		*newCount++
+		return
+	}
+
 	existing, err := store.FindWords(ctx, normalized, params.SourceLang)
 	if err != nil {
 		slog.Error("batch: database lookup failed", slog.String("word", normalized), slog.String("error", err.Error()))
@@ -728,6 +824,38 @@ func processBatchWord(ctx context.Context, store db.Store, params BatchParams, s
 // invokes the LLM on miss, and applies the configured conflict strategy.
 func processBatchExpression(ctx context.Context, store db.Store, params BatchParams, sourceLang, targetLang, normalized, ctxSentence string, result *BatchResult, newCount *int) {
 	if ctx.Err() != nil {
+		return
+	}
+
+	// SkipCache mode: always invoke LLM and insert as new row.
+	if params.SkipCache {
+		if ctxSentence == "" {
+			slog.Warn("batch: skip_cache requires context, skipping", slog.String("expression", normalized))
+			result.Skipped++
+			return
+		}
+		if params.Limit > 0 && *newCount >= params.Limit {
+			return
+		}
+		entry, err := invokeLLM(ctx, params.Provider, params.ModelID, sourceLang, params.Mode, normalized, ctxSentence, targetLang)
+		if err != nil {
+			slog.Error("batch: LLM failed", slog.String("expression", normalized), slog.String("error", err.Error()))
+			result.Errors = append(result.Errors, BatchError{Token: normalized, Message: err.Error()})
+			result.Failed++
+			*newCount++
+			return
+		}
+		entry.Tags = params.Tags
+		row := entryToExprRow(entry, params.SourceLang, params.TargetLang, params.Tags)
+		row.Expression = normalized
+		if err := store.InsertExpression(ctx, row); err != nil {
+			result.Errors = append(result.Errors, BatchError{Token: normalized, Message: err.Error()})
+			result.Failed++
+		} else {
+			result.Added++
+			result.Results = append(result.Results, *entry)
+		}
+		*newCount++
 		return
 	}
 

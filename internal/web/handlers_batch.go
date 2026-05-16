@@ -145,6 +145,7 @@ func (s *Server) handleBatchJSON(w http.ResponseWriter, r *http.Request) {
 		ModelID:    s.cfg.ModelID,
 		TargetLang: targetLang,
 		Tags:       tags,
+		SkipCache:  r.FormValue("skip_cache") == "on" || r.FormValue("skip_cache") == "true",
 		OnConflict: onConflict,
 	})
 	if err != nil {
@@ -210,6 +211,7 @@ func (s *Server) handleBatchHTML(w http.ResponseWriter, r *http.Request) {
 		ModelID:    s.cfg.ModelID,
 		TargetLang: targetLang,
 		Tags:       tags,
+		SkipCache:  r.FormValue("skip_cache") == "on" || r.FormValue("skip_cache") == "true",
 		OnConflict: onConflict,
 	})
 	if err != nil {
@@ -319,6 +321,7 @@ func (s *Server) handleBatchStream(w http.ResponseWriter, r *http.Request) {
 		ModelID:    s.cfg.ModelID,
 		TargetLang: targetLang,
 		Tags:       tags,
+		SkipCache:  r.FormValue("skip_cache") == "on" || r.FormValue("skip_cache") == "true",
 		OnConflict: onConflict,
 		OnProgress: progressFn,
 	})

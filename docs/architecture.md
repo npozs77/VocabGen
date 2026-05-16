@@ -72,9 +72,9 @@ vocabgen/
 │   ├── llm/               # Provider interface, Bedrock/OpenAI/Anthropic implementations
 │   ├── output/            # Field mapping, translation flattening, Excel export
 │   ├── parsing/           # CSV reading, word/expression normalization
-│   ├── service/           # Lookup, ProcessBatch — shared business logic
+│   ├── service/           # Lookup, ProcessBatch, DisambiguatedWord — shared business logic
 │   ├── update/            # Shared update checker (semver, GitHub API, download URLs)
-│   └── web/               # HTTP handlers, routes, embedded templates
+│   └── web/               # HTTP handlers, routes, embedded templates, disambiguation helpers
 │       └── templates/     # Go html/template files (go:embed)
 ├── go.mod
 ├── go.sum
@@ -126,6 +126,10 @@ The service layer sits between the interface layers (CLI, web) and the infrastru
 
 **`ResolveConflict`**: applies conflict resolution after a cache-bypass lookup. "replace" updates the existing entry by ID. "add" inserts alongside existing entries. "skip" is a no-op.
 
+**`DisambiguatedWord`**: display helper that appends a numeric suffix `(N)` when a word has multiple entries in the database. Returns the word unchanged when only one entry exists. Applied in the web layer (database browser, flashcards, XLSX export) before rendering — never modifies stored data.
+
+**Skip-Cache / New Meaning**: When `LookupParams.SkipCache` is true and a context sentence is provided, the service bypasses the cache entirely, invokes the LLM for that specific meaning, and inserts a new row without conflict resolution. This enables storing multiple distinct meanings for the same headword. Available via `--new-meaning` CLI flag or "Skip cache / Add new meaning" checkbox in the Web UI.
+
 **Conflict Resolution Strategies**:
 
 | Strategy | Behavior | Use Case |
@@ -164,7 +168,7 @@ The config uses a two-level data model:
 - `ProfileConfig` — per-profile provider settings: `provider`, `aws_profile`, `aws_region`, `model_id`, `base_url`, `gcp_project`, `gcp_region`.
 - `Config` — flattened runtime struct combining the resolved profile's provider fields with global settings. This is what the rest of the application uses.
 
-`LoadConfig` returns defaults if the file is missing. `LoadConfigWithProfile(name)` resolves a named profile. Old flat config files (no `profiles:` key) are treated as a single implicit `default` profile for backward compatibility. `SaveFileConfig` preserves the multi-profile YAML structure. `CreateProfile(newName, sourceProfile)` copies an existing profile's values into a new named profile.
+`LoadConfig` returns defaults if the file is missing. `LoadConfigWithProfile(name)` resolves a named profile. Old flat config files (no `profiles:` key) are treated as a single implicit `default` profile for backward compatibility. `SaveFileConfig` preserves the multi-profile YAML structure. `CreateProfile(newName, sourceProfile)` copies an existing profile's values into a new named profile. `ConfigDir()` returns the resolved config directory path (used by the database picker to scan for `.db` files).
 
 API keys are deliberately excluded from the config file — they come from environment variables or `--api-key` CLI flag at runtime.
 
@@ -199,6 +203,10 @@ Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All t
 **Flashcards**: The `/flashcards` page provides a study mode for reviewing vocabulary. `handlers_flashcards.go` implements two endpoints: `GET /api/flashcards/html` assembles a filtered deck by querying `ListWords` + `ListExpressions` with difficulty/language/tag filters and returns the `flashcard_card` partial with a `data-deck` JSON attribute; `PUT /api/flashcards/rate` persists a difficulty rating (easy/hard/natural) for a word or expression. Inline JavaScript in `flashcards.html` handles card flip (CSS `rotateY` with `perspective` and `backface-visibility`), prev/next deck navigation, display mode toggle (word-first vs detail-first), and difficulty rating via `fetch`. No external JS libraries.
 
 **Conflict resolution UI**: When a lookup with context finds existing entries, the server returns a `lookup_conflict.html` partial showing existing entries side-by-side with the new result, plus resolve buttons (replace/add/skip).
+
+**Database picker**: The Config page renders a server-side `<select>` dropdown listing all `.db` files in the config directory, plus a "Create new…" option. When a new name is submitted, the handler validates it (alphanumeric + hyphens/underscores), checks for conflicts, creates the empty file, and saves the path to config. `switchDatabase` closes the current `db.Store` and opens a new `SQLiteStore` at the new path — no server restart needed.
+
+**Disambiguation display**: `disambiguateWords` and `disambiguateExpressions` helpers in the web package count occurrences of each headword in a result set and apply `service.DisambiguatedWord` suffixes in-place before passing to templates. Applied in database browser, flashcards, and XLSX export.
 
 ### `cmd/vocabgen` — CLI Entry Point
 
@@ -398,7 +406,8 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | Resolve conflict | POST /api/lookup/resolve/html | `lookup_result.html` |
 | Upload batch CSV | POST /api/batch/html | Starts SSE stream |
 | Batch progress | GET /api/batch/stream | SSE events (progress, complete) |
-| Save config | PUT /api/config | `config_form.html` with success message |
+| Save config | PUT /api/config | Success message (+ live DB switch if path changed) |
+| Switch profile | PUT /api/profile/switch | Re-rendered `config_form.html` (+ live DB switch) |
 | Search database | GET /api/words?search=... | `entry_table.html` |
 | Edit entry | PUT /api/words/{id} | Updated row HTML |
 | Delete entry | DELETE /api/words/{id} | Empty (row removed) |
@@ -435,6 +444,10 @@ Forms use `hx-post`/`hx-put`/`hx-delete` to send requests. Server returns HTML f
 | GET | /api/export | Excel export |
 | GET | /api/health | Health check |
 | GET | /api/languages | Supported languages list |
+| GET | /api/databases | List .db files in config directory |
+| GET | /api/profiles | List config profiles |
+| POST | /api/profiles | Create new profile |
+| PUT | /api/profile/switch | Switch active profile |
 | GET | /docs | Documentation index |
 | GET | /docs/{slug} | Documentation content page |
 | GET | /changelog | Changelog page |

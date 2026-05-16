@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,6 +16,42 @@ import (
 // handleGetConfig handles GET /api/config — return current config as JSON.
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.cfg)
+}
+
+// handleListDatabases handles GET /api/databases — scans the config directory
+// for *.db files and returns them as a JSON array of filenames.
+func (s *Server) handleListDatabases(w http.ResponseWriter, r *http.Request) {
+	dir, err := config.ConfigDir()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to resolve config directory: "+err.Error())
+		return
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		// If the directory doesn't exist yet, return an empty list.
+		if os.IsNotExist(err) {
+			writeJSON(w, http.StatusOK, []string{})
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "failed to read config directory: "+err.Error())
+		return
+	}
+
+	var databases []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), ".db") {
+			databases = append(databases, entry.Name())
+		}
+	}
+	if databases == nil {
+		databases = []string{}
+	}
+
+	writeJSON(w, http.StatusOK, databases)
 }
 
 // handleGetProfiles handles GET /api/profiles — return available profiles and active profile.
@@ -67,6 +104,13 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	s.activeProfile = req.Profile
 	s.logger.Info("switched config profile", "profile", req.Profile)
 
+	// Hot-swap database if the new profile has a different DB path.
+	if cfg.DBPath != "" && cfg.DBPath != s.dbPath {
+		if err := s.switchDatabase(cfg.DBPath); err != nil {
+			s.logger.Error("failed to switch database on profile change", "path", cfg.DBPath, "error", err)
+		}
+	}
+
 	// Determine if the new profile uses a local model (for warning banner).
 	isLocal := strings.Contains(cfg.BaseURL, "localhost:11434")
 
@@ -95,17 +139,32 @@ func (s *Server) handleSwitchProfile(w http.ResponseWriter, r *http.Request) {
 	// This replaces the two-step approach (PUT then GET) that was prone to
 	// stale form values leaking into the re-render request (#28).
 	profiles, _, _ := config.ListProfiles()
+
+	// Scan config directory for existing .db files.
+	var databases []string
+	if dir, dirErr := config.ConfigDir(); dirErr == nil {
+		if entries, readErr := os.ReadDir(dir); readErr == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".db") {
+					databases = append(databases, dir+"/"+entry.Name())
+				}
+			}
+		}
+	}
+
 	data := struct {
 		Config        *config.Config
 		Languages     []service.LanguageInfo
 		Profiles      []string
 		ActiveProfile string
+		Databases     []string
 		StatusMessage template.HTML
 	}{
 		Config:        &cfg,
 		Languages:     service.GetSupportedLanguages(),
 		Profiles:      profiles,
 		ActiveProfile: s.activeProfile,
+		Databases:     databases,
 		StatusMessage: template.HTML(`<p class="text-green-600 text-sm mt-1">Switched to profile "` + req.Profile + `".</p>`),
 	}
 	// Signal the page to update the local model warning banner.
@@ -188,7 +247,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 			GCPRegion:             r.FormValue("gcp_region"),
 			DefaultSourceLanguage: r.FormValue("default_source_language"),
 			DefaultTargetLanguage: r.FormValue("default_target_language"),
-			DBPath:                s.cfg.DBPath, // preserve DB path
+			DBPath:                r.FormValue("db_path"),
 		}
 	}
 
@@ -196,8 +255,49 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	if updated.Provider == "" {
 		updated.Provider = "bedrock"
 	}
-	if updated.DBPath == "" {
+	if updated.DBPath == "" || updated.DBPath == "__new__" {
 		updated.DBPath = s.cfg.DBPath
+	}
+
+	// Validate db_path when "create new" intent is signaled.
+	// The form sends db_path_new_name when the user typed a new DB name.
+	newDBName := ""
+	if ct != "application/json" {
+		newDBName = r.FormValue("db_path_new_name")
+	}
+	if newDBName != "" {
+		// Sanitize: only allow alphanumeric, hyphens, underscores, and dots.
+		if !isValidDBName(newDBName) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Invalid database name. Use only letters, numbers, hyphens, and underscores.</p>`))
+			return
+		}
+		// Ensure it ends with .db
+		if !strings.HasSuffix(newDBName, ".db") {
+			newDBName += ".db"
+		}
+		// Check for conflict with existing files.
+		dir, err := config.ConfigDir()
+		if err == nil {
+			existingPath := filepath.Join(dir, newDBName)
+			if _, statErr := os.Stat(existingPath); statErr == nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">A database named "` + newDBName + `" already exists. Choose a different name.</p>`))
+				return
+			}
+		}
+		// Set the db_path to the new file in the config directory.
+		if dir != "" {
+			updated.DBPath = filepath.Join(dir, newDBName)
+			// Create the empty database file so it appears in the picker immediately.
+			f, createErr := os.Create(updated.DBPath)
+			if createErr != nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Failed to create database file: ` + createErr.Error() + `</p>`))
+				return
+			}
+			_ = f.Close()
+		}
 	}
 
 	// Validate provider credentials are available via environment.
@@ -216,6 +316,15 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Update in-memory config
 	*s.cfg = updated
+
+	// Hot-swap database if path changed.
+	if updated.DBPath != s.dbPath {
+		if err := s.switchDatabase(updated.DBPath); err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<p class="text-red-600 text-sm mt-1">Config saved but failed to switch database: ` + err.Error() + `</p>`))
+			return
+		}
+	}
 
 	s.logger.Info("config saved", "profile", s.activeProfile, "provider", updated.Provider)
 
@@ -249,17 +358,31 @@ func (s *Server) handleConfigHTML(w http.ResponseWriter, r *http.Request) {
 
 	profiles, _, _ := config.ListProfiles()
 
+	// Scan config directory for existing .db files.
+	var databases []string
+	if dir, err := config.ConfigDir(); err == nil {
+		if entries, err := os.ReadDir(dir); err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".db") {
+					databases = append(databases, dir+"/"+entry.Name())
+				}
+			}
+		}
+	}
+
 	data := struct {
 		Config        *config.Config
 		Languages     []service.LanguageInfo
 		Profiles      []string
 		ActiveProfile string
+		Databases     []string
 		StatusMessage template.HTML
 	}{
 		Config:        &cfg,
 		Languages:     service.GetSupportedLanguages(),
 		Profiles:      profiles,
 		ActiveProfile: s.activeProfile,
+		Databases:     databases,
 	}
 	// Signal the page to update the local model warning banner based on
 	// the previewed provider. Non-openai providers never use a local URL.
@@ -360,4 +483,27 @@ func (s *Server) handleProfileSwitcherPartial(w http.ResponseWriter, _ *http.Req
 		Profiles:      profiles,
 	}
 	_ = renderPartial(w, "profile_switcher", data)
+}
+
+// isValidDBName checks that a database filename contains only safe characters:
+// letters, digits, hyphens, underscores, and dots. The .db extension is optional
+// (it will be appended if missing).
+func isValidDBName(name string) bool {
+	if name == "" {
+		return false
+	}
+	// Strip .db suffix for validation of the base name.
+	base := strings.TrimSuffix(name, ".db")
+	if base == "" {
+		return false
+	}
+	for _, r := range base {
+		isLower := r >= 'a' && r <= 'z'
+		isUpper := r >= 'A' && r <= 'Z'
+		isDigit := r >= '0' && r <= '9'
+		if !isLower && !isUpper && !isDigit && r != '-' && r != '_' {
+			return false
+		}
+	}
+	return true
 }

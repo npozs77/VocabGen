@@ -263,6 +263,12 @@ var lookupCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetString("tags")
 		timeout, _ := cmd.Flags().GetInt("timeout")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		newMeaning, _ := cmd.Flags().GetBool("new-meaning")
+
+		// --new-meaning requires --context
+		if newMeaning && ctxSentence == "" {
+			return fmt.Errorf("--context is required when using --new-meaning")
+		}
 
 		sourceLang := appConfig.DefaultSourceLanguage
 		if sl, _ := cmd.Flags().GetString("source-language"); sl != "" {
@@ -304,6 +310,7 @@ var lookupCmd = &cobra.Command{
 			TargetLang: targetLang,
 			Tags:       tags,
 			DryRun:     dryRun,
+			SkipCache:  newMeaning,
 			Timeout:    time.Duration(timeout) * time.Second,
 			OnConflict: conflictStrategy,
 		})
@@ -373,6 +380,7 @@ func init() {
 	lookupCmd.Flags().String("context", "", "Context sentence for the lookup")
 	lookupCmd.Flags().String("on-conflict", "", "Conflict resolution strategy (replace, add, skip)")
 	lookupCmd.Flags().Bool("dry-run", false, "Preview without LLM invocation or DB writes")
+	lookupCmd.Flags().Bool("new-meaning", false, "Skip cache and add a new meaning (requires --context)")
 }
 
 // batchCmd implements the "vocabgen batch" subcommand.

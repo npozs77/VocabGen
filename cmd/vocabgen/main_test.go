@@ -691,3 +691,35 @@ func TestCLIAWSProfileFlagExists(t *testing.T) {
 		t.Fatalf("--aws-profile default should be empty, got %q", f.DefValue)
 	}
 }
+
+// TestCLINewMeaningFlagExists tests that --new-meaning flag exists on lookup command.
+func TestCLINewMeaningFlagExists(t *testing.T) {
+	f := lookupCmd.Flags().Lookup("new-meaning")
+	if f == nil {
+		t.Fatal("flag --new-meaning not found on lookup command")
+	}
+	if f.DefValue != "false" {
+		t.Fatalf("--new-meaning default should be 'false', got %q", f.DefValue)
+	}
+}
+
+// TestCLINewMeaningRequiresContext tests that --new-meaning without --context returns an error.
+func TestCLINewMeaningRequiresContext(t *testing.T) {
+	saved := appConfig
+	tmpDir := t.TempDir()
+	appConfig = config.DefaultConfig()
+	appConfig.DBPath = tmpDir + "/test.db"
+	appConfig.DefaultSourceLanguage = "nl"
+	appConfig.Provider = "openai"
+	appConfig.BaseURL = "http://localhost:11434/v1"
+	appConfig.ModelID = "test"
+	defer func() { appConfig = saved }()
+
+	_, err := executeCommand("lookup", "beslaan", "-l", "nl", "--new-meaning")
+	if err == nil {
+		t.Error("expected error when --new-meaning is used without --context, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "--context is required") {
+		t.Errorf("error should mention '--context is required', got: %s", err.Error())
+	}
+}

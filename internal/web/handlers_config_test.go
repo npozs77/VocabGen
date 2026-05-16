@@ -693,3 +693,333 @@ func TestProfileSwitch_StaleProviderParamIgnored(t *testing.T) {
 		t.Fatal("expected provider query param to still work for provider selector preview")
 	}
 }
+
+// TestListDatabases_ReturnsDBFiles tests GET /api/databases returns .db files.
+func TestListDatabases_ReturnsDBFiles(t *testing.T) {
+	// Create a temp dir with some .db files and non-.db files.
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	// Create test files.
+	for _, name := range []string{"vocabgen.db", "vocabgen-dev.db", "config.yaml", "notes.txt"} {
+		if err := os.WriteFile(dir+"/"+name, []byte("test"), 0o644); err != nil {
+			t.Fatalf("create test file %s: %v", name, err)
+		}
+	}
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/databases", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	var databases []string
+	if err := json.NewDecoder(w.Body).Decode(&databases); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+
+	// Should only contain .db files.
+	if len(databases) != 2 {
+		t.Fatalf("expected 2 databases, got %d: %v", len(databases), databases)
+	}
+	hasVocabgen := false
+	hasVocabgenDev := false
+	for _, db := range databases {
+		if db == "vocabgen.db" {
+			hasVocabgen = true
+		}
+		if db == "vocabgen-dev.db" {
+			hasVocabgenDev = true
+		}
+	}
+	if !hasVocabgen || !hasVocabgenDev {
+		t.Fatalf("expected vocabgen.db and vocabgen-dev.db, got %v", databases)
+	}
+}
+
+// TestListDatabases_EmptyDir tests GET /api/databases with no .db files.
+func TestListDatabases_EmptyDir(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/databases", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	var databases []string
+	if err := json.NewDecoder(w.Body).Decode(&databases); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+
+	if len(databases) != 0 {
+		t.Fatalf("expected empty list, got %v", databases)
+	}
+}
+
+// TestListDatabases_SkipsDirectories tests that directories ending in .db are not listed.
+func TestListDatabases_SkipsDirectories(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	// Create a directory named "fake.db" and a real file "real.db".
+	if err := os.Mkdir(dir+"/fake.db", 0o755); err != nil {
+		t.Fatalf("create dir: %v", err)
+	}
+	if err := os.WriteFile(dir+"/real.db", []byte("test"), 0o644); err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/databases", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var databases []string
+	if err := json.NewDecoder(w.Body).Decode(&databases); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+
+	if len(databases) != 1 || databases[0] != "real.db" {
+		t.Fatalf("expected [real.db], got %v", databases)
+	}
+}
+
+// TestPutConfig_NewDBName_Valid tests that a valid new DB name is accepted.
+func TestPutConfig_NewDBName_Valid(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	t.Setenv("AWS_PROFILE", "test")
+
+	srv := newTestServer()
+	form := "provider=bedrock&aws_region=us-east-1&default_source_language=nl&default_target_language=hu&db_path=&db_path_new_name=my-new-course"
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Configuration saved") {
+		t.Fatalf("expected success message, got: %s", w.Body.String())
+	}
+	// Verify the db_path was set to the new file path.
+	if !strings.Contains(srv.cfg.DBPath, "my-new-course.db") {
+		t.Fatalf("expected db_path to contain 'my-new-course.db', got %q", srv.cfg.DBPath)
+	}
+	// Verify the .db file was actually created on disk.
+	if _, err := os.Stat(srv.cfg.DBPath); os.IsNotExist(err) {
+		t.Fatalf("expected database file to be created at %q, but it does not exist", srv.cfg.DBPath)
+	}
+}
+
+// TestPutConfig_NewDBName_Conflict tests that a conflicting new DB name is rejected.
+func TestPutConfig_NewDBName_Conflict(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	// Create an existing database file.
+	if err := os.WriteFile(dir+"/existing.db", []byte("data"), 0o644); err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+
+	t.Setenv("AWS_PROFILE", "test")
+
+	srv := newTestServer()
+	form := "provider=bedrock&aws_region=us-east-1&default_source_language=nl&default_target_language=hu&db_path=&db_path_new_name=existing"
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "already exists") {
+		t.Fatalf("expected conflict error, got: %s", w.Body.String())
+	}
+}
+
+// TestPutConfig_NewDBName_Invalid tests that an invalid new DB name is rejected.
+func TestPutConfig_NewDBName_Invalid(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	t.Setenv("AWS_PROFILE", "test")
+
+	tests := []struct {
+		name    string
+		dbName  string
+		wantErr string
+	}{
+		{"spaces", "my course", "Invalid database name"},
+		{"special chars", "db@home!", "Invalid database name"},
+		{"path traversal", "../evil", "Invalid database name"},
+		{"slash", "path/to/db", "Invalid database name"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer()
+			form := "provider=bedrock&aws_region=us-east-1&default_source_language=nl&default_target_language=hu&db_path=&db_path_new_name=" + tc.dbName
+			req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(form))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if !strings.Contains(w.Body.String(), tc.wantErr) {
+				t.Fatalf("expected %q in response, got: %s", tc.wantErr, w.Body.String())
+			}
+		})
+	}
+}
+
+// TestPutConfig_SelectExistingDB tests that selecting an existing DB from the dropdown works.
+func TestPutConfig_SelectExistingDB(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	t.Setenv("AWS_PROFILE", "test")
+
+	srv := newTestServer()
+	form := "provider=bedrock&aws_region=us-east-1&default_source_language=nl&default_target_language=hu&db_path=" + dir + "/vocabgen-dev.db"
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Configuration saved") {
+		t.Fatalf("expected success message, got: %s", w.Body.String())
+	}
+	if srv.cfg.DBPath != dir+"/vocabgen-dev.db" {
+		t.Fatalf("expected db_path %q, got %q", dir+"/vocabgen-dev.db", srv.cfg.DBPath)
+	}
+}
+
+// TestIsValidDBName tests the isValidDBName helper function.
+func TestIsValidDBName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"simple name", "vocabgen", true},
+		{"with hyphen", "my-course", true},
+		{"with underscore", "my_course", true},
+		{"with digits", "course2024", true},
+		{"with .db suffix", "vocabgen.db", true},
+		{"empty", "", false},
+		{"just .db", ".db", false},
+		{"spaces", "my course", false},
+		{"special chars", "db@home", false},
+		{"path separator", "path/db", false},
+		{"dots in name", "my.course", false},
+		{"backslash", "path\\db", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isValidDBName(tc.input)
+			if got != tc.want {
+				t.Fatalf("isValidDBName(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestPutConfig_NewDBPath_FallbackWhenNew tests that db_path="__new__" without a name falls back to current.
+func TestPutConfig_NewDBPath_FallbackWhenNew(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	t.Setenv("AWS_PROFILE", "test")
+
+	srv := newTestServer()
+	originalDBPath := srv.cfg.DBPath
+
+	// Send __new__ as db_path but no db_path_new_name — should fall back to current.
+	form := "provider=bedrock&aws_region=us-east-1&default_source_language=nl&default_target_language=hu&db_path=__new__&db_path_new_name="
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if srv.cfg.DBPath != originalDBPath {
+		t.Fatalf("expected db_path to remain %q, got %q", originalDBPath, srv.cfg.DBPath)
+	}
+}
+
+// TestSwitchProfile_IncludesDatabases tests that profile switch re-renders with database picker.
+func TestSwitchProfile_IncludesDatabases(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigDirForTest(dir)
+	t.Cleanup(func() { config.SetConfigDirForTest(os.TempDir()) })
+
+	// Create a .db file so it shows in the picker.
+	if err := os.WriteFile(dir+"/vocabgen.db", []byte{}, 0o644); err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+
+	// Write a multi-profile config.
+	fc := config.FileConfig{
+		DefaultProfile: "default",
+		Profiles: map[string]config.ProfileConfig{
+			"default": {Provider: "bedrock", AWSRegion: "us-east-1"},
+			"local":   {Provider: "openai", BaseURL: "http://localhost:11434/v1", ModelID: "test"},
+		},
+		DefaultSourceLanguage: "nl",
+		DefaultTargetLanguage: "hu",
+		DBPath:                dir + "/vocabgen.db",
+	}
+	if err := config.SaveFileConfig(fc); err != nil {
+		t.Fatalf("SaveFileConfig: %v", err)
+	}
+
+	srv := newTestServer()
+	srv.cfg.DBPath = dir + "/vocabgen.db"
+
+	form := "profile=local"
+	req := httptest.NewRequest(http.MethodPut, "/api/profile/switch", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	// The response should contain the database picker with "Create new" option.
+	body := w.Body.String()
+	if !strings.Contains(body, "Create new") {
+		t.Fatalf("expected 'Create new' in profile switch response, got: %s", body)
+	}
+	if !strings.Contains(body, "Save") {
+		t.Fatalf("expected 'Save' button in profile switch response, got: %s", body)
+	}
+}

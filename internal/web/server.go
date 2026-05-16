@@ -140,6 +140,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/profiles", s.handleCreateProfile)
 	s.mux.HandleFunc("PUT /api/profile/switch", s.handleSwitchProfile)
 	s.mux.HandleFunc("GET /api/profile/switcher", s.handleProfileSwitcherPartial)
+	s.mux.HandleFunc("GET /api/databases", s.handleListDatabases)
 
 	// Database API
 	s.mux.HandleFunc("GET /api/tags", s.handleListTags)
@@ -197,6 +198,25 @@ func (s *Server) newPageData(activePage string) pageData {
 		pd.LocalModelWarning = true
 	}
 	return pd
+}
+
+// switchDatabase closes the current store and opens a new one at the given path.
+// Updates s.store and s.dbPath on success. Returns an error if the new store
+// cannot be opened (the old store remains closed in that case).
+func (s *Server) switchDatabase(newPath string) error {
+	if newPath == s.dbPath {
+		return nil
+	}
+	_ = s.store.Close()
+	newStore, err := db.NewSQLiteStore(newPath)
+	if err != nil {
+		s.logger.Error("failed to open new database", "path", newPath, "error", err)
+		return err
+	}
+	s.store = newStore
+	s.dbPath = newPath
+	s.logger.Info("switched database", "path", newPath)
+	return nil
 }
 
 // handleHealth returns a simple health check response.
