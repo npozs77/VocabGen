@@ -615,11 +615,9 @@ The web UI displays the active database path in the navigation bar (next to the 
 
 The Config page includes a database picker dropdown that lists all `.db` files found in the config directory (`~/.vocabgen/` or `/data/` in Docker). This makes it easy to manage multiple databases (e.g., per-course or dev/prod) without remembering file paths.
 
-- **Select an existing database**: Choose from the dropdown to set it as the active database path
-- **Create a new database**: Select "Create new…" at the bottom of the dropdown, then type a name (letters, numbers, hyphens, underscores only). The name is validated inline — if it conflicts with an existing file, an error is shown
-- **Server restart required**: The database switch takes effect on the next server restart (hot-swap is not supported)
-
-The new database file is created automatically by vocabgen on the next startup (existing behavior — `NewSQLiteStore` auto-creates missing files).
+- **Select an existing database**: Choose from the dropdown and click Save — the server switches to the new database immediately (no restart needed)
+- **Create a new database**: Select "Create new…" at the bottom of the dropdown, then type a name (letters, numbers, hyphens, underscores only). The name is validated inline — if it conflicts with an existing file, an error is shown. The file is created on Save.
+- **Profile-based switching**: Each config profile can point to a different database. Switching profiles also switches the active database live.
 
 To use a custom database path from the CLI:
 
