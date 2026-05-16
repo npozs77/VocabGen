@@ -1,0 +1,1054 @@
+# Implementation Plan: Go Vocabulary Generator
+
+## Overview
+
+Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary generation. Implementation follows dependency order: project scaffolding → foundational packages (config, language, parsing) → providers (llm) → storage (db) → business logic (service) → output → interfaces (CLI, web) → operational (backup, build). Each task includes co-located tests (property-based with `rapid`, table-driven, and fuzz where applicable).
+
+## Tasks
+
+- [x] 1. Project scaffolding and build tooling
+  - [x] 1.1 Initialize Go module and directory structure
+    - Run `go mod init` with the project module path
+    - Create directory skeleton: `cmd/vocabgen/`, `internal/config/`, `internal/db/`, `internal/language/`, `internal/llm/`, `internal/output/`, `internal/parsing/`, `internal/service/`, `internal/web/templates/`, `internal/web/templates/partials/`
+    - Create placeholder `main.go` in `cmd/vocabgen/` with a minimal `func main()` that prints "vocabgen" and exits
+    - Add `go.sum` by running `go mod tidy`
+    - _Requirements: 35.1, 35.3_
+    - _Design: Package Layout section_
+  - [x] 1.2 Create Makefile with build, test, lint, vet, and fmt-check targets
+    - `build`: `go build -o vocabgen ./cmd/vocabgen`
+    - `test`: `go test -race ./...`
+    - `lint`: `staticcheck ./...`
+    - `vet`: `go vet ./...`
+    - `fmt-check`: verify all `.go` files are `gofmt`-formatted, fail if not
+    - Add a `clean` target to remove the binary
+    - _Requirements: 45.1–45.6_
+    - _Design: Operational Procedures section_
+  - [x] 1.3 Add core dependencies to go.mod
+    - `github.com/spf13/cobra` (CLI framework)
+    - `pgregory.net/rapid` (property-based testing)
+    - `modernc.org/sqlite` (pure-Go SQLite driver)
+    - `gopkg.in/yaml.v3` (YAML config)
+    - `github.com/xuri/excelize/v2` (Excel export)
+    - Run `go mod tidy` to resolve all transitive dependencies
+    - _Requirements: 35.4_
+    - _Design: Design Decisions table_
+
+- [x] 2. Checkpoint — Verify project builds and `make test` passes
+  - Ensure `make build` produces a binary, `make test` runs (even with no tests yet), `make vet` passes. Ask the user if questions arise.
+  - **Go Learning**: Explain Go modules (`go.mod`/`go.sum`), the `internal/` encapsulation pattern (compiler-enforced), and how `go build`/`go test` work. Ask the user if they have questions before proceeding.
+  - **Microstudy**: Write `reference/learning-go-microstudy/01-modules-and-build.md` — generic Go reference covering modules, `internal/`, `go build`, `go test`, and Python→Go comparison. No project-specific references.
+
+- [x] 3. Config package (`internal/config/`)
+  - [x] 3.1 Implement Config struct, DefaultConfig, LoadConfig, and SaveConfig
+    - Define `Config` struct with YAML tags: provider, aws_profile, aws_region, model_id, base_url, gcp_project, gcp_region, default_source_language, default_target_language, db_path
+    - `DefaultConfig()` returns: provider "bedrock", aws_region "us-east-1", default_source_language "nl", default_target_language "hu", db_path "~/.vocabgen/vocabgen.db"
+    - `LoadConfig()` reads `~/.vocabgen/config.yaml`, returns `DefaultConfig()` if file missing
+    - `SaveConfig(cfg)` writes YAML to `~/.vocabgen/config.yaml`, creates directory if needed
+    - `SaveConfig` must NOT serialize any `api_key` field — API keys are runtime-only
+    - _Requirements: 33.1–33.9, 34.1–34.2_
+    - _Design: Section 7 — internal/config_
+  - [x] 3.2 Write property test P14: Config file round-trip
+    - **Property 14: Config file round-trip**
+    - Generate random valid `Config` structs with `rapid`, save via `SaveConfig` to a temp dir, load via `LoadConfig`, assert equality
+    - Use a temp directory to avoid touching the real `~/.vocabgen/`
+    - **Validates: Requirements 34.1, 34.2**
+  - [x] 3.3 Write table-driven tests for config defaults and no-secrets
+    - Test `LoadConfig` returns `DefaultConfig()` when file is missing
+    - Test `SaveConfig` output YAML does not contain `api_key`
+    - Test `SaveConfig` creates directory if it doesn't exist
+    - _Requirements: 33.4, 33.6, 33.7_
+
+- [x] 4. Language package (`internal/language/`)
+  - [x] 4.1 Implement SupportedLanguages registry and ResolveLanguageName
+    - Define `SupportedLanguages` map: nl→Dutch, hu→Hungarian, it→Italian, ru→Russian, en→English, de→German, fr→French, es→Spanish, pt→Portuguese, pl→Polish, tr→Turkish
+    - `ResolveLanguageName(code)` returns full name for known codes, returns input as-is for unknown codes/names
+    - _Requirements: 4.5, 6.2, 6.3_
+    - _Design: Section 2 — registry.go_
+  - [x] 4.2 Write table-driven tests for language resolution
+    - Test all 11 known codes resolve correctly (nl→Dutch, hu→Hungarian, etc.)
+    - Test unknown code "xx" passes through as "xx"
+    - Test full name "German" passes through as "German"
+    - Test non-Latin name "日本語" passes through
+    - _Requirements: 6.2, 6.3, 43.6_
+  - [x] 4.3 Implement WordsTemplate, ExpressionsTemplate constants and BuildPrompt function
+    - Define `WordsTemplate` as a Go string constant with `{source_language}`, `{word}`, `{context}`, `{target_language_name}` placeholders, including Core Rule Block and Decision Rubric
+    - Define `ExpressionsTemplate` as a Go string constant with `{source_language}`, `{expression}`, `{context}`, `{target_language_name}` placeholders, including Core Rule Block and Decision Rubric
+    - `BuildPrompt(sourceLang, mode, token, context, targetLang)` resolves language names, selects template by mode, replaces all placeholders via `strings.NewReplacer`
+    - Return error for invalid mode values (not "words" or "expressions")
+    - WordsTemplate must instruct the LLM to return an `english_definition` field (concise English-language explanation of the word's meaning)
+    - ExpressionsTemplate must instruct the LLM to return an `english_definition` field (concise English-language explanation of the expression's meaning)
+    - _Requirements: 1.1–1.15, 2.1–2.12, 4.1–4.4, 6.1–6.7, 40.1–40.4, 41.1–41.3, 42.1–42.4_
+    - _Design: Section 2 — templates.go_
+  - [x] 4.4 Write property test P1: Template formatting produces valid prompts
+    - **Property 1: Template formatting produces valid prompts for any source language**
+    - Generate random source language strings (known codes, arbitrary names, Unicode), random tokens, random context strings, random target language codes
+    - Assert output contains: resolved source language name, token, target language name, Core Rule Block text, Decision Rubric text, no unresolved `{...}` placeholders
+    - **Validates: Requirements 1.10, 2.9, 4.5**
+  - [x] 4.5 Write property test P5: BuildPrompt injects all parameters
+    - **Property 5: BuildPrompt injects all parameters into output**
+    - Generate random source language, mode (sampled from "words"/"expressions"), token, context, target language
+    - Assert output contains resolved source language name, token, context (when non-empty), resolved target language name
+    - **Validates: Requirements 6.1–6.7, 42.1–42.4**
+  - [x] 4.6 Write table-driven tests for template content and BuildPrompt mode selection
+    - Test WordsTemplate contains all 14 English field names from the schema (including `english_definition`)
+    - Test ExpressionsTemplate contains all 10 English field names from the schema (including `english_definition`)
+    - Test BuildPrompt with mode "words" uses WordsTemplate, mode "expressions" uses ExpressionsTemplate
+    - Test BuildPrompt with invalid mode returns error
+    - Test BuildPrompt for each supported language produces prompt containing correct language name
+    - _Requirements: 1.2, 2.2, 6.4, 6.7, 43.4, 43.6_
+  - [x] 4.7 Implement ValidateResponse, ValidatedEntry, Translation types, and ValidationError
+    - Define `Translation` struct with `Primary` and `Alternatives` string fields
+    - Define `ValidatedEntry` struct with all word/expression fields using `Translation` for english/target_translation; include `EnglishDefinition string` field
+    - Define `ValidationError` with `Message` and `Fields` slice
+    - `ValidateResponse(mode, rawJSON)` parses JSON, validates required fields per mode, normalizes translation fields (plain string → `{primary: s, alternatives: ""}`), defaults optional fields to `""`
+    - Words required: word, type, article, definition, example, english, target_translation
+    - Expressions required: expression, definition, example, english, target_translation
+    - Words optional: english_definition, notes, connotation, register, collocations, contrastive_notes, secondary_meanings
+    - Expressions optional: english_definition, notes, connotation, register, contrastive_notes
+    - Return `ValidationError` listing missing required fields or malformed translation fields
+    - _Requirements: 3.1–3.9_
+    - _Design: Section 2 — validation.go_
+  - [x] 4.8 Write property test P2: Translation field normalization
+    - **Property 2: Translation field normalization**
+    - Generate random translation values: either plain strings or JSON objects with `primary` (string) and optional `alternatives` (string)
+    - Assert normalization produces `{Primary: string, Alternatives: string}` with alternatives defaulting to `""`
+    - **Validates: Requirements 3.3, 3.4**
+  - [x] 4.9 Write property test P3: Optional fields default to empty string
+    - **Property 3: Optional fields default to empty string**
+    - Generate valid JSON with random subsets of optional fields removed
+    - Assert validator succeeds and missing optional fields are `""` in the returned struct
+    - **Validates: Requirement 3.5**
+  - [x] 4.10 Write property test P4: Missing required fields return validation error
+    - **Property 4: Missing required fields and malformed values return validation error**
+    - Generate valid JSON, then remove a random non-empty subset of required fields
+    - Assert `ValidateResponse` returns a `ValidationError` whose message mentions every removed field name
+    - Also test non-string values for optional fields and malformed translation fields (neither string nor valid object)
+    - **Validates: Requirements 3.6, 3.7, 3.8, 3.9**
+  - [x] 4.11 Write property test P9: Validation accepts any valid English-schema JSON
+    - **Property 9: Validation accepts any valid English-schema JSON**
+    - Generate complete valid JSON objects with all required English fields as strings, translation fields as string or valid object
+    - Assert `ValidateResponse` succeeds for both "words" and "expressions" modes
+    - Assert round-trip through `ValidateResponse` then `MapFields` produces no error
+    - **Validates: Requirements 3.1, 3.2, 43.10**
+  - [x] 4.12 Write fuzz tests for ValidateResponse
+    - `FuzzValidateResponse` — fuzz with random JSON strings to find panics or unexpected behavior
+    - Seed corpus with valid words JSON, valid expressions JSON, empty string, `{}`, `[]`, malformed JSON
+    - _Requirements: 43.3_
+    - _Design: Fuzz Testing section_
+
+- [x] 5. Parsing package (`internal/parsing/`)
+  - [x] 5.1 Implement ReadInputFile and TokenWithContext
+    - Define `TokenWithContext` struct with `Token` and `Context` string fields
+    - `ReadInputFile(path)` reads CSV using UTF-8 encoding, returns `[]TokenWithContext`
+    - Skip empty/whitespace-only lines
+    - Single-column lines: token with empty context
+    - Two-column lines: token and context
+    - All non-empty lines treated as data (no header detection)
+    - Return error for file not found or empty file (after skipping blanks)
+    - _Requirements: 14.1–14.7_
+    - _Design: Section 3 — csv.go_
+  - [x] 5.2 Implement NormalizeWord and NormalizeExpression
+    - `NormalizeWord(raw)`: strip quotes, vocabulary-list markers (`*`, `>`, `(sep.)`), conjugation annotations (parenthetical groups with commas), collapse multiple spaces to single, strip leading/trailing whitespace, preserve simple parenthetical info (e.g., `(ergens)`, `(zich)`)
+    - `NormalizeExpression(raw)`: strip quotes, vocabulary-list markers, conjugation annotations, collapse multiple spaces to single, strip leading/trailing whitespace
+    - Both return empty string for whitespace-only input
+    - _Requirements: 15.1–15.7, 16.1–16.5_
+    - _Design: Section 3 — normalize.go_
+  - [x] 5.3 Write property test P6: CSV parsing
+    - **Property 6: CSV parsing**
+    - Generate lists of CSV lines: mix of empty lines, single-column data, two-column data
+    - Write to temp file, read with `ReadInputFile`
+    - Assert returned count equals non-empty line count; two-column lines have both token and context; single-column lines have empty context
+    - **Validates: Requirements 14.2, 14.5, 14.6**
+  - [x] 5.4 Write property test P10: Token normalization idempotence
+    - **Property 10: Token normalization consistency (idempotence)**
+    - Generate random strings with quotes, spaces, parentheses mixed in
+    - Assert `NormalizeWord(NormalizeWord(x)) == NormalizeWord(x)` and same for `NormalizeExpression`
+    - **Validates: Requirements 15.1–15.4, 16.1–16.3**
+  - [x] 5.5 Write table-driven tests for parsing edge cases
+    - Test file not found returns error
+    - Test empty file returns error
+    - Test whitespace-only lines are skipped
+    - Test nested parentheses preserved in NormalizeWord
+    - Test mixed quotes removed
+    - Test whitespace-only input returns empty string
+    - _Requirements: 14.3, 14.4, 15.3_
+  - [x] 5.6 Write fuzz tests for NormalizeWord and NormalizeExpression
+    - `FuzzNormalizeWord` — fuzz with random strings to find panics
+    - `FuzzNormalizeExpression` — fuzz with random strings to find panics
+    - Seed corpus with: empty string, quotes, parentheses, Unicode, mixed whitespace
+    - _Requirements: 43.3_
+    - _Design: Fuzz Testing section_
+
+- [x] 6. Checkpoint — Foundational packages complete
+  - Ensure all tests pass with `make test`. Verify `internal/config`, `internal/language`, and `internal/parsing` compile and tests pass. Ask the user if questions arise.
+  - **Go Learning**: Explain Go error handling patterns (errors as values, `fmt.Errorf` with `%w`, `errors.Is`/`errors.As`), struct tags (YAML, JSON), `strings.NewReplacer` for template formatting, and the table-driven test pattern (`[]struct` + `t.Run`). Explain how `rapid.Check` works for property-based testing vs table-driven tests. Ask the user if they have questions before proceeding.
+  - **Microstudy**: Write `reference/learning-go-microstudy/02-errors-structs-and-testing.md` — generic Go reference covering error handling patterns, struct tags, `strings.NewReplacer`, table-driven tests, and `rapid.Check` PBT. No project-specific references.
+
+- [x] 7. LLM provider package (`internal/llm/`)
+  - [x] 7.1 Implement Provider interface, ProviderError, ProviderOptions, and Registry
+    - Define `Provider` interface with `Invoke(ctx context.Context, prompt, modelID string) (string, error)` and `Name() string`
+    - Define `ProviderError` struct with `Provider`, `Message`, `Err` fields; implement `Error()` and `Unwrap()`
+    - Define `NewProviderFunc` type and `ProviderOptions` struct (APIKey, BaseURL, Region, Profile, GCPProject)
+    - Define `Registry` map with entries for "bedrock", "openai", "anthropic", "vertexai"
+    - _Requirements: 7.1–7.7, 11.4–11.5, 13.1–13.4_
+    - _Design: Section 1 — provider.go_
+  - [x] 7.2 Implement BedrockProvider
+    - `NewBedrockProvider(opts)` creates AWS SDK v2 Bedrock Runtime client using credential chain and region
+    - `Invoke` sends prompt via Bedrock Runtime API, extracts text from response, strips provider envelope
+    - Retry once on throttling/timeout errors (1 second delay)
+    - Return `ProviderError` on empty response, auth failure, or exhausted retries
+    - Validate region supports Bedrock before creating client
+    - _Requirements: 8.1–8.6, 12.1, 12.5_
+    - _Design: Section 1 — bedrock.go_
+  - [x] 7.3 Implement OpenAIProvider
+    - `NewOpenAIProvider(opts)` creates HTTP client; validates API key present (unless custom base URL set)
+    - `Invoke` sends chat completion request to OpenAI API (or custom base URL), extracts text content
+    - Support custom base URL for Azure, Ollama, LM Studio, vLLM compatibility
+    - Allow invocation without API key when custom base URL is set
+    - Retry once on HTTP 429 rate-limit (1 second delay)
+    - Return `ProviderError` on auth failure, empty response, or exhausted retries
+    - _Requirements: 9.1–9.9, 12.2, 12.4, 12.6_
+    - _Design: Section 1 — openai.go_
+  - [x] 7.4 Implement AnthropicProvider
+    - `NewAnthropicProvider(opts)` creates HTTP client; validates API key present
+    - `Invoke` sends messages API request to Anthropic, extracts text content
+    - Retry once on HTTP 429 rate-limit (1 second delay)
+    - Return `ProviderError` on auth failure, empty response, or exhausted retries
+    - _Requirements: 10.1–10.5, 12.3, 12.4, 12.6_
+    - _Design: Section 1 — anthropic.go_
+  - [x] 7.5 Implement mock provider for testing (internal, unexported)
+    - Create `mock_test.go` with `mockProvider` struct: configurable response, error, invocation counter
+    - Create `failingMockProvider` variant that fails on specific tokens (for P16 error resilience tests)
+    - Both implement `Provider` interface
+    - _Design: Mock Provider for Testing section_
+  - [x] 7.6 Write property test P17: Provider interface consistency
+    - **Property 17: Provider interface consistency**
+    - Test against mock provider: `Invoke` returns either (non-empty string, nil error) or (empty string, non-nil error) — never both nil, never non-empty string with non-nil error
+    - `Name()` returns non-empty string
+    - Errors are wrappable as `*ProviderError`
+    - **Validates: Requirements 7.2, 7.3, 13.1, 13.4**
+  - [x] 7.7 Write table-driven tests for provider registry and error formatting
+    - Test Registry contains entries for "bedrock", "openai", "anthropic", "vertexai"
+    - Test `ProviderError.Error()` includes provider name in message
+    - Test `ProviderError.Unwrap()` returns underlying error
+    - Test OpenAI provider allows nil API key when base URL is set
+    - Test OpenAI provider rejects nil API key when no base URL
+    - Test Anthropic provider rejects nil API key
+    - _Requirements: 11.3, 13.1, 13.2_
+  - [ ]* 7.8 Implement VertexAIProvider (optional — can be deferred)
+    - `NewVertexAIProvider(opts)` creates HTTP client using Google ADC; validates GCP project ID present
+    - `Invoke` sends request to Vertex AI Gemini API, extracts text content
+    - Retry once on rate-limit errors (1 second delay)
+    - Return `ProviderError` on auth failure, empty response, or exhausted retries
+    - _Requirements: 51.1–51.7, 12.7_
+    - _Design: Section 1 — vertexai.go_
+
+- [x] 8. Database package (`internal/db/`)
+  - [x] 8.1 Implement SQLiteStore, schema migration, and models
+    - Define `WordRow` and `ExpressionRow` structs with all columns from the SQLite schema (including `EnglishDefinition string` field)
+    - Define `Store` interface with: FindWord, FindExpression, FindWords, FindExpressions, InsertWord, InsertExpression, ListWords, ListExpressions, UpdateWord, UpdateExpression, DeleteWord, DeleteExpression, ImportWords, ImportExpressions, Close, BackupTo, RestoreFrom
+    - Define `ListFilter` struct with SourceLang, TargetLang, Search, Page, PageSize fields
+    - `NewSQLiteStore(dbPath)` opens/creates SQLite DB, runs migrations, returns `*SQLiteStore`
+    - Implement `Migrate()`: create metadata table with schema_version=1, words table (including `english_definition TEXT` column), expressions table (including `english_definition TEXT` column), indexes on (source_language, word) and (source_language, expression)
+    - Each migration step runs in a transaction; failed step leaves DB unchanged
+    - Use parameterized queries for all SQL operations (no string concatenation)
+    - _Requirements: 17.1–17.5, 46.1–46.5, 47.1, 52_
+    - _Design: Section 6 — store.go, sqlite.go, schema.go, models.go_
+  - [x] 8.2 Implement CRUD operations (FindWord, InsertWord, FindExpression, InsertExpression, Update, Delete)
+    - `FindWord(ctx, word, sourceLang)` queries by word text and source_language, returns first match or nil
+    - `InsertWord(ctx, row)` inserts with created_at and updated_at timestamps (RFC3339)
+    - Same pattern for expressions
+    - `UpdateWord(ctx, id, row)` updates entry by ID, sets updated_at timestamp
+    - `UpdateExpression(ctx, id, row)` updates entry by ID, sets updated_at timestamp
+    - `DeleteWord/DeleteExpression` removes by ID
+    - All queries use parameterized `?` placeholders
+    - _Requirements: 18.1–18.3, 19.1–19.6_
+    - _Design: Section 6 — sqlite.go_
+  - [x] 8.8 Implement FindWords and FindExpressions (multi-version slice returns)
+    - `FindWords(ctx, word, sourceLang)` returns `[]WordRow` — all matching entries for a given word and source_language
+    - `FindExpressions(ctx, expr, sourceLang)` returns `[]ExpressionRow` — all matching entries
+    - Return empty slice (not nil) when no entries exist
+    - Retain `FindWord`/`FindExpression` (single-result) for backward compatibility
+    - No unique constraint on (source_language, word) or (source_language, expression) — multiple rows allowed
+    - _Requirements: 57.1–57.4, 53.1, 18.7_
+    - _Design: Section 6 — store.go FindWords/FindExpressions_
+  - [x] 8.3 Implement ListWords, ListExpressions with pagination and filtering
+    - Support filtering by source_language, target_language, search text (LIKE match against word/expression, definition, english, tags)
+    - Return paginated results (default 50 per page) and total count
+    - _Requirements: 28.3–28.6_
+    - _Design: Section 6 — store.go ListFilter_
+  - [x] 8.4 Implement ImportWords, ImportExpressions for bulk CSV import
+    - Bulk insert rows, skip duplicates (same word/expression + source_language)
+    - Return counts: imported, skipped, failed
+    - _Requirements: 29.2–29.6_
+    - _Design: Section 6 — store.go ImportWords/ImportExpressions_
+  - [x] 8.5 Implement BackupTo and RestoreFrom
+    - `BackupTo(ctx, destPath)` copies the SQLite file to a timestamped backup path
+    - `RestoreFrom(ctx, srcPath)` verifies backup is valid SQLite, creates backup of current DB, then replaces
+    - _Requirements: 48.1–48.6_
+    - _Design: Section 6 — store.go BackupTo/RestoreFrom_
+  - [x] 8.6 Write property test P12: UTF-8 round-trip consistency
+    - **Property 12: UTF-8 round-trip consistency**
+    - Generate random strings with Unicode characters (ë, ï, ü, ő, ű, à, è, ì, ò, ù, я, ё, etc.)
+    - Insert as word entry, read back via FindWord, assert exact character preservation
+    - Use in-memory or temp-file SQLite database
+    - **Validates: Requirements 39.1, 39.2**
+  - [x] 8.7 Write table-driven tests for schema migration and CRUD
+    - Test tables and indexes exist after migration
+    - Test InsertWord + FindWord round-trip
+    - Test InsertExpression + FindExpression round-trip
+    - Test FindWord returns nil for non-existent entry
+    - Test FindWords returns empty slice for non-existent entry
+    - Test FindWords returns all matching entries when multiple exist (multi-version)
+    - Test FindExpressions returns all matching entries when multiple exist
+    - Test UpdateWord by ID sets updated_at and updates correct entry among multiple versions
+    - Test DeleteWord removes entry by ID without affecting other versions
+    - Test ListWords pagination returns correct page size and total count
+    - Test ImportWords skips duplicates
+    - _Requirements: 17.1–17.5, 18.1–18.3, 46.1–46.5, 53.1, 57.1–57.5_
+
+- [x] 9. Checkpoint — Storage layer complete
+  - Ensure all tests pass with `make test`. Verify `internal/db` compiles and all CRUD, migration, and property tests pass. Ask the user if questions arise.
+  - **Go Learning**: Explain Go interfaces (implicit satisfaction, "accept interfaces, return structs"), `context.Context` (cancellation, timeouts, first parameter convention), `database/sql` patterns (parameterized queries, `sql.NullString`), and the `defer` pattern for resource cleanup (`defer db.Close()`). Ask the user if they have questions before proceeding.
+  - **Microstudy**: Write `reference/learning-go-microstudy/03-interfaces-context-and-sql.md` — generic Go reference covering implicit interfaces, `context.Context`, `database/sql` patterns, and `defer` for cleanup. No project-specific references.
+
+- [x] 10. Output package (`internal/output/`)
+  - [x] 10.1 Implement Entry struct, MapFields, and FlattenTranslation
+    - Define `Entry` struct with JSON tags for all output fields (word, expression, type, article, definition, english_definition, example, english, target_translation, notes, connotation, register, collocations, contrastive_notes, secondary_meanings, tags)
+    - `FlattenTranslation(t Translation)` returns `"primary (alternatives)"` when alternatives non-empty, else `"primary"`
+    - `MapFields(v *ValidatedEntry, mode string)` converts validated entry to output Entry, flattening translation objects; mode determines which fields are populated (words vs expressions)
+    - No per-language code branches — purely structural mapping
+    - _Requirements: 5.1–5.5_
+    - _Design: Section 5 — mapper.go_
+  - [x] 10.2 Implement ExportToExcel
+    - `ExportToExcel(entries []Entry, mode string)` writes entries to xlsx bytes using excelize
+    - Include column headers matching database field names
+    - Mode determines which columns to include (words have collocations, secondary_meanings; expressions don't)
+    - _Requirements: 30.1–30.4_
+    - _Design: Section 5 — excel.go_
+  - [x] 10.3 Write property test P7: Field mapper pass-through preserves non-translation fields
+    - **Property 7: Field mapper pass-through preserves non-translation fields**
+    - Generate random `ValidatedEntry` structs with random string field values
+    - Assert every non-translation field in the output `Entry` equals the corresponding input field
+    - **Validates: Requirement 5.1**
+  - [x] 10.4 Write property test P8: Translation flattening
+    - **Property 8: Translation flattening**
+    - Generate random `Translation` structs with random primary and alternatives strings
+    - Assert `FlattenTranslation` returns `"p (a)"` when alternatives non-empty, `"p"` when empty
+    - **Validates: Requirements 5.2, 5.5**
+  - [x] 10.5 Write table-driven tests for MapFields and FlattenTranslation
+    - Test FlattenTranslation with empty alternatives returns primary only
+    - Test FlattenTranslation with non-empty alternatives returns "primary (alternatives)"
+    - Test MapFields in words mode populates collocations and secondary_meanings
+    - Test MapFields in expressions mode omits collocations and secondary_meanings
+    - _Requirements: 5.2, 5.3, 5.4_
+  - [x] 10.6 Write fuzz test for FlattenTranslation
+    - `FuzzFlattenTranslation` — fuzz with random Translation structs to find panics
+    - Seed corpus with: empty strings, long strings, Unicode, special characters
+    - _Requirements: 43.3_
+    - _Design: Fuzz Testing section_
+
+- [x] 11. Service package (`internal/service/`)
+  - [x] 11.1 Implement ConflictStrategy type and ParseConflictStrategy
+    - Define `ConflictStrategy` type (`string`) with constants: `ConflictReplace`, `ConflictAdd`, `ConflictSkip`
+    - `ParseConflictStrategy(s string)` converts string to `ConflictStrategy`, returns error for invalid values
+    - _Requirements: 54.1_
+    - _Design: Section 4 — conflict.go_
+  - [x] 11.2 Implement LookupResult struct and Lookup function with conflict detection
+    - Define `LookupParams` struct: SourceLang, LookupType, Text, Provider, ModelID, Context, TargetLang, Tags, DryRun, Timeout, OnConflict, ReplaceID
+    - Define `LookupResult` struct: Entry, Existing (slice), ExistingIDs (slice), NeedsResolution (bool), FromCache (bool)
+    - `Lookup(ctx, store, params)` performs: normalize token → `FindWords`/`FindExpressions` (slice return) → if no entries, invoke LLM and insert → if entries exist and no context, return first cached → if entries exist and context provided, invoke LLM (cache bypass), return `LookupResult` with `NeedsResolution=true`
+    - When `OnConflict` is pre-set, apply strategy automatically without requiring caller intervention
+    - In dry-run mode: normalize and return without LLM invocation or DB write
+    - Return typed errors: `ProviderError` for LLM failures, `ValidationError` for JSON failures
+    - _Requirements: 20.1, 20.4–20.6, 18.1–18.3, 18.6–18.7, 19.1–19.7, 37.3, 37.4, 50.1, 50.4, 55.1–55.4_
+    - _Design: Section 4 — service.go, Data Flow: Single Lookup_
+  - [x] 11.3 Implement ResolveConflict function
+    - `ResolveConflict(ctx, store, strategy, mode, entry, targetID, sourceLang, targetLang, tags)` applies conflict resolution after a cache-bypass lookup
+    - "replace": calls `UpdateWord`/`UpdateExpression` on the target ID with new entry data
+    - "add": calls `InsertWord`/`InsertExpression` to add new entry alongside existing ones
+    - "skip": no-op, returns nil
+    - _Requirements: 54.1, 19.5–19.7_
+    - _Design: Section 4 — service.go ResolveConflict_
+  - [x] 11.4 Implement ProcessBatch function with conflict resolution
+    - Define `BatchParams` struct: SourceLang, Mode, Tokens, Provider, ModelID, TargetLang, Tags, Limit, DryRun, Timeout, OnConflict (default: "skip")
+    - Define `BatchResult` struct: Results, Errors, Processed, Cached, Failed, Skipped, Replaced, Added counts
+    - Define `BatchError` struct: Token, Message
+    - `ProcessBatch(ctx, store, params)` iterates tokens: normalize → skip empty → `FindWords`/`FindExpressions` → if entries exist and no context, count as cached → if entries exist and context provided, invoke LLM and apply `OnConflict` strategy → if no entries, invoke LLM and insert → collect results/errors
+    - Continue on per-item errors (error resilience)
+    - In dry-run mode: normalize all tokens, skip LLM and DB, return what would be processed
+    - Respect `--limit N`: process at most N new items (cached items don't count toward limit)
+    - _Requirements: 20.2, 23.1–23.6, 36.1–36.4, 37.1–37.5, 38.1–38.5, 50.1, 56.1–56.5_
+    - _Design: Section 4 — service.go, Data Flow: Batch Processing_
+  - [x] 11.5 Implement GetSupportedLanguages helper
+    - Returns `[]LanguageInfo` (Code, Name pairs) from the language registry
+    - _Requirements: 20.3_
+    - _Design: Section 4 — service.go_
+  - [x] 11.6 Write property test P11: Database cache idempotency
+    - **Property 11: Database cache idempotency**
+    - Generate random tokens, use mock provider with real temp SQLite store
+    - Call `Lookup` twice for same token (no context); assert provider invoked exactly once, second call is cache hit, both results identical
+    - **Validates: Requirements 18.1–18.4, 19.1–19.4**
+  - [x] 11.7 Write property test P13: Dry-run no side effects
+    - **Property 13: Dry-run no side effects**
+    - Generate random token lists, use mock provider that panics if `Invoke` is called
+    - Call `ProcessBatch` with DryRun=true; assert provider invocations == 0, DB has no new entries
+    - **Validates: Requirements 37.1–37.4**
+  - [x] 11.8 Write property test P15: Limit enforcement
+    - **Property 15: Limit enforcement**
+    - Generate random limit N and token list of size M > N (no cached items), use counting mock provider
+    - Call `ProcessBatch` with Limit=N; assert provider invocations <= N
+    - **Validates: Requirement 23.6**
+  - [x] 11.9 Write property test P16: Error resilience
+    - **Property 16: Error resilience**
+    - Generate random token list, use `failingMockProvider` that fails on a random subset
+    - Call `ProcessBatch`; assert results count + errors count == non-empty, non-cached input tokens (up to limit)
+    - **Validates: Requirement 36.3**
+  - [x] 11.10 Write property test P18: Multi-version entry integrity
+    - **Property 18: Multi-version entry integrity**
+    - Generate random word with N existing entries (N ≥ 1) in a temp SQLite store
+    - Test "add" strategy: call `ResolveConflict` with `ConflictAdd`, assert `FindWords` returns N+1 entries, all original entries unchanged
+    - Test "replace" strategy: call `ResolveConflict` with `ConflictReplace` targeting entry ID K, assert `FindWords` returns N entries, entry K updated, others unchanged
+    - Test "skip" strategy: call `ResolveConflict` with `ConflictSkip`, assert `FindWords` returns N entries with no modifications
+    - Test `FindWords`/`FindExpressions` returns empty slice when no entries exist
+    - **Validates: Requirements 53.1, 53.4, 54.1, 57.1, 57.2, 57.3, 19.5, 19.6, 19.7**
+  - [x] 11.11 Write property test P19: Context-aware cache bypass
+    - **Property 19: Context-aware cache bypass**
+    - Generate random word with at least one existing entry in a temp SQLite store, use counting mock provider
+    - Test: `Lookup` with empty context → returns cached entry, provider invocation count = 0
+    - Test: `Lookup` with non-empty context → invokes provider exactly once, returns `LookupResult` with `NeedsResolution=true` and populated `Existing` slice
+    - Test: `Lookup` with no existing entry (with or without context) → invokes provider exactly once, inserts result
+    - Verify final DB state is consistent with the selected conflict resolution strategy
+    - **Validates: Requirements 55.1, 55.2, 55.3, 18.6**
+  - [x] 11.12 Write integration test: full lookup flow with mock provider
+    - Create mock provider returning valid JSON, real temp SQLite store
+    - Call `Lookup`, assert returned Entry has expected fields, DB contains the entry
+    - _Requirements: 20.1, 20.4_
+  - [x] 11.13 Write integration test: batch processing with cache hits
+    - Process tokens, then re-process same tokens
+    - Assert second run has all cache hits, provider invocation count matches first run only
+    - _Requirements: 18.4, 23.2–23.4_
+  - [x] 11.14 Write integration test: conflict resolution flows
+    - Test lookup with context on existing entry returns `NeedsResolution=true` with existing entries
+    - Test `ResolveConflict` with "replace" updates correct entry
+    - Test `ResolveConflict` with "add" inserts new entry alongside existing
+    - Test batch with `OnConflict=replace` and context CSV updates existing entries
+    - Test batch with `OnConflict=skip` and context CSV skips conflicting tokens
+    - Test batch summary includes Replaced and Added counts
+    - _Requirements: 54.1–54.6, 55.1–55.3, 56.1–56.5_
+
+- [x] 12. Checkpoint — Core business logic complete
+  - Ensure all tests pass with `make test`. Verify `internal/output` and `internal/service` compile and all property, table-driven, and integration tests pass. Ask the user if questions arise.
+  - **Go Learning**: Explain Go interface-based test doubles (mock structs implementing interfaces, no mocking frameworks), `context.WithTimeout` for request deadlines, and how the service layer pattern decouples business logic from CLI/HTTP. Explain `t.Helper()` and `t.Cleanup()` for test utilities. Ask the user if they have questions before proceeding.
+  - **Microstudy**: Write `reference/learning-go-microstudy/04-mocks-timeouts-and-service-layer.md` — generic Go reference covering interface-based test doubles, `context.WithTimeout`, service layer decoupling, `t.Helper()`, and `t.Cleanup()`. No project-specific references.
+
+- [x] 13. Cobra CLI (`cmd/vocabgen/`)
+  - [x] 13.1 Implement root command with persistent flags and config loading
+    - Create root Cobra command with persistent flags: `--verbose`/`-v`, `--provider`, `--region`/`-r`, `--timeout`, `--tags`, `--version`, `--source-language`/`-l`, `--target-language`, `--model-id`, `--api-key`, `--base-url`, `--profile`, `--gcp-project`, `--gcp-region`
+    - In `PersistentPreRun`: load config via `config.LoadConfig()`, apply CLI flag overrides, configure `log/slog` handler (INFO default, DEBUG with --verbose)
+    - Version injected via `ldflags` at build time; `--version` flag prints version and exits
+    - _Requirements: 21.1–21.29, 33.8–33.9, 44.1–44.3, 49.1–49.3_
+    - _Design: Section 9 — main.go_
+  - [x] 13.2 Implement `lookup` subcommand
+    - Positional argument for text to look up
+    - Flags: `--type` (word/expression/sentence, default "word"), `--context`, `--on-conflict` (replace/add/skip, optional)
+    - Resolve provider from config/flags, create provider instance via Registry
+    - Call `service.Lookup()`, handle `LookupResult`:
+      - If `NeedsResolution=true` and no `--on-conflict` flag: prompt user interactively to choose replace/add/skip, displaying existing entry summary and new result
+      - If `NeedsResolution=true` and `--on-conflict` flag set: call `service.ResolveConflict()` with the pre-selected strategy
+      - If `FromCache=true`: print cached result
+    - Print formatted JSON result to stdout
+    - _Requirements: 22.1–22.8, 12.1–12.7, 54.2–54.3, 55.1–55.3_
+    - _Design: Section 9 — lookupCmd_
+  - [x] 13.3 Implement `batch` subcommand
+    - Required flags: `--input-file`, `--mode` (words/expressions)
+    - Optional: `--limit`, `--dry-run`, `--on-conflict` (replace/add/skip, default: "skip")
+    - Read CSV via `parsing.ReadInputFile`, create provider, call `service.ProcessBatch()` with `OnConflict` from flag
+    - Log progress (processed items, cache hits, errors) via slog
+    - Print summary report on completion: processed/cached/failed/replaced/added counts, failed items list
+    - _Requirements: 23.1–23.6, 36.1–36.5, 37.1–37.5, 38.1–38.5, 56.1–56.5_
+    - _Design: Section 9 — batchCmd_
+  - [x] 13.4 Implement `serve` subcommand
+    - Optional flag: `--port` (default 8080)
+    - Create SQLiteStore, create web.Server, call `ListenAndServe`
+    - Handle SIGINT/SIGTERM for graceful shutdown via `context.Context`
+    - _Requirements: 24.1, 24.6_
+    - _Design: Section 9 — serveCmd_
+  - [x] 13.5 Implement `backup` and `restore` subcommands
+    - `backup`: call `store.BackupTo()` with timestamped path, print backup path
+    - `restore`: accept backup file path argument, call `store.RestoreFrom()`, print confirmation
+    - _Requirements: 48.1–48.6_
+    - _Design: Section 9 — backupCmd, restoreCmd_
+  - [x] 13.6 Implement `version` subcommand
+    - Print app version, Go version (`runtime.Version()`), build date
+    - Version string injected via `-ldflags "-X main.version=..."` at build time
+    - _Requirements: 49.1–49.3_
+    - _Design: Section 9 — versionCmd_
+  - [x] 13.7 Write table-driven tests for CLI flag parsing and validation
+    - Test required `--source-language` flag is enforced for lookup and batch
+    - Test `--mode` flag accepts only "words" or "expressions"
+    - Test `--provider` flag rejects unsupported values with error listing valid names
+    - Test `--type` flag accepts "word", "expression", "sentence"
+    - Test `--on-conflict` flag accepts "replace", "add", "skip" and rejects invalid values
+    - Test `--on-conflict` flag defaults to "skip" for batch subcommand
+    - Test default values applied correctly (provider=bedrock, region=us-east-1, target-language=hu, port=8080, timeout=60)
+    - Test `--version` flag prints version and exits
+    - _Requirements: 11.2, 11.3, 21.20, 21.21, 22.8, 56.1_
+
+- [x] 14. Checkpoint — CLI complete
+  - Ensure all tests pass with `make test`. Verify `vocabgen lookup`, `vocabgen batch`, `vocabgen serve`, `vocabgen backup`, `vocabgen restore`, and `vocabgen version` subcommands are wired and `--help` works. Ask the user if questions arise.
+  - **Go Learning**: Explain Cobra patterns (root command, subcommands, persistent flags, `PersistentPreRun`), `log/slog` structured logging (handlers, levels, structured fields), and Go build-time variable injection via `-ldflags`. Explain signal handling with `os/signal` and `context.Context` for graceful shutdown. Ask the user if they have questions before proceeding.
+  - **Microstudy**: Write `reference/learning-go-microstudy/05-cobra-slog-and-ldflags.md` — generic Go reference covering Cobra patterns, `log/slog` structured logging, `-ldflags` build-time injection, and signal handling with `os/signal`. No project-specific references.
+
+- [x] 15. Web UI — Server, templates, and core pages (`internal/web/`)
+  - [x] 15.1 Implement web Server struct, route registration, and graceful shutdown
+    - Define `Server` struct with `store db.Store`, `cfg *config.Config`, `mux *http.ServeMux`, `logger *slog.Logger`
+    - `NewServer(store, cfg, logger)` registers all routes on the mux
+    - `ListenAndServe(ctx, addr)` starts HTTP server, blocks until ctx cancelled, then graceful shutdown
+    - Set `Content-Type: text/html; charset=utf-8` for HTML responses, `application/json; charset=utf-8` for API responses
+    - _Requirements: 24.1, 24.5, 24.6, 39.3_
+    - _Design: Section 8 — server.go_
+  - [x] 15.2 Create embedded HTML templates with go:embed
+    - Create `base.html` with shared layout: DOCTYPE, head (HTMX CDN, Tailwind CDN), nav bar (Lookup, Batch, Config, Database), main content block
+    - Create `lookup.html`, `batch.html`, `config.html`, `database.html` page templates
+    - Create partials: `lookup_result.html`, `lookup_conflict.html`, `batch_summary.html`, `config_form.html`, `entry_edit.html`, `entry_table.html`
+    - `lookup_conflict.html`: side-by-side display of existing entry/entries (left) and new LLM result (right), with "Replace" (entry selector dropdown when multiple exist), "Add as New Version", and "Skip" buttons; each button triggers `hx-post="/api/lookup/resolve"` with strategy and target ID
+    - Embed via `//go:embed templates/*.html templates/partials/*.html`
+    - Parse templates once at startup
+    - _Requirements: 24.2–24.4, 35.3, 54.4, 54.6_
+    - _Design: Section 8 — templates.go, Template File Structure_
+  - [x] 15.3 Implement page handlers (GET /, /batch, /config, /database)
+    - Each handler renders the corresponding page template with data from config and language registry
+    - Language selectors populated from `SupportedLanguages`
+    - Batch page form includes conflict resolution dropdown (skip/replace/add, default: skip)
+    - Database page table visually distinguishes entries sharing the same word/expression text (e.g., POS badge or version count indicator)
+    - _Requirements: 25.1, 25.5, 26.1, 27.1–27.2, 28.1–28.2, 53.2, 53.5, 56.4_
+    - _Design: Section 8 — routes.go, Page Designs_
+  - [x] 15.4 Implement lookup API handlers (POST /api/lookup, POST /api/lookup/html, POST /api/lookup/resolve, POST /api/lookup/resolve/html)
+    - JSON endpoint: parse request body, call `service.Lookup()`, return JSON response
+    - HTMX endpoint: same logic; when `LookupResult.NeedsResolution=true`, render `lookup_conflict.html` partial (side-by-side existing vs new); otherwise render `lookup_result.html` partial
+    - Resolve JSON endpoint (POST /api/lookup/resolve): accept strategy ("replace"/"add"/"skip"), target entry ID, and new entry data; call `service.ResolveConflict()`; return JSON result
+    - Resolve HTMX endpoint (POST /api/lookup/resolve/html): same logic, render final `lookup_result.html` partial showing the saved entry
+    - Return `{"detail": "..."}` JSON on errors with appropriate HTTP status codes (400, 502, 500)
+    - _Requirements: 25.2–25.4, 31.1, 32.1–32.4, 54.4–54.6, 55.1–55.3_
+    - _Design: Section 8 — HTMX Interaction Patterns, routes.go_
+  - [x] 15.5 Implement batch API handlers (POST /api/batch/html, GET /api/batch/stream)
+    - Multipart upload handler: parse CSV file, source_lang, target_lang, mode, tags, on_conflict (replace/add/skip, default: skip)
+    - Reject uploads > 10 MB with HTTP 413
+    - Pass `OnConflict` strategy from form to `service.ProcessBatch()`
+    - SSE endpoint streams progress events (`event: progress`, `event: complete`) as each item is processed
+    - `batch_summary.html` partial displays processed/cached/failed/replaced/added counts and failed items list
+    - _Requirements: 26.1–26.7, 31.2, 31.8, 56.4–56.5_
+    - _Design: Section 8 — Batch Page, SSE_
+  - [x] 15.6 Implement config API handlers (GET /api/config, PUT /api/config, POST /api/test-connection, GET /api/config/html)
+    - GET returns current config as JSON
+    - PUT updates config file, returns updated config
+    - Test connection: create provider with current config, attempt a simple invocation, return result
+    - HTMX partial: render config form with conditional fields based on selected provider
+    - _Requirements: 27.1–27.5, 31.3–31.4, 31.7_
+    - _Design: Section 8 — Config Page_
+  - [x] 15.7 Implement database API handlers (GET /api/words, GET /api/expressions, PUT /api/words/{id}, DELETE /api/words/{id}, POST /api/import, GET /api/export)
+    - List endpoints: paginated, filtered by source_lang, target_lang, search, tags
+    - Update endpoints: update entry, set updated_at
+    - Delete endpoints: remove entry by ID
+    - Import: multipart CSV upload, call store.ImportWords/ImportExpressions, return summary
+    - Export: query entries with current filters, generate xlsx via `output.ExportToExcel`, return as download with filename pattern `vocabgen-{lang}-{type}-{date}.xlsx`
+    - _Requirements: 28.3–28.10, 29.1–29.6, 30.1–30.5, 31.5–31.6_
+    - _Design: Section 8 — Database Page, routes.go_
+  - [x] 15.8 Implement health and languages API handlers (GET /api/health, GET /api/languages)
+    - Health: return `{"status": "ok"}` with HTTP 200
+    - Languages: return supported languages list from `service.GetSupportedLanguages()`
+    - _Requirements: 31.5, 31.6_
+    - _Design: Section 8 — routes.go_
+  - [x] 15.9 Write integration tests for web API endpoints using httptest
+    - Test POST /api/lookup returns vocabulary entry JSON with mock provider
+    - Test POST /api/lookup/html returns `lookup_conflict.html` partial when context triggers cache bypass with existing entry
+    - Test POST /api/lookup/resolve applies conflict strategy and returns resolved entry
+    - Test POST /api/lookup/resolve/html returns `lookup_result.html` partial after resolution
+    - Test POST /api/batch with multipart upload and on_conflict field returns summary JSON with replaced/added counts
+    - Test GET/PUT /api/config round-trip
+    - Test GET /api/health returns 200 `{"status": "ok"}`
+    - Test GET /api/languages returns supported languages
+    - Test 413 response for oversized batch upload
+    - Test error responses include `{"detail": "..."}` format
+    - _Requirements: 31.1–31.8, 32.1–32.4, 54.4–54.6, 56.4–56.5_
+
+- [x] 16. Checkpoint — Web UI complete
+  - Ensure all tests pass with `make test`. Verify `vocabgen serve` starts the web server and all page routes and API endpoints respond correctly. Ask the user if questions arise.
+  - **Go Learning**: Explain `go:embed` (compile-time file embedding), `html/template` (template composition with `define`/`template`, auto-escaping), `net/http` patterns (ServeMux, HandlerFunc, middleware), `httptest` for testing HTTP handlers, and Server-Sent Events (SSE) with `http.Flusher`. Ask the user if they have questions before proceeding.
+  - **Microstudy**: Write `reference/learning-go-microstudy/06-embed-templates-and-http.md` — generic Go reference covering `go:embed`, `html/template` composition, `net/http` patterns, `httptest`, and SSE with `http.Flusher`. No project-specific references.
+
+- [x] 17. Structured logging integration
+  - [x] 17.1 Wire slog throughout all packages
+    - Configure slog handler in CLI root command `PersistentPreRun`: text handler, INFO level default, DEBUG level with `--verbose`
+    - Replace any `fmt.Println`/`fmt.Printf` in production code with `slog.Info`, `slog.Debug`, `slog.Error`
+    - Add structured fields: `slog.String("word", token)`, `slog.String("provider", name)`, `slog.Int("processed", count)`, etc.
+    - Log at INFO: processed items, cache hits/misses, progress, summaries
+    - Log at DEBUG: prompts sent to LLM, raw LLM responses (only with --verbose)
+    - Log at ERROR: auth failures, LLM errors, validation errors, DB errors
+    - _Requirements: 44.1–44.6, 38.1–38.5_
+    - _Design: Logging Strategy section_
+
+- [x] 18. Final integration and wiring
+  - [x] 18.1 Wire CLI commands to service layer with real providers and DB
+    - Ensure `lookup` command: loads config → creates provider via Registry → opens SQLiteStore → calls `service.Lookup()` → prints JSON → exits
+    - Ensure `batch` command: loads config → creates provider → opens store → reads CSV → calls `service.ProcessBatch()` → logs progress → prints summary → exits
+    - Ensure `serve` command: opens store → creates web.Server → starts HTTP server → handles graceful shutdown
+    - Ensure `backup`/`restore` commands: open store → call BackupTo/RestoreFrom → print result
+    - Ensure provider selection respects `--provider` flag and config defaults
+    - Ensure `--api-key` flag overrides env var; `--profile` ignored for non-bedrock providers; `--base-url` passed to OpenAI provider
+    - _Requirements: 11.1–11.5, 12.1–12.7, 21.1–21.29_
+    - _Design: Data Flow diagrams_
+  - [x] 18.2 Verify error handling end-to-end
+    - Authentication errors exit non-zero with corrective action message
+    - Input errors (file not found, empty file) exit non-zero
+    - LLM/validation errors during batch: logged, processing continues, summary includes failures
+    - DB errors: exit non-zero
+    - _Requirements: 13.1–13.4, 36.1–36.5_
+    - _Design: Error Handling section_
+
+- [x] 19. Final checkpoint — Full integration
+  - Ensure `make build` produces a working binary. Run `make test` — all property, table-driven, fuzz, and integration tests pass. Run `make vet` and `make lint` with no issues. Verify `vocabgen --help` shows all subcommands and flags. Ask the user if questions arise.
+
+- [x] 20. Documentation
+  - [x] 20.1 Create README.md
+    - Project overview (one paragraph)
+    - Quick start: download binary, run `vocabgen lookup "word" -l nl`, run `vocabgen serve`
+    - CLI usage: all subcommands (`lookup`, `batch`, `serve`, `backup`, `restore`, `version`) with example commands
+    - Provider configuration: Bedrock (AWS creds), OpenAI (API key), Anthropic (API key), Vertex AI (GCP ADC), Ollama/Azure (base URL)
+    - Configuration: `~/.vocabgen/config.yaml` fields and defaults
+    - Environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GCP_PROJECT`
+    - Build from source: `make build`, `make test`
+    - _Keep it scannable: tables, code blocks, no tutorials_
+  - [x] 20.2 Create docs/architecture.md
+    - System architecture diagram (copy from design.md)
+    - Package layout with one-line descriptions
+    - Data flow: lookup and batch (copy sequence diagrams from design.md)
+    - Provider interface pattern (brief)
+    - _Reference-focused: find any answer in <30 seconds_
+  - [x] 20.3 Create docs/deployment.md
+    - Cross-compilation with goreleaser: `goreleaser release --snapshot`
+    - GitHub Actions CI: build + test + lint pipeline
+    - Release process: tag → goreleaser → GitHub Release
+    - Docker usage (optional): `FROM scratch` Dockerfile, volume mount for `~/.vocabgen/`
+    - Platform support: macOS (amd64/arm64), Linux (amd64/arm64), Windows (amd64)
+    - _Requirements: 35.1–35.5_
+  - [x] 20.4 Create docs/user-guide.md
+    - Installation: download binary for your platform
+    - First run: `vocabgen lookup "uitkomen" -l nl` — what to expect
+    - Batch processing: prepare CSV, run `vocabgen batch --input-file ch1.csv --mode words -l nl --tags "chapter-1"`
+    - Web UI: `vocabgen serve --port 8080`, open browser, walkthrough of each page
+    - Tags: how to tag entries, filter by tags
+    - Database management: backup (`vocabgen backup`), restore (`vocabgen restore <file>`), import CSV, export Excel
+    - Provider switching: `--provider openai --api-key ...`, `--provider openai --base-url http://localhost:11434/v1` for Ollama
+    - Dry-run: `vocabgen batch --dry-run ...` to preview without API costs
+    - _Keep it practical: commands the user can copy-paste_
+  - [x] 20.5 Add godoc comments to all exported symbols
+    - Ensure every exported function, type, method, and package declaration has a doc comment starting with the symbol name
+    - Run `go doc ./internal/...` to verify all packages have documentation
+    - _Go convention: doc comments are mandatory for exported symbols_
+
+- [-] 21. Named config profiles (`internal/config/`, CLI, Web UI) — Issue #23
+  - [x] 21.1 Add `ProfileConfig` and `FileConfig` structs to `internal/config/config.go`
+    - Define `ProfileConfig` struct with provider-related YAML fields (provider, aws_profile, aws_region, model_id, base_url, gcp_project, gcp_region)
+    - Define `FileConfig` struct with `DefaultProfile string`, `Profiles map[string]ProfileConfig`, plus shared fields (default_source_language, default_target_language, db_path)
+    - _Requirements: 58.1, 58.2_
+    - _Design: Named Config Profiles — Data Model Changes_
+
+  - [x] 21.2 Update `LoadConfig` for format detection and backward compatibility
+    - Detect multi-profile format: if YAML contains `profiles:` key, parse as `FileConfig` and resolve the `default_profile` (or first profile if unset) into the flat `Config` struct
+    - If no `profiles:` key, parse as flat `Config` (existing behavior — implicit `default` profile)
+    - Apply defaults for missing fields as before
+    - _Requirements: 58.1, 58.2, 58.5_
+
+  - [x] 21.3 Implement `LoadConfigWithProfile(profileName string) (Config, error)`
+    - Parse YAML as `FileConfig`, look up the named profile, populate `Config` from it
+    - Return descriptive error listing available profiles if name not found
+    - For flat format, only accept `"default"` as profile name
+    - _Requirements: 58.3, 58.4_
+
+  - [x] 21.4 Implement `ListProfiles() ([]string, string, error)`
+    - Return available profile names and the default profile name
+    - For flat format, return `["default"]` with default `"default"`
+    - _Requirements: 58.7_
+
+  - [x] 21.5 Update `SaveConfig` to preserve multi-profile structure
+    - When saving, detect if the loaded config was multi-profile and preserve the `FileConfig` structure
+    - Add `SaveFileConfig(fc FileConfig) error` for saving the full multi-profile format
+    - _Requirements: 58.6_
+
+  - [x] 21.6 Write property tests P20, P21, P22 for config profiles
+    - P20: Multi-profile round-trip — generate random `FileConfig` with 1-5 profiles, save, load, verify equality
+    - P21: Unknown profile name — generate random strings not in profiles map, verify error returned
+    - P22: Flat config backward compat — generate flat `Config`, save in old format, load, verify works as `default` profile
+    - Table-driven: `LoadConfigWithProfile("sandbox")` returns correct profile values
+    - Table-driven: `ListProfiles()` returns expected names
+    - _Requirements: 58.1–58.6_
+    - _Properties: P20, P21, P22_
+
+  - [x] 21.7 Rename `--profile` CLI flag to `--aws-profile` and add new `--profile` for config profiles
+    - In `cmd/vocabgen/main.go`: rename existing `--profile` persistent flag to `--aws-profile`
+    - Add new `--profile` persistent flag (string, default empty) for config profile selection
+    - Update `PersistentPreRunE`: if `--profile` is set, call `LoadConfigWithProfile(name)` instead of `LoadConfig()`
+    - Update `createProvider`: use `appConfig.AWSProfile` (from renamed flag) for Bedrock
+    - _Requirements: 58.3, 58.9_
+
+  - [x] 21.8 Write CLI tests for `--profile` flag resolution
+    - Table-driven: `--profile local` resolves to local profile config
+    - Table-driven: `--profile nonexistent` returns error
+    - Table-driven: no `--profile` flag uses `default_profile` from config
+    - _Requirements: 58.3, 58.4_
+
+  - [x] 21.9 Add profile selector to Web UI config page
+    - Add `GET /api/profiles` endpoint returning `{profiles: [...], active: "..."}` JSON
+    - Add `PUT /api/profile/switch` endpoint — switches active profile, reloads in-memory `s.cfg`
+    - Update `config_form.html`: add profile selector dropdown above provider field, `hx-get` reload on change
+    - Pass active profile and profile list into `pageData` for config page
+    - _Requirements: 58.7, 58.8_
+
+  - [x] 21.10 Write integration tests for profile Web UI endpoints
+    - Test `GET /api/profiles` returns profile list
+    - Test `PUT /api/profile/switch` changes active config
+    - Test config form renders with profile selector
+    - Regression: existing `TestPropertyConfigRoundTrip` still passes
+    - _Requirements: 58.7, 58.8_
+
+  - [x] 21.11 Update E2E tests for config profiles
+    - Add section 12 to `scripts/e2e-test.sh`: Config Profiles
+    - Test `--profile` flag with a temp multi-profile config
+    - Test `--profile nonexistent` returns non-zero exit
+    - Test `--aws-profile` flag exists and is accepted
+    - Update section count in script header comment
+    - _Requirements: 58.3, 58.4, 58.9_
+
+  - [x] 21.12 Update CHANGELOG.md for v1.2.0 and close GitHub issue #23
+    - Add `## [1.2.0]` section to CHANGELOG.md with Added entry for named config profiles
+    - Close GitHub issue #23 after implementation is verified
+    - _Requirements: 58.1–58.9_
+
+  - [x] 21.13 Always show profile selector in `config_form.html`
+    - Remove the `{{if gt (len .Profiles) 1}}` / `{{end}}` guard around the profile selector dropdown
+    - Profile selector is always rendered, showing the active profile name even for single-profile configs
+    - _Requirements: 58.7 (updated), 58.10_
+
+  - [x] 21.14 Add "Add new profile" option and inline form to `config_form.html`
+    - Add an `<option value="__new__">Add new profile…</option>` at the end of the profile selector dropdown
+    - When "Add new profile…" is selected, show an inline `<div>` with a text input for profile name and "Create" / "Cancel" buttons (JS toggle, no server round-trip to show the form)
+    - "Cancel" hides the inline form and resets the dropdown to the active profile
+    - Client-side validation: empty name shows error without server request
+    - "Create" submits `POST /api/profiles` with `name` (user input) and `source_profile` (active profile) via HTMX
+    - On success, reload the config form to show the new profile as active
+    - Update `docs/user-guide.md` with first-time use note: on first launch the "default" profile is shown; edit fields and Save to configure your provider; use "Add new profile" to create additional setups
+    - _Requirements: 58.10, 58.11, 58.13_
+
+  - [x] 21.15 Add `CreateProfile` function to `internal/config/config.go`
+    - Implement `CreateProfile(newName, sourceProfile string) error`
+    - Read existing config; if flat format, convert to `FileConfig` with implicit `default` profile
+    - Return error if `newName` already exists in `Profiles` map
+    - Copy `sourceProfile` values into `Profiles[newName]`
+    - Set `DefaultProfile` to `newName`
+    - Save via `SaveFileConfig`
+    - _Requirements: 58.11, 58.12_
+
+  - [x] 21.16 Add `POST /api/profiles` endpoint to `internal/web/handlers_config.go`
+    - Parse form fields `name` and `source_profile`
+    - Validate `name` is non-empty
+    - Call `config.CreateProfile(name, sourceProfile)`
+    - On success, reload in-memory config via `LoadConfigWithProfile(name)` and return HTML snippet triggering config form reload
+    - On error (duplicate name, empty name, source not found), return HTML error message
+    - Register route in `server.go`
+    - _Requirements: 58.10, 58.11, 58.12_
+
+  - [x] 21.17 Write tests for `CreateProfile` and `POST /api/profiles`
+    - Table-driven: `CreateProfile("new", "default")` on flat config creates multi-profile config with "new" profile
+    - Table-driven: `CreateProfile("existing", "default")` returns error when "existing" already exists
+    - Table-driven: `CreateProfile("new", "nonexistent")` returns error when source profile not found
+    - Property test P24: duplicate name always returns error without modifying profiles
+    - Property test P25: new profile contains same values as source profile
+    - Integration test: `POST /api/profiles` with valid name returns success and new profile is active
+    - Integration test: `POST /api/profiles` with duplicate name returns error HTML
+    - _Requirements: 58.11, 58.12_
+    - _Properties: P24, P25_
+
+- [x] 22. One-click local LLM setup (scripts, Web UI) — Issue #22
+  - [x] 22.1 Create `scripts/setup-local-llm.sh`
+    - Detect OS via `uname` (macOS/Linux; print error for unsupported OS)
+    - Check if `ollama` is installed (`command -v ollama`)
+    - Install if missing (macOS: `brew install ollama` or curl installer; Linux: curl installer)
+    - Check if Ollama server is running (`curl -s http://localhost:11434/api/tags`)
+    - Start if not running (`ollama serve &`, wait up to 30s for ready)
+    - Pull recommended model (`ollama pull mistral`)
+    - Verify model responds (quick test prompt via OpenAI-compatible endpoint)
+    - Write `~/.vocabgen/config.yaml` with `local` profile in multi-profile format, set `default_profile: local`
+    - Print success message with next steps
+    - Make script executable (`chmod +x`)
+    - _Requirements: 59.1–59.7_
+    - _Design: One-Click Local LLM Setup — Shell Script_
+
+  - [x] 22.2 Create `internal/web/handlers_setup.go` with SSE setup handler
+    - Implement `handleSetupLocalLLM` — SSE endpoint that runs setup steps via `os/exec`
+    - Stream progress events: detecting OS, checking Ollama, installing, pulling model, verifying, writing config
+    - Reuse `config.SaveFileConfig()` for writing the config file
+    - Update in-memory `s.cfg` after successful setup
+    - Register route: `GET /api/setup/local-llm` in `server.go`
+    - _Requirements: 59.8, 59.9, 59.10_
+
+  - [x] 22.3 Create `internal/web/templates/partials/setup_local_llm.html`
+    - Progress log area with SSE-driven updates
+    - Status indicator (in progress / success / error)
+    - "Setup Local LLM" button triggers `hx-get="/api/setup/local-llm"` with SSE swap
+    - Register partial in `templates.go`
+    - _Requirements: 59.8_
+
+  - [x] 22.4 Update `config_form.html` with "Setup Local LLM" section
+    - Add divider and "Setup Local LLM" button below existing form
+    - Button triggers the setup partial load
+    - Show setup UI inline on the config page
+    - _Requirements: 59.8_
+
+  - [x] 22.5 Update `validateProviderEnv` for Ollama detection
+    - In `handlers_config.go`: when provider is `openai` and `base_url` contains `localhost:11434`, check Ollama reachability instead of requiring `OPENAI_API_KEY`
+    - _Requirements: 59.11_
+
+  - [x] 22.6 Write tests for local LLM setup
+    - Table-driven unit tests for OS detection logic, config generation
+    - Integration test for SSE endpoint with mocked `os/exec` (verify event sequence)
+    - Test that setup writes correct config values (provider: openai, base_url, model_id)
+    - Test `validateProviderEnv` skips API key check when Ollama base URL is configured
+    - Property test P23: setup always produces valid config (provider + base_url + model_id all non-empty)
+    - _Requirements: 59.1–59.11_
+    - _Properties: P23_
+
+  - [x] 22.7 Add E2E test section for local LLM setup
+    - Add section 13 to `scripts/e2e-test.sh`: Local LLM Setup
+    - Test `scripts/setup-local-llm.sh` syntax check (`bash -n`)
+    - Test Web UI setup endpoint is registered (`GET /api/setup/local-llm`)
+    - Test `validateProviderEnv` accepts Ollama base URL without API key
+    - _Requirements: 59.1–59.11_
+
+  - [x] 22.8 Update CHANGELOG.md for v1.2.0 and add comment to GitHub issue #22 (close will happen after testing)
+    - Add entry under `## [1.2.0]` for one-click local LLM setup via Ollama
+    - Run `gh issue close 22` only!!! after implementation is verified
+    - _Requirements: 59.1–59.11_
+
+- [x] 23. E2E tests default to local LLM — Issue #24
+  - [x] 23.1 Update `scripts/e2e-test.sh` with `-p PROFILE` flag and Ollama pre-flight check
+    - Change `-p` flag from provider mode to config profile name (default: `local` via `E2E_PROFILE` env var)
+    - Pre-flight: verify profile exists via `$BINARY lookup --profile $PROFILE --dry-run`; if fails, print actionable error and exit 1
+    - Pre-flight: if profile is `local`, check Ollama reachability at `http://localhost:11434/api/tags`; if unreachable, print error pointing to `scripts/setup-local-llm.sh` and exit 1
+    - Replace `--model-id "$MODEL_ID" $PROVIDER_FLAGS` with `--profile "$PROFILE"` in all LLM-dependent sections (3-10, 13)
+    - Sections 1-2 (Version/Help, Error Cases) and 11 (Update Checker) unchanged — no LLM calls
+    - Section 12 (Config Profiles) and 14 (Local LLM Setup) unchanged — test config mechanics, not LLM
+    - Non-interactive: no prompts, just clear error + guidance on failure
+    - _Requirements: 60.1–60.5_
+    - _Design: E2E Tests Default to Local LLM — Script Changes_
+
+  - [x] 23.2 Update Makefile `e2e` target
+    - Pass through `E2E_PROFILE`: `E2E_PROFILE=$(E2E_PROFILE) ./scripts/e2e-test.sh`
+    - _Requirements: 60.6_
+
+  - [x] 23.3 Verify E2E tests pass with local profile
+    - Run `./scripts/e2e-test.sh -p local` with Ollama running — all sections pass
+    - Run `./scripts/e2e-test.sh -p local` with Ollama stopped — clear error, exit 1
+    - Run `E2E_PROFILE=bedrock ./scripts/e2e-test.sh` — uses cloud provider (backward compat)
+    - _Requirements: 60.1–60.6_
+
+  - [x] 23.4 Update CHANGELOG.md for v1.2.0 and comment to GitHub issue #24 (close will happen after testing)
+    - Add entry under `## [1.2.0]` for E2E tests defaulting to local LLM
+    - _Requirements: 60.1–60.6_
+
+- [x] 24. Documentation updates for issues #22, #23, #24
+  - [x] 24.1 Update `docs/user-guide.md`
+    - Add "Config Profiles" section: multi-profile YAML format, `--profile` flag, `default_profile`, Web UI dropdown
+    - Add "Local LLM Setup" section: `scripts/setup-local-llm.sh` usage, Web UI setup button, Ollama requirements
+    - Add "E2E Testing" section: `./scripts/e2e-test.sh -p local`, `E2E_PROFILE` env var
+    - _Requirements: 58.1–58.9, 59.1–59.11, 60.1–60.6_
+
+  - [x] 24.2 Update `README.md`
+    - Add config profiles to Configuration section (brief example)
+    - Add "Local LLM (Ollama)" quick start: `./scripts/setup-local-llm.sh` then `vocabgen lookup "fiets" -l nl`
+    - Update provider configuration table with `--profile` flag
+    - _Requirements: 58.3, 59.7_
+
+  - [x] 24.3 Update `docs/architecture.md`
+    - Add config profiles to the Config Manager description
+    - Note the `ProfileConfig` / `FileConfig` data model
+    - _Requirements: 58.1_
+
+- [ ] 25. Checkpoint — Verify all new features and existing tests pass
+  - Run `make quality` — all tests pass, no lint issues
+  - Verify `--profile local` works end-to-end with Ollama
+  - Verify `--profile` flag works on `lookup`, `batch`, `serve` subcommands
+  - Verify Web UI config page shows profile selector
+  - Verify `scripts/setup-local-llm.sh` completes successfully on macOS
+  - Verify `./scripts/e2e-test.sh -p local` passes all sections
+  - Ensure all existing tests still pass (regression)
+  - Ask the user if questions arise.
+
+- [ ] 26. Dedicated sentence lookup prompt, validation, and service integration (Issue #26)
+  - [ ] 26.1 Add `SentenceTemplate` constant and update `BuildPrompt` in `internal/language/templates.go`
+    - Define `SentenceTemplate` as a Go string constant with `{source_language}`, `{sentence}`, `{context}`, `{target_language_name}` placeholders
+    - Template instructs the LLM to return JSON with: `sentence` (string), `translation` (string — full sentence translation into target language), `grammar_check` (object with `has_errors` bool, `corrected_sentence` string, `errors` array of `{original, corrected, explanation}`), `vocabulary` (array of `{word, type, definition, english}`)
+    - Template instructs the LLM to check for grammatical errors: word order, verb conjugation, spelling, case/gender agreement, preposition usage
+    - Template instructs the LLM to provide a corrected sentence and explain each error when errors are found
+    - Template instructs the LLM to extract key vocabulary items with POS in source language terminology
+    - Add `"sentence"` case to `BuildPrompt` switch statement, using `{sentence}` placeholder for the token
+    - _Requirements: 61.1–61.7_
+    - _Design: Section 2 — templates.go SentenceTemplate_
+
+  - [ ] 26.2 Add sentence validation types and `ValidateSentenceResponse` in `internal/language/validation.go`
+    - Define `SentenceEntry` struct: `Sentence string`, `Translation string`, `GrammarCheck GrammarCheck`, `Vocabulary []VocabItem`
+    - Define `GrammarCheck` struct: `HasErrors bool`, `CorrectedSentence string`, `Errors []GrammarError`
+    - Define `GrammarError` struct: `Original string`, `Corrected string`, `Explanation string`
+    - Define `VocabItem` struct: `Word string`, `Type string`, `Definition string`, `English string`
+    - Implement `ValidateSentenceResponse(rawJSON string) (*SentenceEntry, error)` — parses JSON, validates required fields (`sentence`, `translation`, `grammar_check`, `vocabulary`), validates `grammar_check` structure, validates each vocabulary item has required fields
+    - Return `ValidationError` for missing or malformed fields
+    - _Requirements: 61.8–61.9, 3.10_
+    - _Design: Section 2 — validation.go SentenceEntry, ValidateSentenceResponse_
+
+  - [ ] 26.3 Fix `mode()` function and update sentence lookup path in `internal/service/service.go`
+    - Change `mode()` to return `"sentence"` when `lookupType == "sentence"` (instead of `"expressions"`)
+    - Update the sentence lookup branch in `Lookup()` to call `language.BuildPrompt` with mode `"sentence"`, then `language.ValidateSentenceResponse` (instead of `ValidateResponse` + `MapFields`)
+    - Populate `LookupResult.SentenceResult` field (new field on `LookupResult`) instead of `Entry`
+    - Ensure sentence lookups remain ephemeral: no DB read, no DB write
+    - Skip hallucination check and non-word check for sentence lookups
+    - _Requirements: 61.10, 62.1–62.3, 20.10_
+    - _Design: Section 4 — service.go mode(), Data Flow: Single Lookup_
+
+  - [ ] 26.4 Add `SentenceResult` field to `LookupResult` in `internal/service/service.go`
+    - Add `SentenceResult *language.SentenceEntry` field to `LookupResult` struct
+    - CLI and web handlers check `SentenceResult != nil` to determine sentence vs word/expression output
+    - _Requirements: 62.2, 62.5_
+    - _Design: Section 4 — service.go LookupResult_
+
+  - [ ] 26.5 Write property test P26: Sentence template formatting
+    - **Property 26: Sentence template formatting produces valid prompts for any source language**
+    - Generate random source language strings, random sentence strings, random target language codes
+    - Assert output contains: resolved source language name, sentence text, target language name, grammar check instructions, no unresolved `{...}` placeholders
+    - Assert output is distinct from words and expressions template output for the same language
+    - **Validates: Requirements 61.1, 61.6, 61.7**
+
+  - [ ] 26.6 Write property test P27: Sentence validation
+    - **Property 27: Sentence validation accepts valid sentence JSON and rejects missing required fields**
+    - Generate valid sentence JSON with random strings, random grammar errors, random vocabulary items
+    - Assert `ValidateSentenceResponse` succeeds for valid input
+    - Generate JSON with random subsets of required fields removed; assert `ValidateSentenceResponse` returns `ValidationError`
+    - **Validates: Requirements 61.8, 61.9**
+
+  - [ ] 26.7 Write property test P28: Sentence lookup ephemeral
+    - **Property 28: Sentence lookup ephemeral — never writes to DB, never reads cache**
+    - Use mock provider and in-memory SQLite store
+    - Perform sentence lookup, assert: mock provider was invoked, store has zero entries after lookup, `LookupResult.SentenceResult` is non-nil, `LookupResult.Entry` is nil
+    - **Validates: Requirements 62.1, 62.3**
+
+  - [ ] 26.8 Write table-driven tests for sentence template, validation, and service
+    - Test `BuildPrompt("nl", "sentence", "Ik ga morgen naar de markt", "", "hu")` returns prompt containing "Dutch", the sentence, grammar check instructions
+    - Test `BuildPrompt` with mode "sentence" does NOT contain `{expression}` or `{word}` placeholders in output
+    - Test `ValidateSentenceResponse` with valid JSON returns correct `SentenceEntry`
+    - Test `ValidateSentenceResponse` with missing `grammar_check` returns error
+    - Test `ValidateSentenceResponse` with missing `vocabulary` returns error
+    - Test `ValidateSentenceResponse` with grammar error missing `explanation` returns error
+    - Test `mode("sentence")` returns `"sentence"` (not `"expressions"`)
+    - Test `mode("word")` still returns `"words"` (regression)
+    - Test `mode("expression")` still returns `"expressions"` (regression)
+    - _Requirements: 61.1–61.10, 62.1–62.5_
+
+- [ ] 27. Checkpoint — Verify sentence lookup works end-to-end
+  - Run `make quality` — all tests pass, no lint issues
+  - Verify `vocabgen lookup "Ik ga morgen naar de markt" -l nl --type sentence` uses the sentence template (not expressions)
+  - Verify sentence lookup result contains grammar_check and vocabulary sections
+  - Verify no database entry is created for sentence lookups
+  - Verify existing word and expression lookups are unaffected (regression)
+  - Ask the user if questions arise.
+
+- [x] 28. Docker image distribution (#47)
+  - [x] 28.1 Create `Dockerfile` with multi-stage build
+    - Builder stage: `golang:1.22-alpine`, `CGO_ENABLED=0`, `VERSION` build arg, ldflags
+    - Runtime stage: `gcr.io/distroless/static:nonroot`, port 8080, volume `/home/nonroot/.vocabgen`
+    - Default CMD: `vocabgen serve --port 8080`
+    - _Requirements: 65.1–65.5_
+    - _Design: Docker Image Distribution — Dockerfile section_
+
+  - [x] 28.2 Create `.dockerignore`
+    - Exclude `.git`, `.github`, `.kiro`, `.vscode`, `reference/`, `coverage.out`, `dist/`, `vocabgen`
+    - _Requirements: 65.10_
+
+  - [x] 28.3 Add `dockers` and `docker_manifests` to `.goreleaser.yaml`
+    - Two `dockers` entries for amd64 and arm64 using buildx
+    - Two `docker_manifests` entries for `:<version>` and `:latest` multi-arch manifests
+    - Push to `ghcr.io/npozs77/vocabgen`
+    - _Requirements: 65.6, 65.7_
+    - _Design: Docker Image Distribution — goreleaser Integration section_
+
+  - [x] 28.4 Update `.github/workflows/release.yml`
+    - Add `packages: write` permission
+    - Add GHCR login via `docker/login-action@v3`
+    - Add Docker Buildx and QEMU setup steps
+    - _Requirements: 65.8, 65.9_
+    - _Design: Docker Image Distribution — CI/CD Changes section_
+
+  - [x] 28.5 Update documentation
+    - Add Docker section to `README.md` with `docker run` example
+    - Rewrite Docker section in `docs/deployment.md` with GHCR image tags, volume mount, CLI usage, local build
+    - Add Docker installation option to `docs/user-guide.md`
+    - Add Docker entry to `CHANGELOG.md` under 1.2.2
+    - _Requirements: 65.11, 65.12, 65.13_
+
+## Notes
+
+- Tasks marked with `*` are optional: fuzz tests (4.12, 5.6, 10.6), web UI (15.1–15.9), and Vertex AI provider (7.8)
+- All property tests (P1–P23), table-driven tests, and integration tests are mandatory
+- Web UI tasks (15.1–15.9) are optional — CLI is the primary interface and can ship without the web UI
+- Vertex AI provider (7.8) is optional — Bedrock, OpenAI, and Anthropic cover the primary use cases
+- Checkpoints include **Go Learning** sections that explain Go patterns and concepts used in the preceding tasks — pause to ask questions and solidify understanding before moving on
+- Each task references specific requirements and design sections for traceability
+- Property tests validate the 28 correctness properties
+- Fuzz tests complement property tests by discovering crashes on adversarial input
+- Checkpoints ensure incremental validation at natural boundaries
+- All tests are co-located with source (`*_test.go` alongside implementation)
+- Tasks 21–23 implement issues #23, #22, #24 respectively; dependency order: 21 (profiles) → 22 (Ollama setup) → 23 (E2E local default)
+- Task 26 implements issue #26 (sentence lookup dedicated prompt); depends on existing language, validation, and service packages
+- Task 28 implements issue #47 (Docker distribution); no Go code changes, purely infra/config/docs
+
+
+- [x] 29. Database picker and live database switching (#76)
+  - [x] 29.1 Implement `GET /api/databases` endpoint — scans config directory for `*.db` files
+  - [x] 29.2 Add database picker dropdown to Config page (server-side rendered `<select>`)
+  - [x] 29.3 Add "Create new…" option with inline text input and client-side validation
+  - [x] 29.4 Server-side validation in `handlePutConfig` — reject invalid names and conflicts
+  - [x] 29.5 Create empty `.db` file on save when "Create new" is selected
+  - [x] 29.6 Implement `switchDatabase` method on Server — close old store, open new SQLiteStore
+  - [x] 29.7 Call `switchDatabase` from `handlePutConfig` and `handleSwitchProfile` when DB path changes
+  - [x] 29.8 Export `ConfigDir()` in config package for directory scanning
+  - [x] 29.9 Pass `Databases []string` to config form template data (handleConfigHTML + handleSwitchProfile)
+  - [x] 29.10 Write tests: endpoint, validation, conflict detection, fallback, profile switch with databases
+  - [x] 29.11 Update user-guide: Database Picker section (live switching, no restart)
+  - _Requirements: 66.1–66.8_
+
+- [x] 30. Multiple meanings / skip-cache lookup (#86)
+  - [x] 30.1 Add `SkipCache bool` field to `LookupParams` and `BatchParams`
+  - [x] 30.2 Implement skip-cache logic in `lookupWord` — bypass cache, require context, always insert
+  - [x] 30.3 Implement skip-cache logic in `lookupExpression` — same pattern
+  - [x] 30.4 Implement skip-cache logic in `processBatchWord` and `processBatchExpression`
+  - [x] 30.5 Add `--new-meaning` flag to CLI `lookupCmd` with `--context` validation
+  - [x] 30.6 Parse `skip_cache` form/JSON field in `parseLookupParams` web handler
+  - [x] 30.7 Add "Skip cache / Add new meaning" checkbox to lookup.html with JS context-required toggle
+  - [x] 30.8 Parse `skip_cache` in all three batch handlers (JSON, HTML, SSE stream)
+  - [x] 30.9 Create `DisambiguatedWord(word, index, total)` helper in `internal/service/disambiguation.go`
+  - [x] 30.10 Create `disambiguateWords` and `disambiguateExpressions` helpers in `internal/web/disambiguation.go`
+  - [x] 30.11 Apply disambiguation in `handleListWords`, `handleListExpressions`, `handleExport`, `handleFlashcardsHTML`
+  - [x] 30.12 Write property test P18: disambiguation suffix correctness
+  - [x] 30.13 Write table-driven tests: CLI flag validation, web disambiguation helpers
+  - [x] 30.14 Update user-guide: Multiple Meanings section
+  - [x] 30.15 Update architecture doc: DisambiguatedWord, skip-cache flow, disambiguation display
+  - _Requirements: 67.1–67.9_
+
+- [x] 31. Database detail panel toggle fix (#87)
+  - [x] 31.1 Fix HTMX `hx-swap` behavior so clicking an expanded detail row collapses it
+  - _Requirements: 68.1–68.2_
+
+- [x] 32. Documentation updates for #76, #86, #87
+  - [x] 32.1 Update `docs/architecture.md` — new routes, switchDatabase, disambiguation, database picker
+  - [x] 32.2 Update `docs/user-guide.md` — Database Picker (live switch), Multiple Meanings
+  - [x] 32.3 Update `CHANGELOG.md` under v1.4.3
+  - _Requirements: 66, 67, 68_
