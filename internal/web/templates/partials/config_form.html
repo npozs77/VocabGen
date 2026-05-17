@@ -41,6 +41,7 @@
       <option value="openai" {{if eq .Config.Provider "openai" }} selected{{end}}>OpenAI</option>
       <option value="anthropic" {{if eq .Config.Provider "anthropic" }} selected{{end}}>Anthropic</option>
       <option value="vertexai" {{if eq .Config.Provider "vertexai" }} selected{{end}}>Vertex AI</option>
+      <option value="gemini" {{if eq .Config.Provider "gemini" }} selected{{end}}>Google Gemini</option>
     </select>
   </div>
 
@@ -63,8 +64,8 @@
 
   {{if eq .Config.Provider "openai"}}
   <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-    Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable before starting the
-    server.
+    Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable or use
+    <code class="font-mono bg-blue-100 px-1 rounded">--api-key</code> flag.
     Not required when using a local server (Ollama, LM Studio) via Base URL.
     <br>Examples — Ollama: <code class="font-mono bg-blue-100 px-1 rounded">http://localhost:11434/v1</code> · Model:
     <code class="font-mono bg-blue-100 px-1 rounded">translategemma</code>
@@ -82,7 +83,14 @@
   {{if eq .Config.Provider "anthropic"}}
   <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
     Set <code class="font-mono bg-blue-100 px-1 rounded">ANTHROPIC_API_KEY</code> environment variable before starting
-    the server.
+    the server, or use <code class="font-mono bg-blue-100 px-1 rounded">--api-key</code> flag.
+  </div>
+  {{end}}
+
+  {{if eq .Config.Provider "gemini"}}
+  <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+    Set <code class="font-mono bg-blue-100 px-1 rounded">GEMINI_API_KEY</code> environment variable before starting the
+    server, or use <code class="font-mono bg-blue-100 px-1 rounded">--api-key</code> flag.
   </div>
   {{end}}
 
@@ -109,8 +117,8 @@
       class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
       placeholder="{{if eq .Config.Provider " bedrock"}}e.g. us.anthropic.claude-sonnet-4-20250514-v1:0{{else if eq
       .Config.Provider "openai" }}e.g. gpt-4o, or translategemma for Ollama{{else if eq .Config.Provider "anthropic"
-      }}e.g. claude-sonnet-4-6{{else if eq .Config.Provider "vertexai" }}e.g. gemini-2.0-flash{{else}}Enter model
-      ID{{end}}">
+      }}e.g. claude-sonnet-4-6{{else if eq .Config.Provider "vertexai" }}e.g. gemini-2.0-flash{{else if eq
+      .Config.Provider "gemini" }}e.g. gemini-2.0-flash{{else}}Enter model ID{{end}}">
   </div>
 
   <div class="grid grid-cols-2 gap-4">
