@@ -235,7 +235,7 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
     - Test OpenAI provider rejects nil API key when no base URL
     - Test Anthropic provider rejects nil API key
     - _Requirements: 11.3, 13.1, 13.2_
-  - [ ]* 7.8 Implement VertexAIProvider (optional — can be deferred)
+  - [x]* 7.8 Implement VertexAIProvider (optional — can be deferred)
     - `NewVertexAIProvider(opts)` creates HTTP client using Google ADC; validates GCP project ID present
     - `Invoke` sends request to Vertex AI Gemini API, extracts text content
     - Retry once on rate-limit errors (1 second delay)
@@ -885,8 +885,8 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
   - Ensure all existing tests still pass (regression)
   - Ask the user if questions arise.
 
-- [ ] 26. Dedicated sentence lookup prompt, validation, and service integration (Issue #26)
-  - [ ] 26.1 Add `SentenceTemplate` constant and update `BuildPrompt` in `internal/language/templates.go`
+- [x] 26. Dedicated sentence lookup prompt, validation, and service integration (Issue #26)
+  - [x] 26.1 Add `SentenceTemplate` constant and update `BuildPrompt` in `internal/language/templates.go`
     - Define `SentenceTemplate` as a Go string constant with `{source_language}`, `{sentence}`, `{context}`, `{target_language_name}` placeholders
     - Template instructs the LLM to return JSON with: `sentence` (string), `translation` (string — full sentence translation into target language), `grammar_check` (object with `has_errors` bool, `corrected_sentence` string, `errors` array of `{original, corrected, explanation}`), `vocabulary` (array of `{word, type, definition, english}`)
     - Template instructs the LLM to check for grammatical errors: word order, verb conjugation, spelling, case/gender agreement, preposition usage
@@ -896,7 +896,7 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
     - _Requirements: 61.1–61.7_
     - _Design: Section 2 — templates.go SentenceTemplate_
 
-  - [ ] 26.2 Add sentence validation types and `ValidateSentenceResponse` in `internal/language/validation.go`
+  - [x] 26.2 Add sentence validation types and `ValidateSentenceResponse` in `internal/language/validation.go`
     - Define `SentenceEntry` struct: `Sentence string`, `Translation string`, `GrammarCheck GrammarCheck`, `Vocabulary []VocabItem`
     - Define `GrammarCheck` struct: `HasErrors bool`, `CorrectedSentence string`, `Errors []GrammarError`
     - Define `GrammarError` struct: `Original string`, `Corrected string`, `Explanation string`
@@ -906,7 +906,7 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
     - _Requirements: 61.8–61.9, 3.10_
     - _Design: Section 2 — validation.go SentenceEntry, ValidateSentenceResponse_
 
-  - [ ] 26.3 Fix `mode()` function and update sentence lookup path in `internal/service/service.go`
+  - [x] 26.3 Fix `mode()` function and update sentence lookup path in `internal/service/service.go`
     - Change `mode()` to return `"sentence"` when `lookupType == "sentence"` (instead of `"expressions"`)
     - Update the sentence lookup branch in `Lookup()` to call `language.BuildPrompt` with mode `"sentence"`, then `language.ValidateSentenceResponse` (instead of `ValidateResponse` + `MapFields`)
     - Populate `LookupResult.SentenceResult` field (new field on `LookupResult`) instead of `Entry`
@@ -915,33 +915,33 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
     - _Requirements: 61.10, 62.1–62.3, 20.10_
     - _Design: Section 4 — service.go mode(), Data Flow: Single Lookup_
 
-  - [ ] 26.4 Add `SentenceResult` field to `LookupResult` in `internal/service/service.go`
+  - [x] 26.4 Add `SentenceResult` field to `LookupResult` in `internal/service/service.go`
     - Add `SentenceResult *language.SentenceEntry` field to `LookupResult` struct
     - CLI and web handlers check `SentenceResult != nil` to determine sentence vs word/expression output
     - _Requirements: 62.2, 62.5_
     - _Design: Section 4 — service.go LookupResult_
 
-  - [ ] 26.5 Write property test P26: Sentence template formatting
+  - [x] 26.5 Write property test P26: Sentence template formatting
     - **Property 26: Sentence template formatting produces valid prompts for any source language**
     - Generate random source language strings, random sentence strings, random target language codes
     - Assert output contains: resolved source language name, sentence text, target language name, grammar check instructions, no unresolved `{...}` placeholders
     - Assert output is distinct from words and expressions template output for the same language
     - **Validates: Requirements 61.1, 61.6, 61.7**
 
-  - [ ] 26.6 Write property test P27: Sentence validation
+  - [x] 26.6 Write property test P27: Sentence validation
     - **Property 27: Sentence validation accepts valid sentence JSON and rejects missing required fields**
     - Generate valid sentence JSON with random strings, random grammar errors, random vocabulary items
     - Assert `ValidateSentenceResponse` succeeds for valid input
     - Generate JSON with random subsets of required fields removed; assert `ValidateSentenceResponse` returns `ValidationError`
     - **Validates: Requirements 61.8, 61.9**
 
-  - [ ] 26.7 Write property test P28: Sentence lookup ephemeral
+  - [x] 26.7 Write property test P28: Sentence lookup ephemeral
     - **Property 28: Sentence lookup ephemeral — never writes to DB, never reads cache**
     - Use mock provider and in-memory SQLite store
     - Perform sentence lookup, assert: mock provider was invoked, store has zero entries after lookup, `LookupResult.SentenceResult` is non-nil, `LookupResult.Entry` is nil
     - **Validates: Requirements 62.1, 62.3**
 
-  - [ ] 26.8 Write table-driven tests for sentence template, validation, and service
+  - [x] 26.8 Write table-driven tests for sentence template, validation, and service
     - Test `BuildPrompt("nl", "sentence", "Ik ga morgen naar de markt", "", "hu")` returns prompt containing "Dutch", the sentence, grammar check instructions
     - Test `BuildPrompt` with mode "sentence" does NOT contain `{expression}` or `{word}` placeholders in output
     - Test `ValidateSentenceResponse` with valid JSON returns correct `SentenceEntry`
@@ -953,7 +953,7 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
     - Test `mode("expression")` still returns `"expressions"` (regression)
     - _Requirements: 61.1–61.10, 62.1–62.5_
 
-- [ ] 27. Checkpoint — Verify sentence lookup works end-to-end
+- [x] 27. Checkpoint — Verify sentence lookup works end-to-end
   - Run `make quality` — all tests pass, no lint issues
   - Verify `vocabgen lookup "Ik ga morgen naar de markt" -l nl --type sentence` uses the sentence template (not expressions)
   - Verify sentence lookup result contains grammar_check and vocabulary sections

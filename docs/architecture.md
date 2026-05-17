@@ -94,7 +94,7 @@ A `Registry` map connects provider name strings to constructor functions. Adding
 | Bedrock | `bedrock.go` | AWS credential chain (profile or default) | Once on throttling/timeout |
 | OpenAI | `openai.go` | API key (or none with custom base URL) | Once on HTTP 429 |
 | Anthropic | `anthropic.go` | API key | Once on HTTP 429 |
-| Vertex AI | `vertexai.go` | Google ADC (stub, not yet implemented) | Once on rate-limit |
+| Vertex AI | `vertexai.go` | Google ADC (Application Default Credentials) | Once on HTTP 429 |
 
 All providers return `ProviderError` on failure, which wraps the provider name and underlying error. Callers use `errors.As(&ProviderError{})` for unified error handling regardless of which provider failed.
 

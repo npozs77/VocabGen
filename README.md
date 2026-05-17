@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![GitHub Release](https://img.shields.io/github/v/release/npozs77/VocabGen)
 
-**VocabGen** is an open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV word lists, and study with flashcards — all in your browser. Powered by LLM providers (OpenAI, Anthropic, AWS Bedrock, Ollama), it ships as a single binary with zero setup friction.
+**VocabGen** is an open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV word lists, and study with flashcards — all in your browser. Powered by LLM providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Ollama), it ships as a single binary with zero setup friction.
 
 ## Features
 
@@ -31,6 +31,7 @@ This app calls LLM APIs to generate vocabulary data. It does not include a built
 | AWS Bedrock | AWS account with Bedrock model access enabled | Pay-per-token |
 | OpenAI API | API key from [platform.openai.com](https://platform.openai.com) | Pay-per-token |
 | Anthropic API | API key from [console.anthropic.com](https://console.anthropic.com) | Pay-per-token |
+| Google Vertex AI | GCP project with Vertex AI enabled + [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) | Pay-per-token |
 | Ollama (local) | [Ollama](https://ollama.com) installed with a model pulled | Free (runs on your hardware) |
 | LM Studio / vLLM | Any OpenAI-compatible local server | Free (runs on your hardware) |
 
