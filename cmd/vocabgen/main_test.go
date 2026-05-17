@@ -226,7 +226,8 @@ func TestCLIProviderValidation(t *testing.T) {
 		{"openai valid", "openai", false},
 		{"anthropic valid", "anthropic", false},
 		{"vertexai valid", "vertexai", false},
-		{"invalid provider", "gemini", true},
+		{"gemini valid", "gemini", false},
+		{"invalid provider", "invalidprovider", true},
 		{"empty provider", "", true},
 	}
 

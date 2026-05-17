@@ -21,7 +21,7 @@ The Go Vocabulary Generator (`vocabgen`) is a single-binary CLI and embedded web
 | CLI framework | Cobra | Subcommands (`lookup`, `batch`, `serve`), auto-generated help, flag parsing |
 | Web framework | stdlib `net/http` + `html/template` + HTMX | No JS build step, embedded in binary, sufficient for local tool |
 | Database | SQLite via `modernc.org/sqlite` | Pure-Go, cross-compiles, embedded, zero-config |
-| LLM abstraction | Go interface + provider registry | 4 real implementations (Bedrock, OpenAI, Anthropic, Vertex AI), testable with manual mocks |
+| LLM abstraction | Go interface + provider registry | 5 real implementations (Bedrock, OpenAI, Anthropic, Vertex AI, Gemini), testable with manual mocks |
 | Config format | YAML at `~/.vocabgen/config.yaml` | Human-readable, simple, `gopkg.in/yaml.v3` |
 | PBT library | `pgregory.net/rapid` | Go-native, integrates with `testing`, no external runner |
 | Excel export | `github.com/xuri/excelize/v2` | Well-maintained, pure-Go xlsx writer |
@@ -56,6 +56,7 @@ graph TB
     LLM --> OPENAI["OpenAI API<br/>(+ Azure, Ollama, LM Studio)"]
     LLM --> ANTHROPIC["Anthropic API"]
     LLM --> VERTEXAI["Google Vertex AI"]
+    LLM --> GEMINI["Google Gemini API"]
     CLI --> CFG
     WEB --> CFG
     DB --> SQLITE["~/.vocabgen/vocabgen.db"]
@@ -256,6 +257,7 @@ var Registry = map[string]NewProviderFunc{
     "openai":    NewOpenAIProvider,
     "anthropic": NewAnthropicProvider,
     "vertexai":  NewVertexAIProvider,
+    "gemini":    NewGeminiProvider,
 }
 ```
 
@@ -321,6 +323,25 @@ type VertexAIProvider struct {
 func NewVertexAIProvider(opts ProviderOptions) (Provider, error)
 func (p *VertexAIProvider) Invoke(ctx context.Context, prompt, modelID string) (string, error)
 func (p *VertexAIProvider) Name() string { return "vertexai" }
+```
+
+```go
+// gemini.go
+
+// GeminiProvider implements Provider for the Google Gemini API (direct, via API key).
+// Uses the generativelanguage.googleapis.com REST endpoint.
+// Distinct from VertexAIProvider which uses GCP infrastructure and ADC.
+type GeminiProvider struct {
+    apiKey   string
+    maxRetry int
+    client   *http.Client
+}
+
+// NewGeminiProvider creates a GeminiProvider using a Gemini API key.
+// Returns error if API key is empty.
+func NewGeminiProvider(opts ProviderOptions) (Provider, error)
+func (p *GeminiProvider) Invoke(ctx context.Context, prompt, modelID string) (string, error)
+func (p *GeminiProvider) Name() string { return "gemini" }
 ```
 
 ### 2. `internal/language` — Templates, Validation, Registry

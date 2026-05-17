@@ -45,6 +45,7 @@ graph TB
     LLM --> OPENAI["OpenAI API<br/>(+ Azure, Ollama, LM Studio)"]
     LLM --> ANTHROPIC["Anthropic API"]
     LLM --> VERTEXAI["Google Vertex AI"]
+    LLM --> GEMINI["Google Gemini API"]
     CLI --> CFG
     WEB --> CFG
     WEB --> DOCS
@@ -69,7 +70,7 @@ vocabgen/
 │   ├── config/            # YAML config manager (LoadConfig, SaveConfig)
 │   ├── db/                # SQLite schema, migrations, CRUD, cache layer
 │   ├── language/          # Prompt templates, schemas, validation, language registry
-│   ├── llm/               # Provider interface, Bedrock/OpenAI/Anthropic implementations
+│   ├── llm/               # Provider interface, Bedrock/OpenAI/Anthropic/VertexAI/Gemini implementations
 │   ├── output/            # Field mapping, translation flattening, Excel export
 │   ├── parsing/           # CSV reading, word/expression normalization
 │   ├── service/           # Lookup, ProcessBatch, DisambiguatedWord — shared business logic
@@ -95,6 +96,7 @@ A `Registry` map connects provider name strings to constructor functions. Adding
 | OpenAI | `openai.go` | API key (or none with custom base URL) | Once on HTTP 429 |
 | Anthropic | `anthropic.go` | API key | Once on HTTP 429 |
 | Vertex AI | `vertexai.go` | Google ADC (Application Default Credentials) | Once on HTTP 429 |
+| Gemini | `gemini.go` | API key (via `GEMINI_API_KEY` or `--api-key`) | Once on HTTP 429 |
 
 All providers return `ProviderError` on failure, which wraps the provider name and underlying error. Callers use `errors.As(&ProviderError{})` for unified error handling regardless of which provider failed.
 

@@ -235,13 +235,24 @@ Build `vocabgen` — a single-binary Go CLI and embedded web app for vocabulary 
     - Test OpenAI provider rejects nil API key when no base URL
     - Test Anthropic provider rejects nil API key
     - _Requirements: 11.3, 13.1, 13.2_
-  - [x]* 7.8 Implement VertexAIProvider (optional — can be deferred)
+  - [x] 7.8 Implement VertexAIProvider (optional — can be deferred)
     - `NewVertexAIProvider(opts)` creates HTTP client using Google ADC; validates GCP project ID present
     - `Invoke` sends request to Vertex AI Gemini API, extracts text content
     - Retry once on rate-limit errors (1 second delay)
     - Return `ProviderError` on auth failure, empty response, or exhausted retries
     - _Requirements: 51.1–51.7, 12.7_
     - _Design: Section 1 — vertexai.go_
+
+  - [x] 7.9 Implement GeminiProvider (direct Gemini API via API key)
+    - `NewGeminiProvider(opts)` creates HTTP client; validates API key present (from `GEMINI_API_KEY` env var or `--api-key` flag)
+    - `Invoke` sends request to `generativelanguage.googleapis.com` REST API, extracts text content from response
+    - Retry once on HTTP 429 rate-limit (1 second delay)
+    - Return `ProviderError` on auth failure, empty response, or exhausted retries
+    - Add `"gemini"` entry to the provider Registry
+    - Write table-driven tests: construction without API key returns error, Name() returns "gemini"
+    - Update documentation, Changelog and Readme md files.
+    - _Requirements: 69.1–69.7_
+    - _Design: Section 1 — gemini.go_
 
 - [x] 8. Database package (`internal/db/`)
   - [x] 8.1 Implement SQLiteStore, schema migration, and models

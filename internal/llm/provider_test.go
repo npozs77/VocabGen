@@ -80,6 +80,7 @@ func TestRegistryContainsAllProviders(t *testing.T) {
 		{name: "openai", provider: "openai"},
 		{name: "anthropic", provider: "anthropic"},
 		{name: "vertexai", provider: "vertexai"},
+		{name: "gemini", provider: "gemini"},
 	}
 
 	for _, tc := range tests {
