@@ -4,10 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [1.4.3]
+## [1.5.0]
 
 ### Added
 
+- Google Gemini API provider — use Gemini models directly via `--provider gemini`, authenticates with API key from `GEMINI_API_KEY` env var or `--api-key` flag
+- Google Vertex AI provider — use Gemini models via `--provider vertexai --gcp-project <project-id>`, authenticates with Application Default Credentials
 - Database picker dropdown on Config page — lists existing `.db` files in the config directory, select one or create a new database with inline name validation (#76)
 - Multiple meanings support — add a second (or third) meaning for the same word via "Skip cache / Add new meaning" checkbox in the Web UI or `--new-meaning` flag in the CLI; each meaning stored as a separate entry with disambiguation suffixes displayed when 2+ meanings exist (#86)
 

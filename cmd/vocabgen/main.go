@@ -128,7 +128,7 @@ func init() {
 	// Persistent flags available to all subcommands
 	pf := rootCmd.PersistentFlags()
 	pf.BoolP("verbose", "v", false, "Enable debug logging")
-	pf.String("provider", "bedrock", "LLM provider (bedrock, openai, anthropic, vertexai)")
+	pf.String("provider", "bedrock", "LLM provider (bedrock, openai, anthropic, vertexai, gemini)")
 	pf.StringP("region", "r", "us-east-1", "AWS region for Bedrock provider")
 	pf.Int("timeout", 60, "Per-request timeout in seconds")
 	pf.String("tags", "", "Comma-separated tags for entries")

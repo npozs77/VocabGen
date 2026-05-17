@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![GitHub Release](https://img.shields.io/github/v/release/npozs77/VocabGen)
 
-**VocabGen** is an open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV word lists, and study with flashcards — all in your browser. Powered by LLM providers (OpenAI, Anthropic, AWS Bedrock, Ollama), it ships as a single binary with zero setup friction.
+**VocabGen** is an open-source vocabulary web app and flashcard tool for language learners. Look up words, batch-process CSV word lists, and study with flashcards — all in your browser. Powered by LLM providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Google Gemini, Ollama), it ships as a single binary with zero setup friction.
 
 ## Features
 
@@ -16,7 +16,7 @@
 - 🔤 **LLM-powered vocabulary lookup** — get definitions, translations, connotation, and register for any word or expression
 - 📄 **CSV batch processing** — upload word lists via the web UI or process them from the command line
 - 🌍 **Multi-language support** — Dutch, German, French, Spanish, Italian, Russian, Portuguese, Polish, Turkish, Hungarian, English, and any custom language
-- 🤖 **Multiple LLM providers** — OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Ollama (free local), Azure OpenAI, LM Studio
+- 🤖 **Multiple LLM providers** — OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Google Gemini, Ollama (free local), Azure OpenAI, LM Studio
 - 💾 **SQLite cache** — never pay twice for the same lookup
 - 📦 **Single binary** — zero dependencies, cross-platform (macOS, Linux, Windows), Docker support
 - 🔒 **Privacy-first** — runs locally, no telemetry, API keys stay in env vars
@@ -31,6 +31,8 @@ This app calls LLM APIs to generate vocabulary data. It does not include a built
 | AWS Bedrock | AWS account with Bedrock model access enabled | Pay-per-token |
 | OpenAI API | API key from [platform.openai.com](https://platform.openai.com) | Pay-per-token |
 | Anthropic API | API key from [console.anthropic.com](https://console.anthropic.com) | Pay-per-token |
+| Google Vertex AI | GCP project with Vertex AI enabled + [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) | Pay-per-token |
+| Google Gemini API | API key from [aistudio.google.com](https://aistudio.google.com) | Free tier + pay-per-token |
 | Ollama (local) | [Ollama](https://ollama.com) installed with a model pulled | Free (runs on your hardware) |
 | LM Studio / vLLM | Any OpenAI-compatible local server | Free (runs on your hardware) |
 
@@ -76,7 +78,7 @@ vocabgen batch --input-file ch1.csv --mode words -l nl --tags "chapter-1"
 |------|-------|---------|-------------|
 | `--source-language` | `-l` | (from config) | Source language code or name |
 | `--target-language` | | `hu` | Target language for translations |
-| `--provider` | | `bedrock` | LLM provider (`bedrock`, `openai`, `anthropic`, `vertexai`) |
+| `--provider` | | `bedrock` | LLM provider (`bedrock`, `openai`, `anthropic`, `vertexai`, `gemini`) |
 | `--model-id` | | | LLM model identifier |
 | `--api-key` | | | API key (OpenAI/Anthropic) |
 | `--base-url` | | | Custom API base URL (Ollama, Azure, LM Studio) |
@@ -136,6 +138,7 @@ For first-time setup, the Web UI config page is the easiest way to configure you
 | OpenAI | API key | `vocabgen lookup "word" -l nl --provider openai --api-key sk-...` |
 | Anthropic | API key | `vocabgen lookup "word" -l nl --provider anthropic --api-key sk-ant-...` |
 | Vertex AI | Google ADC | `vocabgen lookup "word" -l nl --provider vertexai --gcp-project my-proj` |
+| Gemini | API key | `vocabgen lookup "word" -l nl --provider gemini --api-key AIza...` |
 | Ollama (local) | None | `vocabgen lookup "word" -l nl --provider openai --base-url http://localhost:11434/v1` |
 | Azure OpenAI | API key + URL | `vocabgen lookup "word" -l nl --provider openai --base-url https://my-resource.openai.azure.com --api-key ...` |
 
@@ -156,6 +159,7 @@ The script installs Ollama (if needed), pulls a model, and creates a `local` con
 |----------|----------|-------------|
 | `OPENAI_API_KEY` | OpenAI | API key (overridden by `--api-key`) |
 | `ANTHROPIC_API_KEY` | Anthropic | API key (overridden by `--api-key`) |
+| `GEMINI_API_KEY` | Gemini | API key (overridden by `--api-key`) |
 | `GCP_PROJECT` | Vertex AI | GCP project ID (overridden by `--gcp-project`) |
 | `AWS_PROFILE` | Bedrock | AWS profile (overridden by `--aws-profile`) |
 | `AWS_REGION` | Bedrock | AWS region (overridden by `--region`) |

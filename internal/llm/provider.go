@@ -51,4 +51,5 @@ var Registry = map[string]NewProviderFunc{
 	"openai":    NewOpenAIProvider,
 	"anthropic": NewAnthropicProvider,
 	"vertexai":  NewVertexAIProvider,
+	"gemini":    NewGeminiProvider,
 }

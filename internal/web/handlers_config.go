@@ -454,6 +454,10 @@ func validateProviderEnv(provider, baseURL, gcpProject string) string {
 		if gcpProject == "" && os.Getenv("GCP_PROJECT") == "" {
 			return "GCP project ID is required for Vertex AI. Set the GCP_PROJECT environment variable or fill in the GCP Project field."
 		}
+	case "gemini":
+		if os.Getenv("GEMINI_API_KEY") == "" {
+			return "GEMINI_API_KEY environment variable is not set. Set it before starting the server: export GEMINI_API_KEY=..."
+		}
 	}
 	return ""
 }

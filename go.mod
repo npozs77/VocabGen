@@ -12,7 +12,11 @@ require (
 	pgregory.net/rapid v1.3.0
 )
 
-require github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24 // indirect
+require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
+)
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7 // indirect

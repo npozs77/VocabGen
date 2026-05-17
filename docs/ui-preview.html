@@ -54,7 +54,8 @@
     <!-- Mockup Nav Bar (replica of the real app nav — items switch tabs) -->
     <nav class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6">
-            <span class="font-semibold text-lg text-gray-800">VocabGen</span>
+            <a href="index.html"
+                class="font-semibold text-lg text-gray-800 hover:text-blue-600 no-underline">VocabGen</a>
             <a href="#" onclick="showTab('lookup'); return false;" id="nav-lookup"
                 class="text-blue-600 font-medium">Lookup</a>
             <a href="#" onclick="showTab('batch'); return false;" id="nav-batch"
@@ -597,8 +598,13 @@ het klopt</textarea>
                 </div>
                 <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
                     Set <code class="font-mono bg-blue-100 px-1 rounded">OPENAI_API_KEY</code> environment variable
-                    before starting the server.
+                    or use <code class="font-mono bg-blue-100 px-1 rounded">--api-key</code> flag.
                     Not required when using a local server (Ollama, LM Studio) via Base URL.
+                    <br>Examples — Ollama: <code
+                        class="font-mono bg-blue-100 px-1 rounded">http://localhost:11434/v1</code> · Model:
+                    <code class="font-mono bg-blue-100 px-1 rounded">translategemma</code>
+                    · OpenAI: <code class="font-mono bg-blue-100 px-1 rounded">https://api.openai.com/v1</code> · Model:
+                    <code class="font-mono bg-blue-100 px-1 rounded">gpt-4o</code>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Base URL (optional)</label>

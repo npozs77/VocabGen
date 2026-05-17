@@ -89,7 +89,7 @@ vocabgen serve --port 8080
 
 Open `http://localhost:8080/config` in your browser. From there you can:
 
-- Select your LLM provider (Bedrock, OpenAI, Anthropic, Vertex AI)
+- Select your LLM provider (Bedrock, OpenAI, Anthropic, Vertex AI, Gemini)
 - Set your default source and target languages
 - Choose a model ID
 - Test the connection (uses the API key from your environment variables automatically)
@@ -125,6 +125,7 @@ Each provider authenticates differently:
 | OpenAI | `OPENAI_API_KEY` env var or `--api-key` flag |
 | Anthropic | `ANTHROPIC_API_KEY` env var or `--api-key` flag |
 | Vertex AI | Google Application Default Credentials + `--gcp-project` or `GCP_PROJECT` env var |
+| Gemini | `GEMINI_API_KEY` env var or `--api-key` flag |
 | Ollama | None (local server) |
 
 API keys are never stored in `config.yaml`. Use environment variables or CLI flags.
@@ -554,6 +555,15 @@ vocabgen lookup "werk" -l nl --provider openai --base-url http://localhost:11434
 ```
 
 No API key needed for local servers.
+
+### Google Gemini (direct API)
+
+```bash
+export GEMINI_API_KEY=AIza...
+vocabgen lookup "werk" -l nl --provider gemini --model-id gemini-2.0-flash
+```
+
+Get an API key from [Google AI Studio](https://aistudio.google.com). The Gemini API has a free tier with rate limits — suitable for light usage without a payment method.
 
 ### Azure OpenAI
 

@@ -19,6 +19,7 @@ Key technical direction: Go with Cobra CLI, embedded web UI via `go:embed` + `ne
 - **OpenAI_Provider**: Provider implementation for the OpenAI API, also compatible with OpenAI-compatible local servers (Ollama, LM Studio) via custom base URL
 - **Anthropic_Provider**: Provider implementation for the Anthropic Claude direct API
 - **Vertex_AI_Provider**: Provider implementation for Google Vertex AI (Gemini, PaLM, Claude on Vertex)
+- **Gemini_Provider**: Provider implementation for the Google Gemini API (direct), authenticating via API key against `generativelanguage.googleapis.com`
 - **Provider_Registry**: A map from provider name strings to provider constructor functions
 - **Database**: SQLite file-based database stored at a configurable path (default: `~/.vocabgen/vocabgen.db`)
 - **Word_Entry**: A row in the words table containing vocabulary data plus metadata (source_language, target_language, created_at, updated_at)
@@ -232,7 +233,7 @@ Key technical direction: Go with Cobra CLI, embedded web UI via `go:embed` + `ne
 
 #### Acceptance Criteria
 
-1. WHEN the CLI is invoked, THE CLI SHALL accept a `--provider` flag with valid values including "bedrock", "openai", "anthropic", and "vertexai"
+1. WHEN the CLI is invoked, THE CLI SHALL accept a `--provider` flag with valid values including "bedrock", "openai", "anthropic", "vertexai", and "gemini"
 2. WHEN no `--provider` flag is specified, THE CLI SHALL default to "bedrock"
 3. WHEN an unsupported provider name is specified, THE CLI SHALL display an error listing valid provider names and exit with a non-zero code
 4. WHEN the Provider_Registry is queried, THE Provider_Registry SHALL map string identifiers to their corresponding provider constructor functions
@@ -251,6 +252,7 @@ Key technical direction: Go with Cobra CLI, embedded web UI via `go:embed` + `ne
 5. WHEN the "bedrock" provider is selected, THE App SHALL ignore the `--api-key` flag
 6. WHEN the "openai" or "anthropic" provider is selected, THE App SHALL ignore the `--profile` flag
 7. WHEN the "vertexai" provider is selected, THE App SHALL use Google Application Default Credentials and accept a project ID via `--gcp-project` or `GCP_PROJECT` environment variable
+8. WHEN the "gemini" provider is selected, THE App SHALL accept an API key via the `--api-key` flag or the `GEMINI_API_KEY` environment variable
 
 ### Requirement 13: Error Handling Across Providers
 
@@ -1210,3 +1212,22 @@ The Go Vocabulary Generator is successfully implemented when:
 
 1. WHEN the user clicks an expanded detail panel in the database view, THE panel SHALL collapse (toggle behavior)
 2. WHEN the user clicks a collapsed entry, THE detail panel SHALL expand as before
+
+### Requirement 69: Gemini API Provider Implementation (Direct)
+
+**User Story:** As a user who wants to use Google Gemini models without GCP infrastructure, I want a direct Gemini API provider that authenticates with a simple API key, so that I can access Gemini models with minimal setup (similar to OpenAI/Anthropic).
+
+#### Acceptance Criteria
+
+1. WHEN the Gemini_Provider is used, THE Gemini_Provider SHALL implement the Provider_Interface
+2. WHEN the Gemini_Provider authenticates, THE Gemini_Provider SHALL use an API key sourced from the `GEMINI_API_KEY` environment variable or the `--api-key` CLI flag
+3. WHEN no API key is available, THE Gemini_Provider SHALL return a descriptive authentication error before attempting invocation
+4. WHEN a model is specified, THE Gemini_Provider SHALL support specifying a Gemini model name (e.g., "gemini-2.0-flash", "gemini-2.5-pro") via the `--model-id` flag
+5. WHEN the Gemini_Provider encounters rate-limit errors, THE Gemini_Provider SHALL retry once with a 1-second delay
+6. WHEN the Gemini_Provider is selected via `--provider gemini`, THE Provider_Registry SHALL resolve it to the Gemini API provider (distinct from `--provider vertexai` which uses GCP Vertex AI)
+7. WHEN the Gemini_Provider invokes the API, THE Gemini_Provider SHALL send requests to the `generativelanguage.googleapis.com` endpoint using the REST API
+
+#### Properties
+
+- P69.1: Gemini provider requires API key — construction without API key returns descriptive error (Req 69, AC 2–3)
+- P69.2: Gemini provider implements Provider interface — Invoke returns (string, nil) or ("", error), Name returns "gemini" (Req 69, AC 1)
