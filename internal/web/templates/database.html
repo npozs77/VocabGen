@@ -93,7 +93,7 @@
     <div id="import-result" class="mt-2"></div>
   </div>
 
-  <div id="entry-table" hx-get="/api/words" hx-trigger="load" hx-swap="innerHTML">
+  <div id="entry-table" hx-get="/api/words{{if .InitialTags}}?tags={{.InitialTags}}{{end}}" hx-trigger="load" hx-swap="innerHTML">
     <p class="text-gray-500">Loading entries…</p>
   </div>
 </div>

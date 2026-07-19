@@ -686,6 +686,11 @@ func buildWordFilter(f ListFilter) (string, []any) {
 			clauses = append(clauses, "("+strings.Join(tagClauses, " OR ")+")")
 		}
 	}
+	if f.Prefix != "" && f.Tags == "" {
+		// Prefix matching: match tags that start with "prefix." (e.g. prefix "HS2" matches "HS2.1", "HS2.2" but not "HS21").
+		clauses = append(clauses, "(',' || tags || ',') LIKE ?")
+		args = append(args, "%,"+f.Prefix+".%")
+	}
 	if len(f.Difficulty) > 0 {
 		placeholders := make([]string, len(f.Difficulty))
 		for i, d := range f.Difficulty {
@@ -732,6 +737,11 @@ func buildExpressionFilter(f ListFilter) (string, []any) {
 		if len(tagClauses) > 0 {
 			clauses = append(clauses, "("+strings.Join(tagClauses, " OR ")+")")
 		}
+	}
+	if f.Prefix != "" && f.Tags == "" {
+		// Prefix matching: match tags that start with "prefix." (e.g. prefix "HS2" matches "HS2.1", "HS2.2" but not "HS21").
+		clauses = append(clauses, "(',' || tags || ',') LIKE ?")
+		args = append(args, "%,"+f.Prefix+".%")
 	}
 	if len(f.Difficulty) > 0 {
 		placeholders := make([]string, len(f.Difficulty))

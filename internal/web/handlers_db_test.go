@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/user/vocabgen/internal/config"
@@ -89,5 +90,89 @@ func TestHandleListTags(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// --- Tests for handleDatabasePage (Issue #99) ---
+
+func TestHandleDatabasePage_InitialTags(t *testing.T) {
+	tests := []struct {
+		name         string
+		url          string
+		tags         []string // tags available in the store
+		wantContains string   // substring expected in HTML response
+	}{
+		{
+			name:         "no params renders page without initial tags",
+			url:          "/database",
+			tags:         []string{"HS2.1", "HS2.2", "HS3.1"},
+			wantContains: `data-initial-tags=""`,
+		},
+		{
+			name:         "tags param passes through directly",
+			url:          "/database?tags=HS2.1,HS2.2",
+			tags:         []string{"HS2.1", "HS2.2", "HS3.1"},
+			wantContains: `data-initial-tags="HS2.1,HS2.2"`,
+		},
+		{
+			name:         "prefix param resolves to matching tags",
+			url:          "/database?prefix=HS2",
+			tags:         []string{"HS2.1", "HS2.2", "HS3.1"},
+			wantContains: `data-initial-tags="HS2.1,HS2.2"`,
+		},
+		{
+			name:         "prefix with no matches results in empty initial tags",
+			url:          "/database?prefix=HS9",
+			tags:         []string{"HS2.1", "HS3.1"},
+			wantContains: `data-initial-tags=""`,
+		},
+		{
+			name:         "prefix does not match without dot separator",
+			url:          "/database?prefix=HS2",
+			tags:         []string{"HS21", "HS2.1"},
+			wantContains: `data-initial-tags="HS2.1"`,
+		},
+		{
+			name:         "tags takes priority over prefix when both provided",
+			url:          "/database?tags=HS3.1&prefix=HS2",
+			tags:         []string{"HS2.1", "HS2.2", "HS3.1"},
+			wantContains: `data-initial-tags="HS3.1"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &tagMockStore{tags: tc.tags}
+			srv := newTagTestServer(store)
+
+			req := httptest.NewRequest(http.MethodGet, tc.url, nil)
+			w := httptest.NewRecorder()
+			srv.mux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+
+			body := w.Body.String()
+			if !strings.Contains(body, tc.wantContains) {
+				t.Errorf("response body does not contain %q\nbody (first 500): %.500s", tc.wantContains, body)
+			}
+		})
+	}
+}
+
+func TestHandleListWords_PrefixParam(t *testing.T) {
+	// Verify that /api/words?prefix=HS2 returns the prefix in context (via parseListParams).
+	// This is a smoke test that the param flows through — full filtering is tested in db_test.go.
+	store := &tagMockStore{tags: []string{"HS2.1", "HS2.2"}}
+	srv := newTagTestServer(store)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/words?prefix=HS2", nil)
+	w := httptest.NewRecorder()
+	srv.mux.ServeHTTP(w, req)
+
+	// Should return 200 (JSON or HTML partial depending on headers).
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 }

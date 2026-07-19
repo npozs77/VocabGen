@@ -1539,3 +1539,158 @@ func TestPropertyP17_FlashcardItemMapping(t *testing.T) {
 		}
 	})
 }
+
+// --- Tests for Prefix filtering (Issue #99) ---
+
+func TestListWords_PrefixFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		wordTags  []string // tags for each inserted word
+		prefix    string
+		wantCount int
+		wantWords []string // expected word values in results (any order)
+	}{
+		{
+			name:      "prefix HS2 matches HS2.1 and HS2.2 but not HS21",
+			wordTags:  []string{"HS2.1", "HS2.2", "HS21", "HS3.1"},
+			prefix:    "HS2",
+			wantCount: 2,
+			wantWords: []string{"word0", "word1"},
+		},
+		{
+			name:      "prefix HS3 matches HS3.1 only",
+			wordTags:  []string{"HS2.1", "HS2.2", "HS3.1", "HS3.2"},
+			prefix:    "HS3",
+			wantCount: 2,
+			wantWords: []string{"word2", "word3"},
+		},
+		{
+			name:      "prefix with no matches returns zero results",
+			wordTags:  []string{"HS2.1", "HS3.1"},
+			prefix:    "HS9",
+			wantCount: 0,
+			wantWords: nil,
+		},
+		{
+			name:      "empty prefix returns all entries",
+			wordTags:  []string{"HS2.1", "HS3.1"},
+			prefix:    "",
+			wantCount: 2,
+			wantWords: []string{"word0", "word1"},
+		},
+		{
+			name:      "word with multiple tags matches if any starts with prefix",
+			wordTags:  []string{"HS2.1,Dorka", "B2,HS2.2", "HS3.1"},
+			prefix:    "HS2",
+			wantCount: 2,
+			wantWords: []string{"word0", "word1"},
+		},
+		{
+			name:      "prefix is ignored when Tags is set",
+			wordTags:  []string{"HS2.1", "HS2.2", "HS3.1"},
+			prefix:    "HS2",
+			wantCount: 1,
+			wantWords: []string{"word2"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			ctx := context.Background()
+
+			for i, tags := range tc.wordTags {
+				row := makeWordRow(fmt.Sprintf("word%d", i), "nl")
+				row.Tags = tags
+				if err := store.InsertWord(ctx, row); err != nil {
+					t.Fatalf("InsertWord %d: %v", i, err)
+				}
+			}
+
+			filter := ListFilter{
+				Prefix:   tc.prefix,
+				Page:     1,
+				PageSize: 100,
+			}
+			// Special case: test that Tags takes priority over Prefix.
+			if tc.name == "prefix is ignored when Tags is set" {
+				filter.Tags = "HS3.1"
+			}
+
+			results, total, err := store.ListWords(ctx, filter)
+			if err != nil {
+				t.Fatalf("ListWords: %v", err)
+			}
+			if total != tc.wantCount {
+				t.Errorf("total = %d, want %d", total, tc.wantCount)
+			}
+			if len(results) != tc.wantCount {
+				t.Errorf("len(results) = %d, want %d", len(results), tc.wantCount)
+			}
+
+			if tc.wantWords != nil {
+				gotWords := make(map[string]bool)
+				for _, w := range results {
+					gotWords[w.Word] = true
+				}
+				for _, want := range tc.wantWords {
+					if !gotWords[want] {
+						t.Errorf("expected word %q in results, got %v", want, gotWords)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestListExpressions_PrefixFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		exprTags  []string
+		prefix    string
+		wantCount int
+	}{
+		{
+			name:      "prefix HS2 matches HS2.1 and HS2.3",
+			exprTags:  []string{"HS2.1", "HS2.3", "HS3.1"},
+			prefix:    "HS2",
+			wantCount: 2,
+		},
+		{
+			name:      "no match returns zero",
+			exprTags:  []string{"HS2.1", "HS3.1"},
+			prefix:    "HS99",
+			wantCount: 0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newTestStore(t)
+			ctx := context.Background()
+
+			for i, tags := range tc.exprTags {
+				row := makeExpressionRow(fmt.Sprintf("expr%d", i), "nl")
+				row.Tags = tags
+				if err := store.InsertExpression(ctx, row); err != nil {
+					t.Fatalf("InsertExpression %d: %v", i, err)
+				}
+			}
+
+			results, total, err := store.ListExpressions(ctx, ListFilter{
+				Prefix:   tc.prefix,
+				Page:     1,
+				PageSize: 100,
+			})
+			if err != nil {
+				t.Fatalf("ListExpressions: %v", err)
+			}
+			if total != tc.wantCount {
+				t.Errorf("total = %d, want %d", total, tc.wantCount)
+			}
+			if len(results) != tc.wantCount {
+				t.Errorf("len(results) = %d, want %d", len(results), tc.wantCount)
+			}
+		})
+	}
+}

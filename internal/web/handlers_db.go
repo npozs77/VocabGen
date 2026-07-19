@@ -23,6 +23,7 @@ func parseListParams(r *http.Request) (db.ListFilter, error) {
 		TargetLang: r.URL.Query().Get("target_lang"),
 		Search:     r.URL.Query().Get("search"),
 		Tags:       r.URL.Query().Get("tags"),
+		Prefix:     r.URL.Query().Get("prefix"),
 		Page:       1,
 		PageSize:   20,
 	}
@@ -41,6 +42,40 @@ func parseListParams(r *http.Request) (db.ListFilter, error) {
 		filter.PageSize = pageSize
 	}
 	return filter, nil
+}
+
+// handleDatabasePage handles GET /database with optional tags= and prefix= query params.
+// When prefix is provided, it resolves matching tag names from the database and passes
+// them as InitialTags to the template for pre-filtering on page load.
+func (s *Server) handleDatabasePage(w http.ResponseWriter, r *http.Request) {
+	data := s.newPageData("database")
+
+	tags := r.URL.Query().Get("tags")
+	prefix := r.URL.Query().Get("prefix")
+
+	if prefix != "" && tags == "" {
+		// Resolve prefix to matching tag names.
+		allTags, err := s.store.ListDistinctTags(r.Context())
+		if err != nil {
+			s.logger.Error("list tags for prefix resolution failed", "error", err)
+		} else {
+			var matched []string
+			prefixDot := prefix + "."
+			for _, t := range allTags {
+				if strings.HasPrefix(t, prefixDot) {
+					matched = append(matched, t)
+				}
+			}
+			data.InitialTags = strings.Join(matched, ",")
+		}
+	} else if tags != "" {
+		data.InitialTags = tags
+	}
+
+	if err := renderPage(w, "database", data); err != nil {
+		s.logger.Error("render page failed", "page", "database", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
 }
 
 // handleListTags handles GET /api/tags — returns all distinct tags as a JSON array.

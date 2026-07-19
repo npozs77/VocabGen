@@ -88,7 +88,8 @@ type ListFilter struct {
 	SourceLang string
 	TargetLang string
 	Search     string   // matches against word/expression, definition, english, tags
-	Tags       string   // filter entries containing this tag
+	Tags       string   // filter entries containing this tag (comma-separated)
+	Prefix     string   // filter entries whose tags start with this prefix followed by "."
 	Difficulty []string // filter by difficulty values (e.g. ["hard", "natural"])
 	Page       int      // 1-based
 	PageSize   int      // default 50
