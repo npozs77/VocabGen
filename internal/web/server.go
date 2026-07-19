@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/user/vocabgen/internal/auth"
 	"github.com/user/vocabgen/internal/config"
 	"github.com/user/vocabgen/internal/db"
 	"github.com/user/vocabgen/internal/llm"
@@ -28,6 +29,7 @@ type Server struct {
 	buildDate     string
 	goVersion     string
 	updater       *updateChecker
+	usersConfig   *auth.UsersConfig
 }
 
 // pageData is the common data passed to all page templates.
@@ -48,7 +50,7 @@ type pageData struct {
 }
 
 // NewServer creates a Server with all routes registered.
-func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version, buildDate, goVersion, dbPath string) *Server {
+func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version, buildDate, goVersion, dbPath string, usersConfig *auth.UsersConfig) *Server {
 	// Resolve the initial active profile name.
 	_, defaultProfile, _ := config.ListProfiles()
 
@@ -63,6 +65,7 @@ func NewServer(store db.Store, cfg *config.Config, logger *slog.Logger, version,
 		buildDate:     buildDate,
 		goVersion:     goVersion,
 		updater:       newUpdateChecker(version, logger),
+		usersConfig:   usersConfig,
 	}
 	s.registerRoutes()
 	return s
@@ -75,7 +78,7 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: s.mux,
+		Handler: auth.Middleware(s.usersConfig, s.logger, s.mux),
 	}
 
 	errCh := make(chan error, 1)

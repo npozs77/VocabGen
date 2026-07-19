@@ -67,6 +67,7 @@ vocabgen/
 │   ├── deployment.md
 │   └── user-guide.md
 ├── internal/
+│   ├── auth/              # API-key authentication (service-accounts, middleware, users.yaml)
 │   ├── config/            # YAML config manager (LoadConfig, SaveConfig)
 │   ├── db/                # SQLite schema, migrations, CRUD, cache layer
 │   ├── language/          # Prompt templates, schemas, validation, language registry
@@ -83,6 +84,18 @@ vocabgen/
 ```
 
 ## Package Details
+
+### `internal/auth` — API-Key Authentication
+
+Stateless Bearer-token authentication for service-accounts. Loads `users.yaml` from the config directory (`~/.vocabgen/` or `/data/` in Docker). Each entry defines a bcrypt-hashed API key and a scope (`read-only` or `read-write`).
+
+**Middleware**: Wraps the HTTP handler. Protects `/api/*` routes (except `/api/health`). Non-API routes (HTML pages) pass through unauthenticated in Phase 1. Returns 401 JSON for missing/invalid keys, 403 JSON for scope violations.
+
+**Open-access fallback**: When `users.yaml` is absent, the middleware is a no-op — identical behavior to pre-auth releases.
+
+**CLI**: `vocabgen auth init` generates a random key, bcrypt-hashes it, and writes `users.yaml`. Supports `--name`, `--scope`, `--force` flags.
+
+**Auto-provisioning**: The `serve` command checks `VOCABGEN_API_KEY` env var at startup. If set and `users.yaml` doesn't exist, it auto-creates the file with the hashed key. Optional env vars: `VOCABGEN_API_KEY_NAME`, `VOCABGEN_API_KEY_SCOPE`.
 
 ### `internal/llm` — Provider Interface
 
@@ -212,7 +225,7 @@ Server-side rendering with Go `html/template` + HTMX + Tailwind CSS (CDN). All t
 
 ### `cmd/vocabgen` — CLI Entry Point
 
-Cobra CLI with subcommands: `lookup`, `batch`, `serve`, `backup`, `restore`, `version`, `update`.
+Cobra CLI with subcommands: `lookup`, `batch`, `serve`, `backup`, `restore`, `version`, `update`, `auth`.
 
 `PersistentPreRunE` on the root command loads config, applies CLI flag overrides, and configures `slog`. Provider is created from config + flags via the registry. SQLite store is opened from the configured path. Config loading is skipped for `version` and `update` subcommands.
 

@@ -445,6 +445,98 @@ Via the web UI database page: upload a CSV file with vocabulary entries to bulk-
 
 Via the web UI database page: export filtered entries as an `.xlsx` file. The download filename follows the pattern `vocabgen-{lang}-{type}-{date}.xlsx`.
 
+## API Authentication (Service Accounts)
+
+VocabGen supports optional API-key authentication for service-accounts (e.g., an MCP server or automation container) that call `/api/*` endpoints programmatically.
+
+### How It Works
+
+- **No `users.yaml`** → fully open access (current default, backward compatible)
+- **`users.yaml` present** → all `/api/*` endpoints (except `/api/health`) require a valid `Authorization: Bearer <key>` header
+
+Browser page routes (`/`, `/batch`, `/config`, etc.) remain open regardless of auth configuration.
+
+### Setup
+
+#### Option A: CLI (recommended for local development)
+
+```bash
+vocabgen auth init --name mcp-server
+```
+
+This generates a random API key, writes `~/.vocabgen/users.yaml` with the bcrypt hash, and prints the key to stdout. Save it securely — it cannot be recovered.
+
+Flags:
+- `--name` — service account name (default: `service-account`)
+- `--scope` — access scope: `read-only` or `read-write` (default: `read-only`)
+- `--force` — overwrite existing `users.yaml`
+
+#### Option B: Docker / Compose (zero-config via env var)
+
+Set `VOCABGEN_API_KEY` to any secret string in your compose file — the server auto-creates `users.yaml` on first start:
+
+```yaml
+environment:
+  VOCABGEN_API_KEY: "any-secret-string-you-choose"  # callers send this as Bearer token
+  VOCABGEN_API_KEY_NAME: "mcp-server"               # optional, default: service-account
+  VOCABGEN_API_KEY_SCOPE: "read-only"               # optional, default: read-only
+```
+
+No key generation step needed — pick any string you like (longer is more secure). The server bcrypt-hashes it at startup and writes `/data/users.yaml`. On subsequent restarts, the existing file is used (not regenerated). Callers authenticate with: `Authorization: Bearer any-secret-string-you-choose`.
+
+#### Option C: Manual
+
+1. Generate a bcrypt hash of your desired API key:
+
+```bash
+# Using htpasswd (Apache utils)
+htpasswd -bnBC 10 "" "your-secret-api-key" | tr -d ':\n'
+
+# Or using Python
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'your-secret-api-key', bcrypt.gensalt()).decode())"
+```
+
+2. Create `~/.vocabgen/users.yaml` (or `/data/users.yaml` in Docker):
+
+```yaml
+service_accounts:
+  - name: mcp-server
+    key_hash: "$2a$10$..."   # bcrypt hash from step 1
+    scope: read-only          # only GET /api/* allowed
+```
+
+3. Restart the server. You'll see a log line confirming auth is enabled:
+
+```
+level=INFO msg="auth: enabled" service_accounts=1
+```
+
+### Usage
+
+Include the API key in requests:
+
+```bash
+curl -H "Authorization: Bearer your-secret-api-key" http://localhost:8080/api/words
+```
+
+### Scope
+
+| Scope | Allowed Methods | Description |
+|-------|----------------|-------------|
+| `read-only` | GET | Default. Read access to all API endpoints |
+| `read-write` | GET, POST, PUT, DELETE | Full API access |
+
+### Error Responses
+
+| Status | Condition |
+|--------|-----------|
+| 401 | Missing, malformed, or invalid Bearer token |
+| 403 | Valid token but insufficient scope (e.g., POST with `read-only`) |
+
+### Health Endpoint
+
+`GET /api/health` is always exempt from authentication — Docker HEALTHCHECK and monitoring tools can reach it without credentials.
+
 ## Provider Switching
 
 ### AWS Bedrock (default)
