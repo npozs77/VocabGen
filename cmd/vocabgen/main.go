@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/user/vocabgen/internal/auth"
 	"github.com/user/vocabgen/internal/config"
 	"github.com/user/vocabgen/internal/db"
 	"github.com/user/vocabgen/internal/llm"
@@ -46,8 +47,8 @@ var rootCmd = &cobra.Command{
 	Long:    "A CLI and embedded web app for generating structured vocabulary lists using LLM providers.",
 	Version: version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip config loading for version and update subcommands
-		if cmd.Name() == "version" || cmd.Name() == "update" {
+		// Skip config loading for version, update, and auth subcommands
+		if cmd.Name() == "version" || cmd.Name() == "update" || cmd.Name() == "init" || cmd.Parent().Name() == "auth" {
 			return nil
 		}
 
@@ -151,6 +152,7 @@ func init() {
 	rootCmd.AddCommand(restoreCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(authCmd)
 }
 
 // createProvider builds a Provider from the current config and CLI flags.
@@ -530,17 +532,125 @@ var serveCmd = &cobra.Command{
 		addr := fmt.Sprintf(":%d", port)
 		slog.Info("starting web server", "addr", addr)
 
+		// Load users.yaml for API-key authentication.
+		cfgDir, err := config.ConfigDir()
+		if err != nil {
+			return fmt.Errorf("resolve config directory: %w", err)
+		}
+		usersPath := filepath.Join(cfgDir, "users.yaml")
+
+		// Auto-provision: if VOCABGEN_API_KEY is set and users.yaml doesn't exist,
+		// create users.yaml automatically. This enables zero-config auth in Docker
+		// by simply setting the env var in docker-compose.
+		if apiKey := os.Getenv("VOCABGEN_API_KEY"); apiKey != "" {
+			if _, statErr := os.Stat(usersPath); os.IsNotExist(statErr) {
+				hash, hashErr := auth.HashAPIKey(apiKey)
+				if hashErr != nil {
+					return fmt.Errorf("auto-provision auth: %w", hashErr)
+				}
+				svcName := os.Getenv("VOCABGEN_API_KEY_NAME")
+				if svcName == "" {
+					svcName = "service-account"
+				}
+				svcScope := os.Getenv("VOCABGEN_API_KEY_SCOPE")
+				if svcScope == "" {
+					svcScope = "read-only"
+				}
+				if provErr := auth.ProvisionUsersConfig(usersPath, svcName, hash, svcScope); provErr != nil {
+					return fmt.Errorf("auto-provision auth: %w", provErr)
+				}
+				slog.Info("auth: auto-provisioned users.yaml from VOCABGEN_API_KEY", "name", svcName, "scope", svcScope)
+			}
+		}
+
+		usersConfig, err := auth.LoadUsersConfig(usersPath)
+		if err != nil {
+			return fmt.Errorf("load users config: %w", err)
+		}
+		if usersConfig != nil {
+			slog.Info("auth: enabled", "service_accounts", len(usersConfig.ServiceAccounts))
+		} else {
+			slog.Info("auth: disabled (no users.yaml)")
+		}
+
 		// Graceful shutdown via signal handling
 		ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
-		srv := web.NewServer(store, &appConfig, slog.Default(), version, buildDate, runtime.Version(), resolvedDBPath)
+		srv := web.NewServer(store, &appConfig, slog.Default(), version, buildDate, runtime.Version(), resolvedDBPath, usersConfig)
 		return srv.ListenAndServe(ctx, addr)
 	},
 }
 
 func init() {
 	serveCmd.Flags().Int("port", 8080, "Port to listen on")
+}
+
+// authCmd implements the "vocabgen auth" subcommand group.
+var authCmd = &cobra.Command{
+	Use:   "auth",
+	Short: "Manage API-key authentication",
+}
+
+// authInitCmd implements "vocabgen auth init".
+var authInitCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Generate an API key and create users.yaml",
+	Long: `Generate a random API key for service-account access and write it to users.yaml.
+
+If users.yaml already exists, this command exits with an error (use --force to overwrite).
+The generated plaintext key is printed to stdout — save it securely, it cannot be recovered.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name, _ := cmd.Flags().GetString("name")
+		scope, _ := cmd.Flags().GetString("scope")
+		force, _ := cmd.Flags().GetBool("force")
+
+		cfgDir, err := config.ConfigDir()
+		if err != nil {
+			return fmt.Errorf("resolve config directory: %w", err)
+		}
+		usersPath := filepath.Join(cfgDir, "users.yaml")
+
+		// Check if file exists (unless --force).
+		if !force {
+			if _, statErr := os.Stat(usersPath); statErr == nil {
+				return fmt.Errorf("users.yaml already exists at %s (use --force to overwrite)", usersPath)
+			}
+		} else {
+			// Remove existing file so ProvisionUsersConfig can create it.
+			_ = os.Remove(usersPath)
+		}
+
+		// Generate key and hash.
+		key, err := auth.GenerateAPIKey()
+		if err != nil {
+			return err
+		}
+		hash, err := auth.HashAPIKey(key)
+		if err != nil {
+			return err
+		}
+
+		// Write users.yaml.
+		if err := auth.ProvisionUsersConfig(usersPath, name, hash, scope); err != nil {
+			return err
+		}
+
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "API key generated for service-account %q (scope: %s)\n", name, scope)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Key: %s\n", key)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Written to: %s\n", usersPath)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nSave this key securely — it cannot be recovered.\n")
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Use it as: Authorization: Bearer %s\n", key)
+
+		return nil
+	},
+}
+
+func init() {
+	authInitCmd.Flags().String("name", "service-account", "Service account name")
+	authInitCmd.Flags().String("scope", "read-only", "Access scope (read-only, read-write)")
+	authInitCmd.Flags().Bool("force", false, "Overwrite existing users.yaml")
+	authCmd.AddCommand(authInitCmd)
 }
 
 // backupCmd implements the "vocabgen backup" subcommand.

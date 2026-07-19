@@ -24,7 +24,7 @@ func (m *tagMockStore) ListDistinctTags(_ context.Context) ([]string, error) {
 
 func newTagTestServer(store *tagMockStore) *Server {
 	cfg := config.DefaultConfig()
-	return NewServer(store, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db")
+	return NewServer(store, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db", nil)
 }
 
 func TestHandleListTags(t *testing.T) {

@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 
 ### Added
 
+- API-key authentication for service-accounts — protect `/api/*` endpoints with Bearer tokens for headless automation (MCP server, containers); backward compatible (no `users.yaml` = fully open access); includes `vocabgen auth init` CLI for key generation and auto-provisioning via `VOCABGEN_API_KEY` env var in Docker
 - Google Gemini API provider — use Gemini models directly via `--provider gemini`, authenticates with API key from `GEMINI_API_KEY` env var or `--api-key` flag
 - Google Vertex AI provider — use Gemini models via `--provider vertexai --gcp-project <project-id>`, authenticates with Application Default Credentials
 - Database picker dropdown on Config page — lists existing `.db` files in the config directory, select one or create a new database with inline name validation (#76)

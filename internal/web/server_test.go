@@ -94,7 +94,7 @@ func (s *stubStore) UpdateExpressionDifficulty(ctx context.Context, id int64, di
 
 func newTestServer() *Server {
 	cfg := config.DefaultConfig()
-	return NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db")
+	return NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/tmp/test.db", nil)
 }
 
 func TestNewServer(t *testing.T) {
@@ -270,7 +270,7 @@ func TestAPIRoutesRegistered(t *testing.T) {
 // displayed in the navigation bar on all pages.
 func TestDBPathRenderedInNavBar(t *testing.T) {
 	cfg := config.DefaultConfig()
-	srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/home/user/.vocabgen/vocabgen-dev.db")
+	srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "/home/user/.vocabgen/vocabgen-dev.db", nil)
 
 	pages := []string{"/", "/batch", "/config", "/database", "/about"}
 	for _, path := range pages {
@@ -294,7 +294,7 @@ func TestDBPathRenderedInNavBar(t *testing.T) {
 // indicator appears in the navigation bar.
 func TestDBPathEmptyNotRendered(t *testing.T) {
 	cfg := config.DefaultConfig()
-	srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "")
+	srv := NewServer(&stubStore{}, &cfg, slog.Default(), "test", "unknown", "go1.22", "", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
