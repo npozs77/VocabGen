@@ -1,8 +1,8 @@
 {{define "tag_picker_filter"}}
 <!-- Tag picker: filter mode (Database page) -->
-<div class="relative" id="tag-picker-filter">
+<div class="relative" id="tag-picker-filter" data-initial-tags="{{.InitialTags}}">
     <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-    <input type="hidden" id="db-tags" name="tags" value="" hx-get="/api/words" hx-target="#entry-table"
+    <input type="hidden" id="db-tags" name="tags" value="{{.InitialTags}}" hx-get="/api/words" hx-target="#entry-table"
         hx-swap="innerHTML" hx-include="#db-filters" hx-trigger="change">
     <button type="button" id="tag-filter-btn"
         class="border border-gray-300 rounded px-3 py-2 bg-white text-left min-w-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-700">
@@ -20,16 +20,28 @@
         var btn = document.getElementById('tag-filter-btn');
         var dropdown = document.getElementById('tag-filter-dropdown');
         var hiddenInput = document.getElementById('db-tags');
-        if (!btn || !dropdown || !hiddenInput) return;
+        var container = document.getElementById('tag-picker-filter');
+        if (!btn || !dropdown || !hiddenInput || !container) return;
+
+        var initialTags = (container.getAttribute('data-initial-tags') || '').split(',').filter(function (t) { return t !== ''; });
 
         // Fetch tags and populate dropdown.
         fetch('/api/tags').then(function (r) { return r.json(); }).then(function (tags) {
             if (!tags || !tags.length) return;
+            var initialSet = {};
+            for (var j = 0; j < initialTags.length; j++) initialSet[initialTags[j]] = true;
             for (var i = 0; i < tags.length; i++) {
                 var label = document.createElement('label');
                 label.className = 'flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm';
-                label.innerHTML = '<input type="checkbox" value="' + escapeAttr(tags[i]) + '" class="tag-filter-cb mr-2"> ' + escapeText(tags[i]);
+                var isChecked = initialSet[tags[i]] ? ' checked' : '';
+                label.innerHTML = '<input type="checkbox" value="' + escapeAttr(tags[i]) + '" class="tag-filter-cb mr-2"' + isChecked + '> ' + escapeText(tags[i]);
                 dropdown.appendChild(label);
+            }
+            // If initial tags are set, uncheck "All" and update button label.
+            if (initialTags.length > 0) {
+                var allCb = dropdown.querySelector('.tag-filter-cb[value=""]');
+                if (allCb) allCb.checked = false;
+                updateFilterBtnLabel();
             }
         });
 

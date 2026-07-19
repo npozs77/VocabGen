@@ -44,6 +44,7 @@ type pageData struct {
 	Profiles          []string
 	LocalModelWarning bool
 	DBPath            string
+	InitialTags       string // comma-separated tags to pre-select on the database page
 }
 
 // NewServer creates a Server with all routes registered.
@@ -104,7 +105,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /", s.handlePage("lookup"))
 	s.mux.HandleFunc("GET /batch", s.handlePage("batch"))
 	s.mux.HandleFunc("GET /config", s.handlePage("config"))
-	s.mux.HandleFunc("GET /database", s.handlePage("database"))
+	s.mux.HandleFunc("GET /database", s.handleDatabasePage)
 	s.mux.HandleFunc("GET /about", s.handlePage("about"))
 	s.mux.HandleFunc("GET /docs", s.handleDocsIndex)
 	s.mux.HandleFunc("GET /docs/{slug}", s.handleDocsPage)

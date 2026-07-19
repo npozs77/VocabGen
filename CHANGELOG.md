@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This pr
 - Google Vertex AI provider — use Gemini models via `--provider vertexai --gcp-project <project-id>`, authenticates with Application Default Credentials
 - Database picker dropdown on Config page — lists existing `.db` files in the config directory, select one or create a new database with inline name validation (#76)
 - Multiple meanings support — add a second (or third) meaning for the same word via "Skip cache / Add new meaning" checkbox in the Web UI or `--new-meaning` flag in the CLI; each meaning stored as a separate entry with disambiguation suffixes displayed when 2+ meanings exist (#86)
+- Deep-link filtering on `/database` page — external sites can link to a pre-filtered view via `?tags=HS2.1,HS2.2` (explicit tag list) or `?prefix=HS2` (expands to all tags starting with the prefix); tag picker and table load pre-filtered on page open (#99)
 
 ### Fixed
 

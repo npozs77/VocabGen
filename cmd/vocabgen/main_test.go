@@ -44,6 +44,7 @@ func TestCLIFlagDefaults(t *testing.T) {
 			f := rootCmd.PersistentFlags().Lookup(tc.flag)
 			if f == nil {
 				t.Fatalf("flag --%s not found", tc.flag)
+				return
 			}
 			if f.DefValue != tc.expected {
 				t.Errorf("flag --%s default = %q, want %q", tc.flag, f.DefValue, tc.expected)
@@ -56,6 +57,7 @@ func TestCLIServePortDefault(t *testing.T) {
 	f := serveCmd.Flags().Lookup("port")
 	if f == nil {
 		t.Fatal("flag --port not found on serve command")
+		return
 	}
 	if f.DefValue != "8080" {
 		t.Errorf("flag --port default = %q, want %q", f.DefValue, "8080")
@@ -66,6 +68,7 @@ func TestCLIBatchOnConflictDefault(t *testing.T) {
 	f := batchCmd.Flags().Lookup("on-conflict")
 	if f == nil {
 		t.Fatal("flag --on-conflict not found on batch command")
+		return
 	}
 	if f.DefValue != "skip" {
 		t.Errorf("flag --on-conflict default = %q, want %q", f.DefValue, "skip")
@@ -76,6 +79,7 @@ func TestCLILookupTypeDefault(t *testing.T) {
 	f := lookupCmd.Flags().Lookup("type")
 	if f == nil {
 		t.Fatal("flag --type not found on lookup command")
+		return
 	}
 	if f.DefValue != "word" {
 		t.Errorf("flag --type default = %q, want %q", f.DefValue, "word")
@@ -292,6 +296,7 @@ func TestCLIShortFlags(t *testing.T) {
 			f := rootCmd.PersistentFlags().Lookup(tc.flag)
 			if f == nil {
 				t.Fatalf("flag --%s not found", tc.flag)
+				return
 			}
 			if f.Shorthand != tc.shorthand {
 				t.Errorf("flag --%s shorthand = %q, want %q", tc.flag, f.Shorthand, tc.shorthand)
@@ -676,6 +681,7 @@ func TestCLIProfileFlagDefault(t *testing.T) {
 	f := rootCmd.PersistentFlags().Lookup("profile")
 	if f == nil {
 		t.Fatal("flag --profile not found")
+		return
 	}
 	if f.DefValue != "" {
 		t.Fatalf("--profile default should be empty, got %q", f.DefValue)
@@ -687,6 +693,7 @@ func TestCLIAWSProfileFlagExists(t *testing.T) {
 	f := rootCmd.PersistentFlags().Lookup("aws-profile")
 	if f == nil {
 		t.Fatal("flag --aws-profile not found")
+		return
 	}
 	if f.DefValue != "" {
 		t.Fatalf("--aws-profile default should be empty, got %q", f.DefValue)
@@ -698,6 +705,7 @@ func TestCLINewMeaningFlagExists(t *testing.T) {
 	f := lookupCmd.Flags().Lookup("new-meaning")
 	if f == nil {
 		t.Fatal("flag --new-meaning not found on lookup command")
+		return
 	}
 	if f.DefValue != "false" {
 		t.Fatalf("--new-meaning default should be 'false', got %q", f.DefValue)
