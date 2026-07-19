@@ -42,6 +42,8 @@ dockers_v2:
     platforms:
       - linux/amd64
       - linux/arm64
+    extra_files:
+      - scripts/docker-entrypoint.sh
     labels:
       "org.opencontainers.image.title": "VocabGen"
       "org.opencontainers.image.description": "Vocabulary web app and flashcard tool for language learners"
