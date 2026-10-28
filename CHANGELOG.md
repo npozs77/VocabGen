@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [1.5.1]
+
+### Fixed
+
+- Security: updated the XLSX library and networking dependencies to fix malformed-spreadsheet crashes and hangs when importing `.xlsx` files
+
 ## [1.5.0]
 
 ### Added
